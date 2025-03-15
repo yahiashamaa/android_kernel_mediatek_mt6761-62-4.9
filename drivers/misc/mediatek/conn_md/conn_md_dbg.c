@@ -54,14 +54,12 @@ int conn_md_dbg_set_log_lvl(int par1, int par2, int par3)
 }
 
 #if USE_NEW_PROC_FS_FLAG
-ssize_t conn_md_dbg_read(struct file *filp, char __user *buf,
-		size_t count, loff_t *f_pos)
+ssize_t conn_md_dbg_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 {
 	return 0;
 }
 #else
-static int conn_md_dbg_read(char *page, char **start, off_t off,
-		int count, int *eof, void *data)
+static int conn_md_dbg_read(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
 	int len = 0;
 
@@ -70,11 +68,9 @@ static int conn_md_dbg_read(char *page, char **start, off_t off,
 #endif
 
 #if USE_NEW_PROC_FS_FLAG
-ssize_t conn_md_dbg_write(struct file *filp, const char __user *buffer,
-		size_t count, loff_t *f_pos)
+ssize_t conn_md_dbg_write(struct file *filp, const char __user *buffer, size_t count, loff_t *f_pos)
 #else
-static int conn_md_dbg_write(struct file *file, const char *buffer,
-		unsigned long count, void *data)
+static int conn_md_dbg_write(struct file *file, const char *buffer, unsigned long count, void *data)
 #endif
 {
 
@@ -124,7 +120,7 @@ static int conn_md_dbg_write(struct file *file, const char *buffer,
 	if (ARRAY_SIZE(conn_md_dbg_func) > x && NULL != conn_md_dbg_func[x])
 		(*conn_md_dbg_func[x]) (x, y, z);
 	else
-		CONN_MD_WARN_FUNC("no handler for command id(0x%08x)\n\r", x);
+		CONN_MD_WARN_FUNC("no handler defined for command id(0x%08x)\n\r", x);
 	return len;
 }
 
@@ -136,8 +132,7 @@ int conn_md_test_dbg(int par1, int par2, int par3)
 int conn_md_dbg_init(void)
 {
 #if USE_NEW_PROC_FS_FLAG
-	gConnMdDbgEntry = proc_create(CONN_MD_DBG_PROCNAME, 0664,
-				      NULL, &conn_md_dbg_fops);
+	gConnMdDbgEntry = proc_create(CONN_MD_DBG_PROCNAME, 0664, NULL, &conn_md_dbg_fops);
 	if (gConnMdDbgEntry == NULL) {
 		CONN_MD_ERR_FUNC("Unable to create /proc entry\n\r");
 		return -1;

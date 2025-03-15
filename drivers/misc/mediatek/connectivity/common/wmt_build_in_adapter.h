@@ -43,4 +43,3 @@ void wmt_export_mtk_wcn_cmb_sdio_disable_eirq(void);
 int wmt_export_mtk_wcn_sdio_irq_flag_set(int flag);
 
 #endif /* WMT_BUILD_IN_ADAPTER_H */
-

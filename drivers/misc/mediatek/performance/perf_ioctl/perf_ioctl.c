@@ -11,28 +11,22 @@
  * GNU General Public License for more details.
  */
 #include "perf_ioctl.h"
-
 #ifdef CONFIG_MTK_FPSGO
-#include "tchbst.h"
-#include "io_ctrl.h"
+#include "../fbc/fbc.h"
+#else
+#include "../fbc/touch_boost.h"
 #endif
-
 
 #define TAG "PERF_IOCTL"
 
-void (*fpsgo_notify_qudeq_fp)(int qudeq,
-		unsigned int startend,
-		unsigned long long bufID, int pid, int queue_SF);
+void (*fpsgo_notify_qudeq_fp)(int qudeq, unsigned int startend, unsigned long long bufID, int pid, int queue_SF);
 void (*fpsgo_notify_intended_vsync_fp)(int pid, unsigned long long frame_id);
-void (*fpsgo_notify_framecomplete_fp)(int ui_pid,
-		unsigned long long frame_time,
-		int render_method, int render, unsigned long long frame_id);
-void (*fpsgo_notify_connect_fp)(int pid,
-		unsigned long long bufID, int connectedAPI);
+void (*fpsgo_notify_framecomplete_fp)(int ui_pid, unsigned long long frame_time,
+						int render_method, int render, unsigned long long frame_id);
+void (*fpsgo_notify_connect_fp)(int pid, unsigned long long bufID, int connectedAPI);
 void (*fpsgo_notify_draw_start_fp)(int pid, unsigned long long frame_id);
 
-unsigned long perfctl_copy_from_user(void *pvTo,
-		const void __user *pvFrom, unsigned long ulBytes)
+unsigned long perfctl_copy_from_user(void *pvTo, const void __user *pvFrom, unsigned long ulBytes)
 {
 	if (access_ok(VERIFY_READ, pvFrom, ulBytes))
 		return __copy_from_user(pvTo, pvFrom, ulBytes);
@@ -76,61 +70,50 @@ static long device_ioctl(struct file *filp,
 		unsigned int cmd, unsigned long arg)
 {
 	ssize_t ret = 0;
-	struct _FPSGO_PACKAGE *msgKM = NULL,
-			*msgUM = (struct _FPSGO_PACKAGE *)arg;
+	struct _FPSGO_PACKAGE *msgKM = NULL, *msgUM = (struct _FPSGO_PACKAGE *)arg;
 	struct _FPSGO_PACKAGE smsgKM;
 
 	msgKM = &smsgKM;
 
-	if (perfctl_copy_from_user(msgKM, msgUM,
-				sizeof(struct _FPSGO_PACKAGE))) {
+	if (perfctl_copy_from_user(msgKM, msgUM, sizeof(struct _FPSGO_PACKAGE))) {
 		ret = -EFAULT;
 		goto ret_ioctl;
 	}
 
 	switch (cmd) {
 #ifdef CONFIG_MTK_FPSGO
+#ifdef CONFIG_MTK_FPSGO_V2
 	case FPSGO_FRAME_COMPLETE:
 		if (fpsgo_notify_framecomplete_fp)
-			fpsgo_notify_framecomplete_fp(msgKM->tid,
-					msgKM->frame_time,
-					msgKM->render_method, 1,
-					msgKM->frame_id);
+			fpsgo_notify_framecomplete_fp(msgKM->tid, msgKM->frame_time,
+					msgKM->render_method, 1, msgKM->frame_id);
 		break;
 	case FPSGO_INTENDED_VSYNC:
 		if (fpsgo_notify_intended_vsync_fp)
-			fpsgo_notify_intended_vsync_fp(msgKM->tid,
-					msgKM->frame_id);
+			fpsgo_notify_intended_vsync_fp(msgKM->tid, msgKM->frame_id);
 		break;
 	case FPSGO_NO_RENDER:
 		if (fpsgo_notify_framecomplete_fp)
-			fpsgo_notify_framecomplete_fp(msgKM->tid,
-					0, 0, 0, msgKM->frame_id);
+			fpsgo_notify_framecomplete_fp(msgKM->tid, 0, 0, 0, msgKM->frame_id);
 		break;
 	case FPSGO_DRAW_START:
 		if (fpsgo_notify_draw_start_fp)
-			fpsgo_notify_draw_start_fp(msgKM->tid,
-					msgKM->frame_id);
+			fpsgo_notify_draw_start_fp(msgKM->tid, msgKM->frame_id);
 		break;
 	case FPSGO_QUEUE:
 		if (fpsgo_notify_qudeq_fp)
-			fpsgo_notify_qudeq_fp(1,
-					msgKM->start, msgKM->bufID,
-					msgKM->tid, msgKM->queue_SF);
+			fpsgo_notify_qudeq_fp(1, msgKM->start, msgKM->bufID, msgKM->tid, msgKM->queue_SF);
 		break;
 	case FPSGO_DEQUEUE:
 		if (fpsgo_notify_qudeq_fp)
-			fpsgo_notify_qudeq_fp(0,
-					msgKM->start, msgKM->bufID,
-					msgKM->tid, msgKM->queue_SF);
+			fpsgo_notify_qudeq_fp(0, msgKM->start, msgKM->bufID, msgKM->tid, msgKM->queue_SF);
 		break;
 	case FPSGO_QUEUE_CONNECT:
 		if (fpsgo_notify_connect_fp)
-			fpsgo_notify_connect_fp(msgKM->tid,
-					msgKM->bufID, msgKM->connectedAPI);
+			fpsgo_notify_connect_fp(msgKM->tid, msgKM->bufID, msgKM->connectedAPI);
 		break;
 	case FPSGO_TOUCH:
-		usrtch_ioctl(cmd, msgKM->frame_time);
+		fbc_ioctl(cmd, msgKM->frame_time);
 		break;
 	case FPSGO_ACT_SWITCH:
 		/* FALLTHROUGH */
@@ -138,11 +121,51 @@ static long device_ioctl(struct file *filp,
 		/* FALLTHROUGH */
 	case FPSGO_SWAP_BUFFER:
 		break;
+/*
+ * above is CONFIG_MTK_FPSGO_V2
+ */
+#else
+/*
+ * below is CONFIG_MTK_FPSGO_V1
+ */
+	case FPSGO_TOUCH:
+		/* FALLTHROUGH */
+	case FPSGO_ACT_SWITCH:
+		/* FALLTHROUGH */
+	case FPSGO_GAME:
+		/* FALLTHROUGH */
+		fbc_ioctl(cmd, msgKM->frame_time);
+		break;
+	case FPSGO_INTENDED_VSYNC:
+		/* FALLTHROUGH */
+	case FPSGO_FRAME_COMPLETE:
+		/* FALLTHROUGH */
+	case FPSGO_NO_RENDER:
+		/* FALLTHROUGH */
+	case FPSGO_SWAP_BUFFER:
+		if (msgKM->render_method == HWUI ||
+				msgKM->render_method == SWUI)
+			fbc_ioctl(cmd, msgKM->frame_time);
+		break;
+	case FPSGO_QUEUE:
+		/* FALLTHROUGH */
+	case FPSGO_DEQUEUE:
+		xgf_qudeq_notify(cmd, msgKM->start);
+		break;
+	case FPSGO_DRAW_START:
+		/* FALLTHROUGH */
+	case FPSGO_QUEUE_CONNECT:
+		break;
+#endif
+/* CONFIG_MTK_FPSGO */
+
+/* CONFIG_MTK_FPSGO_V0 */
 #else
 	case FPSGO_TOUCH:
 		/* FALLTHROUGH */
 	case FPSGO_FRAME_COMPLETE:
-		/* FALLTHROUGH */
+		touch_boost_ioctl(cmd, msgKM->frame_time);
+		break;
 	case FPSGO_QUEUE:
 		/* FALLTHROUGH */
 	case FPSGO_DEQUEUE:
@@ -184,13 +207,18 @@ static const struct file_operations Fops = {
 };
 
 /*--------------------INIT------------------------*/
-int init_perfctl(struct proc_dir_entry *parent)
+static int __init init_perfctl(void)
 {
 	struct proc_dir_entry *pe;
 	int ret_val = 0;
 
 
 	pr_debug(TAG"Start to init perf_ioctl driver\n");
+#ifdef CONFIG_MTK_FPSGO_FBT_UX
+	init_fbc();
+#else
+	init_touch_boost();
+#endif
 
 	ret_val = register_chrdev(DEV_MAJOR, DEV_NAME, &Fops);
 	if (ret_val < 0) {
@@ -200,7 +228,7 @@ int init_perfctl(struct proc_dir_entry *parent)
 		goto out_wq;
 	}
 
-	pe = proc_create("perf_ioctl", 0664, parent, &Fops);
+	pe = proc_create("perfmgr/perf_ioctl", 0664, NULL, &Fops);
 	if (!pe) {
 		pr_debug(TAG"%s failed with %d\n",
 				"Creating file node ",
@@ -218,4 +246,5 @@ out_chrdev:
 out_wq:
 	return ret_val;
 }
+late_initcall(init_perfctl);
 

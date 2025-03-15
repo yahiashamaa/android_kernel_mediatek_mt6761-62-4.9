@@ -37,25 +37,26 @@ struct mtk_smi_data {
 	int larbref[SMI_LARB_NR_MAX];
 
 	/*record the larb port register, please use the max value*/
-	unsigned short int
-		larb_port_backup[SMI_LARB_PORT_NR_MAX * SMI_LARB_NR_MAX];
+	unsigned short int larb_port_backup[SMI_LARB_PORT_NR_MAX * SMI_LARB_NR_MAX];
 };
 
 struct mtk_smi_priv {
 	enum mtk_platform plat;
-	/* the port number in each larb */
-	unsigned int larb_port_num[SMI_LARB_NR_MAX];
+	unsigned int larb_port_num[SMI_LARB_NR_MAX]; /* the port number in each larb */
 	unsigned char larb_vc_setting[SMI_LARB_NR_MAX];
-	void (*init_setting)(struct mtk_smi_data *smidev, bool *default_saved,
-		u32 *default_smi_val, unsigned int larbid);
-	void (*vp_setting)(struct mtk_smi_data *smidev);
-	void (*vp_wfd_setting)(struct mtk_smi_data *smidev);
-	void (*vr_setting)(struct mtk_smi_data *smidev);
-	void (*hdmi_setting)(struct mtk_smi_data *smidev);
-	void (*hdmi_4k_setting)(struct mtk_smi_data *smidev);
+	void (*init_setting)(struct mtk_smi_data *, bool *,
+				u32 *, unsigned int);
+	void (*vp_setting)(struct mtk_smi_data *);
+	void (*vp_wfd_setting)(struct mtk_smi_data *);
+	void (*vr_setting)(struct mtk_smi_data *);
+	void (*hdmi_setting)(struct mtk_smi_data *);
+	void (*hdmi_4k_setting)(struct mtk_smi_data *);
 };
 
 extern const struct mtk_smi_priv smi_mt8173_priv;
+extern const struct mtk_smi_priv smi_mt8127_priv;
 extern const struct mtk_smi_priv smi_mt8163_priv;
+extern const struct mtk_smi_priv smi_mt8167_priv;
+extern bool smi_clk_always_on;
 
 #endif

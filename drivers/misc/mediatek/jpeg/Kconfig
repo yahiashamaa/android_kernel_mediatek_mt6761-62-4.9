@@ -1,5 +1,5 @@
 config MTK_JPEG
-	bool "determine whether to enable JPEG driver or not"
+	bool CONFIG_MTK_JPEG
 	default n
 	help
 	  This option enables mtk jpeg driver,

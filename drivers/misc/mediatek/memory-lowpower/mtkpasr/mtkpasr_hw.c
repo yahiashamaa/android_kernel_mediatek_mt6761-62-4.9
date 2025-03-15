@@ -30,24 +30,18 @@
 
 /* Struct for parsing rank information (SW view) */
 struct view_rank {
-	/* The 1st pfn (kernel pfn) */
-	unsigned long start_pfn;
-	/* The pfn after the last valid one (kernel pfn) */
-	unsigned long end_pfn;
-	/* Bank size in PFN (should be power of 2) */
-	unsigned long bank_pfn_size;
-	/*
-	 * [0..15]: the number of segments
-	 * [16..BITS_PER_LONG-1]: channel configuration
-	 * Ex. 0x00030008 means there are 8 segments,
-	 *     2 valid channels, 1st & 2nd.
-	 */
-	unsigned long channel_segments;
+	unsigned long start_pfn;	/* The 1st pfn (kernel pfn) */
+	unsigned long end_pfn;		/* The pfn after the last valid one (kernel pfn) */
+	unsigned long bank_pfn_size;	/* Bank size in PFN (should be power of 2) */
+	unsigned long channel_segments; /* [0..15]: the number of segments
+					 * [16..BITS_PER_LONG-1]: channel configuration
+					 * Ex. 0x00030008 means there are 8 segments,
+					 *     2 valid channels, 1st & 2nd.
+					 */
 };
 
 #define RANK_START_CHANNEL	(0x10000)
-#define RANK_SEGMENTS(rank)	\
-	(((struct view_rank *)rank)->channel_segments & 0xFFFF)
+#define RANK_SEGMENTS(rank)	(((struct view_rank *)rank)->channel_segments & 0xFFFF)
 #define SEGMENTS_PER_RANK	(8)
 #define SEGMENT_TO_RANK(seg)	(seg / SEGMENTS_PER_RANK)
 
@@ -60,15 +54,11 @@ static struct basic_dram_setting pasrdpd;
 static unsigned int channel_count;
 static unsigned long max_segment_pfns;		/* Max segment in size PFNs */
 static unsigned long max_segment_base;
-/* Effective segment number per channel (related to max_segment_base) */
-static unsigned long channel_segnum;
+static unsigned long channel_segnum;		/* Effective segment number per channel (related to max_segment_base) */
 static unsigned int rank_count;
-/* 0x0000AABB. BB for rank0, AA for rank1. */
-static unsigned long mtkpasr_segment_bits;
-/* Bitmask of DRAM segments in a channel */
-static unsigned long fullch_segment_bitmask;
-/* Total DRAM size in PFN */
-static unsigned long total_pfns;
+static unsigned long mtkpasr_segment_bits;	/* 0x0000AABB. BB for rank0, AA for rank1. */
+static unsigned long fullch_segment_bitmask;	/* Bitmask of DRAM segments in a channel */
+static unsigned long total_pfns;		/* Total DRAM size in PFN */
 
 /* Query bitmask of DRAM segments in a channel */
 unsigned long query_channel_segment_bits(void)
@@ -114,15 +104,11 @@ static unsigned long __init rank_pfn_offset(void)
 }
 
 /*
- * Check DRAM configuration -
- * transform DRAM setting to temporary bank structure.
+ * Check DRAM configuration - transform DRAM setting to temporary bank structure.
  * Return 0 on success, -1 on error.
  */
 static int __init check_dram_configuration(void)
 {
-#define RANK_SIZE(chan, rank)	pasrdpd.channel[chan].rank[rank].rank_size
-#define SEGMENT_NR(chan, rank)	pasrdpd.channel[chan].rank[rank].segment_nr
-
 	int chan, rank, check_segment_num;
 	unsigned long channel_segments;
 	unsigned long check_rank_size, rank_pfn, start_pfn = rank_pfn_offset();
@@ -141,32 +127,22 @@ static int __init check_dram_configuration(void)
 		for (chan = 0; chan < channel_count; ++chan) {
 			if (pasrdpd.channel[chan].rank[rank].valid_rank) {
 				/* # Gb -> # pages */
-				rank_pfn += (RANK_SIZE(chan, rank)
-						<< (27 - PAGE_SHIFT));
-				rank_info[rank].channel_segments |=
-					channel_segments;
+				rank_pfn += (pasrdpd.channel[chan].rank[rank].rank_size << (27 - PAGE_SHIFT));
+				rank_info[rank].channel_segments |= channel_segments;
 				/* Sanity check for rank size */
 				if (!check_rank_size) {
-					check_rank_size = RANK_SIZE(chan, rank);
+					check_rank_size = pasrdpd.channel[chan].rank[rank].rank_size;
 				} else {
-					/*
-					 * We only support ranks with equal size
-					 */
-					if (check_rank_size !=
-							RANK_SIZE(chan, rank))
+					/* We only support ranks with equal size */
+					if (check_rank_size != pasrdpd.channel[chan].rank[rank].rank_size)
 						return -1;
 				}
 				/* Sanity check for segment number */
 				if (!check_segment_num) {
-					check_segment_num =
-						SEGMENT_NR(chan, rank);
+					check_segment_num = pasrdpd.channel[chan].rank[rank].segment_nr;
 				} else {
-					/*
-					 * We only support ranks with equal
-					 * segment number.
-					 */
-					if (check_segment_num !=
-							SEGMENT_NR(chan, rank))
+					/* We only support ranks with equal segment number */
+					if (check_segment_num != pasrdpd.channel[chan].rank[rank].segment_nr)
 						return -1;
 				}
 			}
@@ -175,26 +151,19 @@ static int __init check_dram_configuration(void)
 
 		/* Have we found a valid rank */
 		if (check_rank_size != 0 && check_segment_num != 0) {
-			rank_info[rank].start_pfn =
-				virt_to_kernel_pfn(start_pfn);
-			rank_info[rank].end_pfn =
-				virt_to_kernel_pfn(start_pfn + rank_pfn);
-			rank_info[rank].bank_pfn_size =
-				rank_pfn/check_segment_num;
-			rank_info[rank].channel_segments +=
-				check_segment_num;
+			rank_info[rank].start_pfn = virt_to_kernel_pfn(start_pfn);
+			rank_info[rank].end_pfn = virt_to_kernel_pfn(start_pfn + rank_pfn);
+			rank_info[rank].bank_pfn_size = rank_pfn/check_segment_num;
+			rank_info[rank].channel_segments += check_segment_num;
 			start_pfn = kernel_pfn_to_virt(rank_info[rank].end_pfn);
 			MTKPASR_PRINT(
 			"Rank[%d] start_pfn[%8lu] end_pfn[%8lu] bank_pfn_size[%8lu] channel_segments[0x%lx]\n",
-			rank, rank_info[rank].start_pfn,
-			rank_info[rank].end_pfn, rank_info[rank].bank_pfn_size,
+			rank, rank_info[rank].start_pfn, rank_info[rank].end_pfn, rank_info[rank].bank_pfn_size,
 			rank_info[rank].channel_segments);
 			rank_count++;
 		} else {
-			rank_info[rank].start_pfn =
-				virt_to_kernel_pfn(rank_pfn_offset());
-			rank_info[rank].end_pfn =
-				virt_to_kernel_pfn(rank_pfn_offset());
+			rank_info[rank].start_pfn = virt_to_kernel_pfn(rank_pfn_offset());
+			rank_info[rank].end_pfn = virt_to_kernel_pfn(rank_pfn_offset());
 			rank_info[rank].bank_pfn_size = 0;
 			rank_info[rank].channel_segments = 0x0;
 		}
@@ -204,14 +173,10 @@ static int __init check_dram_configuration(void)
 
 		/* Update DRAM segment bitmask of a channel */
 		fullch_segment_bitmask =
-			(fullch_segment_bitmask << SEGMENTS_PER_RANK) |
-			((1 << check_segment_num) - 1);
+			(fullch_segment_bitmask << SEGMENTS_PER_RANK) |	((1 << check_segment_num) - 1);
 	}
 
 	return 0;
-
-#undef RANK_SIZE
-#undef SEGMENT_NR
 }
 
 /*
@@ -258,16 +223,14 @@ static void __init init_rank_effect_segment_base(void)
 		if (!is_valid_rank(rank))
 			continue;
 		segment_base = max_segment_pfns / rank_info[rank].bank_pfn_size;
-		channel_segnum += SEGMENTS_PER_RANK * max_segment_base /
-			segment_base;
+		channel_segnum += SEGMENTS_PER_RANK * max_segment_base / segment_base;
 	}
 }
 
 /*
  * Fill mtkpasr_segment_bits
  */
-static void __init find_mtkpasr_valid_segment(unsigned long *start,
-		unsigned long *end)
+static void __init find_mtkpasr_valid_segment(unsigned long *start, unsigned long *end)
 {
 	int num_segment, rank;
 	unsigned long spfn = 0, epfn = 0, max_start, min_end;
@@ -282,8 +245,7 @@ static void __init find_mtkpasr_valid_segment(unsigned long *start,
 	num_segment = 0;
 	max_start = *start;
 	min_end = *end;
-	for (rank = 0; rank < MAX_RANKS;
-			++rank, num_segment += SEGMENTS_PER_RANK) {
+	for (rank = 0; rank < MAX_RANKS; ++rank, num_segment += SEGMENTS_PER_RANK) {
 
 		/* Is it a valid rank */
 		if (!is_valid_rank(rank))
@@ -294,10 +256,7 @@ static void __init find_mtkpasr_valid_segment(unsigned long *start,
 		if ((*start + bank_pfn_size) > *end)
 			continue;
 
-		/*
-		 * If rank's start_pfn > rank's end_pfn,
-		 * then compare them in virtual
-		 */
+		/* If rank's start_pfn > rank's end_pfn, then compare them in virtual */
 		if (rank_info[rank].start_pfn > rank_info[rank].end_pfn) {
 			spfn = kernel_pfn_to_virt(*start);
 			epfn = kernel_pfn_to_virt(*end);
@@ -327,26 +286,20 @@ static void __init find_mtkpasr_valid_segment(unsigned long *start,
 		if (epfn <= spfn) {
 			/* spfn ~ repfn */
 			while (repfn >= (spfn + bank_pfn_size)) {
-				mtkpasr_segment_bits |= (1 <<
-						((spfn - rspfn) / bank_pfn_size
-						 + num_segment));
+				mtkpasr_segment_bits |= (1 << ((spfn - rspfn) / bank_pfn_size + num_segment));
 				spfn += bank_pfn_size;
 			}
 			/* rspfn ~ epfn */
 			while (epfn >= (rspfn + bank_pfn_size)) {
 				epfn -= bank_pfn_size;
-				mtkpasr_segment_bits |= (1 <<
-						((epfn - rspfn) / bank_pfn_size
-						 + num_segment));
+				mtkpasr_segment_bits |= (1 << ((epfn - rspfn) / bank_pfn_size + num_segment));
 			}
 		} else {
 			/* spfn ~ epfn */
 			spfn = max(spfn, rspfn);
 			epfn = min(epfn, repfn);
 			while (epfn >= (spfn + bank_pfn_size)) {
-				mtkpasr_segment_bits |= (1 <<
-						((spfn - rspfn) / bank_pfn_size
-						 + num_segment));
+				mtkpasr_segment_bits |= (1 << ((spfn - rspfn) / bank_pfn_size + num_segment));
 				spfn += bank_pfn_size;
 			}
 		}
@@ -369,8 +322,7 @@ static void __init find_mtkpasr_valid_segment(unsigned long *start,
  * Return <0 means "fail to init pasr range"
  *        >0 means "the number of valid banks"
  */
-int __init mtkpasr_init_range(unsigned long start_pfn, unsigned long end_pfn,
-		unsigned long *bank_pfns)
+int __init mtkpasr_init_range(unsigned long start_pfn, unsigned long end_pfn, unsigned long *bank_pfns)
 {
 	int ret = -99;
 	unsigned long vseg, seg_num = 0;
@@ -401,27 +353,22 @@ int __init mtkpasr_init_range(unsigned long start_pfn, unsigned long end_pfn,
 		vseg >>= 1;
 	} while (++seg_num < BITS_PER_LONG);
 
-	MTKPASR_PRINT(
-	"Start_pfn[%8lu] End_pfn[%8lu] Valid_segment[0x%8lx] Segments[%u]\n",
-	start_pfn, end_pfn, mtkpasr_segment_bits, ret);
+	MTKPASR_PRINT("Start_pfn[%8lu] End_pfn[%8lu] Valid_segment[0x%8lx] Segments[%u]\n",
+			start_pfn, end_pfn, mtkpasr_segment_bits, ret);
 
 	/* Return max pfns per bank */
-	*bank_pfns =
-		max(rank_info[0].bank_pfn_size, rank_info[1].bank_pfn_size);
+	*bank_pfns = max(rank_info[0].bank_pfn_size, rank_info[1].bank_pfn_size);
 out:
 	return ret;
 }
 
 /*
- * Give bank, this function will return its (start_pfn, end_pfn)
- * and corresponding rank.
+ * Give bank, this function will return its (start_pfn, end_pfn) and corresponding rank
  * Return -1 means no valid banks, ranks
  *        0  means no corresponding rank
- *        >0 means there are corresponding bank, rank
- *        (Caller should subtract 1 to get the correct rank number)
+ *        >0 means there are corresponding bank, rank (Caller should subtract 1 to get the correct rank number)
  */
-int __init query_bank_rank_information(int bank, unsigned long *spfn,
-		unsigned long *epfn, int *segn)
+int __init query_bank_rank_information(int bank, unsigned long *spfn, unsigned long *epfn, int *segn)
 {
 	int seg_num = 0, rank, num_segment = 0;
 	unsigned long vseg = mtkpasr_segment_bits, vmask;
@@ -460,8 +407,7 @@ int __init query_bank_rank_information(int bank, unsigned long *spfn,
 				virtual = false;
 			num_segment = RANK_SEGMENTS(&rank_info[rank]);
 			if (seg_num < num_segment) {
-				*spfn = rank_info[rank].start_pfn +
-					seg_num * rank_info[rank].bank_pfn_size;
+				*spfn = rank_info[rank].start_pfn + seg_num * rank_info[rank].bank_pfn_size;
 				*epfn = *spfn + rank_info[rank].bank_pfn_size;
 				break;
 			}
@@ -540,8 +486,7 @@ static int verify_channel_config(unsigned int chconfig)
 
 /* #undef DEBUG_FOR_CHANNEL_SWITCH */
 /* Translate to proper PASR setting by chconfig */
-static void __fill_pasr_on_by_chconfig(int downgrade, struct pasrvec *pasrvec,
-		unsigned long opon)
+static void __fill_pasr_on_by_chconfig(int downgrade, struct pasrvec *pasrvec, unsigned long opon)
 {
 #define AXIS_MAX	(4)
 	int chgrp_clone_max, clone, chgrp;
@@ -552,9 +497,8 @@ static void __fill_pasr_on_by_chconfig(int downgrade, struct pasrvec *pasrvec,
 
 	/* Sanity check */
 	if (((total_pfns >> downgrade) << downgrade) != total_pfns) {
-		MTKPASR_PRINT(
-		"%s: can't downgrade, total_pfns[%lu] level[%d]\n",
-		__func__, total_pfns, downgrade);
+		MTKPASR_PRINT("%s: can't downgrade, total_pfns[%lu] level[%d]\n",
+				__func__, total_pfns, downgrade);
 		return;
 	}
 
@@ -575,10 +519,8 @@ static void __fill_pasr_on_by_chconfig(int downgrade, struct pasrvec *pasrvec,
 	channel_batch = channel_count >> downgrade;
 	element_size = channel_segnum >> downgrade;
 
-	pr_info(
-	"%s: downgrade[%d] opon[%lx] chgrp_clone_max[%d] channel_batch[%d] element_size[%d]\n",
-	__func__, downgrade, opon, chgrp_clone_max,
-	channel_batch, element_size);
+	pr_alert("%s: downgrade[%d] opon[%lx] chgrp_clone_max[%d] channel_batch[%d] element_size[%d]\n",
+			__func__, downgrade, opon, chgrp_clone_max, channel_batch, element_size);
 
 	/* How many segments in total */
 	for (rank = 0; rank < MAX_RANKS; rank++) {
@@ -592,15 +534,12 @@ static void __fill_pasr_on_by_chconfig(int downgrade, struct pasrvec *pasrvec,
 	accu_element_bits = 0;
 	for (i = 0; i < total_segnum; i++) {
 		rank = SEGMENT_TO_RANK(i);
-		fill_element_bits = max_segment_pfns /
-			rank_info[rank].bank_pfn_size;
-		fill_element_bits = max_segment_base /
-			fill_element_bits;
+		fill_element_bits = max_segment_pfns / rank_info[rank].bank_pfn_size;
+		fill_element_bits = max_segment_base / fill_element_bits;
 		/* Check whether it is PASR-masked and fill in element */
 		if ((opon >> i) & 0x1) {
 			while (fill_element_bits-- > 0) {
-				element[0][clone] = element[0][clone] |
-					(0x1 << accu_element_bits);
+				element[0][clone] = element[0][clone] | (0x1 << accu_element_bits);
 				accu_element_bits += 1;
 				if (accu_element_bits == element_size) {
 					clone++;
@@ -619,8 +558,7 @@ static void __fill_pasr_on_by_chconfig(int downgrade, struct pasrvec *pasrvec,
 #ifdef DEBUG_FOR_CHANNEL_SWITCH
 	for (chgrp = 0; chgrp < chgrp_clone_max; chgrp++)
 		for (clone = 0; clone < chgrp_clone_max; clone++)
-			pr_info("(a)%s: [%d][%d] = %x\n", __func__,
-					chgrp, clone, element[chgrp][clone]);
+			pr_alert("(a)%s: [%d][%d] = %x\n", __func__, chgrp, clone, element[chgrp][clone]);
 #endif
 	/* Copy to other channel group */
 	for (clone = 0; clone < chgrp_clone_max; clone++)
@@ -630,8 +568,7 @@ static void __fill_pasr_on_by_chconfig(int downgrade, struct pasrvec *pasrvec,
 #ifdef DEBUG_FOR_CHANNEL_SWITCH
 	for (chgrp = 0; chgrp < chgrp_clone_max; chgrp++)
 		for (clone = 0; clone < chgrp_clone_max; clone++)
-			pr_info("(b)%s: [%d][%d] = %x\n", __func__,
-					chgrp, clone, element[chgrp][clone]);
+			pr_alert("(b)%s: [%d][%d] = %x\n", __func__, chgrp, clone, element[chgrp][clone]);
 #endif
 	/* Mapping translation */
 	for (chgrp = 0; chgrp < chgrp_clone_max; chgrp++) {
@@ -647,8 +584,7 @@ static void __fill_pasr_on_by_chconfig(int downgrade, struct pasrvec *pasrvec,
 #ifdef DEBUG_FOR_CHANNEL_SWITCH
 	for (chgrp = 0; chgrp < chgrp_clone_max; chgrp++)
 		for (clone = 0; clone < chgrp_clone_max; clone++)
-			pr_info("(c)%s: [%d][%d] = %x\n", __func__,
-					chgrp, clone, element[chgrp][clone]);
+			pr_alert("(c)%s: [%d][%d] = %x\n", __func__, chgrp, clone, element[chgrp][clone]);
 #endif
 	/* Fill PASR vector (by channel_batch) */
 	for (chgrp = 0; chgrp < chgrp_clone_max; chgrp++) {
@@ -656,23 +592,18 @@ static void __fill_pasr_on_by_chconfig(int downgrade, struct pasrvec *pasrvec,
 		accu_element_bits = 0;
 		for (i = 0; i < total_segnum; i++) {
 			rank = SEGMENT_TO_RANK(i);
-			fill_element_bits = max_segment_pfns /
-				rank_info[rank].bank_pfn_size;
-			fill_element_bits = max_segment_base /
-				fill_element_bits;
+			fill_element_bits = max_segment_pfns / rank_info[rank].bank_pfn_size;
+			fill_element_bits = max_segment_base / fill_element_bits;
 			mask = (0x1 << fill_element_bits) - 1;
 
 #ifdef DEBUG_FOR_CHANNEL_SWITCH
-			pr_info(
-			"(+)%s: rank[%d] fill_element_bits[%d] mask[%x]\n",
-			__func__, rank, fill_element_bits, mask);
+			pr_alert("(+)%s: rank[%d] fill_element_bits[%d] mask[%x]\n",
+					__func__, rank, fill_element_bits, mask);
 #endif
 			/* Compose a valid setting */
 			tmp = 0x0;
 			while (fill_element_bits-- > 0) {
-				tmp = (tmp << 1) |
-					((element[chgrp][clone]
-					  >> accu_element_bits) & 0x1);
+				tmp = (tmp << 1) | ((element[chgrp][clone] >> accu_element_bits) & 0x1);
 				accu_element_bits += 1;
 				if (accu_element_bits == element_size) {
 					clone++;
@@ -681,9 +612,8 @@ static void __fill_pasr_on_by_chconfig(int downgrade, struct pasrvec *pasrvec,
 			}
 
 #ifdef DEBUG_FOR_CHANNEL_SWITCH
-			pr_info(
-			"(.)%s: chgrp[%d] clone[%d] accu_element_bits[%d] tmp[%x]\n",
-			__func__, chgrp, clone, accu_element_bits, tmp);
+			pr_alert("(.)%s: chgrp[%d] clone[%d] accu_element_bits[%d] tmp[%x]\n",
+					__func__, chgrp, clone, accu_element_bits, tmp);
 #endif
 			/* Is it matched with mask */
 			if ((tmp & mask) == mask)
@@ -692,7 +622,7 @@ static void __fill_pasr_on_by_chconfig(int downgrade, struct pasrvec *pasrvec,
 				tmp = 0x0;
 
 #ifdef DEBUG_FOR_CHANNEL_SWITCH
-			pr_info("(.)%s: tmp[%x]\n", __func__, tmp);
+			pr_alert("(.)%s: tmp[%x]\n", __func__, tmp);
 #endif
 			/* Update PASR vector */
 			which_channel = chgrp * channel_batch;
@@ -713,8 +643,7 @@ static void __fill_pasr_on_by_chconfig(int downgrade, struct pasrvec *pasrvec,
  *
  * return 0 for success, < 0 for error
  */
-int fill_pasr_on_by_chconfig(unsigned int chconfig, struct pasrvec *pasrvec,
-		unsigned long opon)
+int fill_pasr_on_by_chconfig(unsigned int chconfig, struct pasrvec *pasrvec, unsigned long opon)
 {
 	int i, downgrade = 0;
 

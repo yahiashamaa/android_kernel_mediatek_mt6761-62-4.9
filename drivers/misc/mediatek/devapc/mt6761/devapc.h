@@ -23,10 +23,10 @@
 #define MOD_NO_IN_1_DEVAPC                  16
 #define DEVAPC_TAG                          "DEVAPC"
 
-/* 1: Force to enable enhanced one-core violation debugging */
-/* 0: Enhanced one-core violation debugging can be enabled dynamically */
-/* Notice: You should only use one core to debug */
-/* (Please note it may trigger PRINTK too much)  */
+/* 1: Force to enable enhanced one-core violation debugging
+ * 0: Enhanced one-core violation debugging can be enabled dynamically
+ * Notice: You should only use one core to debug
+ */
 #ifdef DBG_ENABLE
 	#define DEVAPC_ENABLE_ONE_CORE_VIOLATION_DEBUG	1
 #else

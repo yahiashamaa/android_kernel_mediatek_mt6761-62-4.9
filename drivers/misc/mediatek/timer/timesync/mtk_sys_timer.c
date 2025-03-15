@@ -11,7 +11,6 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-
 #include <linux/module.h>
 #if defined(CONFIG_MTK_TIMER_TIMESYNC) && !defined(CONFIG_FPGA_EARLY_PORTING)
 
@@ -41,10 +40,6 @@
 #include <sspm_mbox.h>
 #endif
 
-#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
-#include <adsp_helper.h>
-#endif
-
 #define SYS_TIMER_DEBUG                    (0)
 
 #if SYS_TIMER_DEBUG
@@ -55,11 +50,11 @@
 
 #define sys_timer_sysram_write(val, addr) mt_reg_sync_writel(val, addr)
 
-static void __iomem *sys_timer_base;
-spinlock_t sys_timer_lock;
-static const char sys_timer_node_name[] = "mediatek,sys_timer";
-static struct workqueue_struct *sys_timer_workqueue;
-static struct sys_timer_timesync_context_t timesync_cxt;
+static void __iomem                        *sys_timer_base;
+spinlock_t                                  sys_timer_lock;
+static const char                           sys_timer_node_name[] = "mediatek,sys_timer";
+static struct workqueue_struct             *sys_timer_workqueue;
+static struct sys_timer_timesync_context_t  timesync_cxt;
 
 static int sys_timer_device_probe(struct platform_device *pdev);
 
@@ -109,16 +104,14 @@ static u8 sys_timer_timesync_inc_ver(void)
 	return ver;
 }
 
-static void sys_timer_timesync_update_sspm(int suspended,
-	u64 tick, u64 ts)
+static void sys_timer_timesync_update_sspm(int suspended, u64 tick, u64 ts)
 {
 	u32 header, val;
 
 	/* make header: freeze and version */
 	header = suspended ? TIMESYNC_HEADER_FREEZE : 0;
 
-	header |= ((timesync_cxt.base_ver << TIMESYNC_HEADER_VER_OFS) &
-		TIMESYNC_HEADER_VER_MASK);
+	header |= ((timesync_cxt.base_ver << TIMESYNC_HEADER_VER_OFS) & TIMESYNC_HEADER_VER_MASK);
 
 	/* update tick, h -> l */
 	val = (tick >> 32) & 0xFFFFFFFF;
@@ -218,29 +211,30 @@ void sys_timer_timesync_verify_sspm(void)
 #define sys_timer_timesync_verify_sspm(void)
 #endif
 
-static void sys_timer_timesync_update_ram(void __iomem *base,
-	int freeze, u64 tick, u64 ts)
+static void sys_timer_timesync_update_sysram(int freeze, u64 tick, u64 ts)
 {
 	sys_timer_sysram_write((tick >> 32) & 0xFFFFFFFF,
-		base + TIMESYNC_BASE_TICK);
+		timesync_cxt.sysram_base + TIMESYNC_BASE_TICK);
 	sys_timer_sysram_write(tick & 0xFFFFFFFF,
-		base + TIMESYNC_BASE_TICK + 4);
+		timesync_cxt.sysram_base + TIMESYNC_BASE_TICK + 4);
 
 	sys_timer_sysram_write((ts >> 32) & 0xFFFFFFFF,
-		base + TIMESYNC_BASE_TS);
+		timesync_cxt.sysram_base + TIMESYNC_BASE_TS);
 	sys_timer_sysram_write(ts & 0xFFFFFFFF,
-		base + TIMESYNC_BASE_TS + 4);
+		timesync_cxt.sysram_base + TIMESYNC_BASE_TS + 4);
 
 	sys_timer_sysram_write(freeze,
-		base + TIMESYNC_BASE_FREEZE);
+		timesync_cxt.sysram_base + TIMESYNC_BASE_FREEZE);
 }
 
-static void
-sys_timer_timesync_sync_base_internal(unsigned int flag)
+static void sys_timer_timesync_sync_base_internal(unsigned int flag)
 {
 	u64 tick, ts;
 	unsigned long irq_flags = 0;
 	int freeze;
+
+	if (!timesync_cxt.enabled)
+		return;
 
 	spin_lock_irqsave(&timesync_cxt.lock, irq_flags);
 
@@ -252,23 +246,9 @@ sys_timer_timesync_sync_base_internal(unsigned int flag)
 
 	freeze = (flag & SYS_TIMER_TIMESYNC_FLAG_FREEZE) ? 1 : 0;
 
-	/* sync with sysram */
-	if (timesync_cxt.support_sysram) {
-		sys_timer_timesync_update_ram(timesync_cxt.ram_base,
-			freeze, tick, ts);
-	}
+	if (timesync_cxt.support_sysram)
+		sys_timer_timesync_update_sysram(freeze, tick, ts);
 
-#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
-	/* sync with adsp */
-	adsp_enable_dsp_clk(true);
-
-	sys_timer_timesync_update_ram(ADSP_A_OSTIMER_BUFFER,
-		freeze, tick, ts);
-
-	adsp_enable_dsp_clk(false);
-#endif
-
-	/* sync with sspm */
 	sys_timer_timesync_update_sspm(freeze, tick, ts);
 
 	spin_unlock_irqrestore(&timesync_cxt.lock, irq_flags);
@@ -302,9 +282,6 @@ u64 sys_timer_timesync_tick_to_sched_clock(u64 tick)
 
 void sys_timer_timesync_sync_base(unsigned int flag)
 {
-	if (!timesync_cxt.enabled)
-		return;
-
 	if (flag & SYS_TIMER_TIMESYNC_FLAG_ASYNC)
 		queue_work(sys_timer_workqueue, &(timesync_cxt.work));
 	else
@@ -418,19 +395,14 @@ static int sys_timer_timesync_init(struct platform_device *pdev)
 	/* get sysram base */
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "sysram_base");
-	timesync_cxt.ram_base = devm_ioremap_resource(dev, res);
+	timesync_cxt.sysram_base = devm_ioremap_resource(dev, res);
 
-	if (IS_ERR((void const *)timesync_cxt.ram_base)) {
-
+	if (IS_ERR((void const *)timesync_cxt.sysram_base))
 		pr_info("unable to ioremap sysram base, might be disabled\n");
-
-		/* ensure sysram support is disabled */
-		timesync_cxt.support_sysram = 0;
-	} else {
+	else {
 		/* get sysram size */
 
-		if (of_property_read_u32(node,
-			"mediatek,sysram-size", &sysram_size)) {
+		if (of_property_read_u32(node, "mediatek,sysram-size", &sysram_size)) {
 			pr_info("unable to get sysram-size\n");
 			goto fail_out;
 		}
@@ -463,17 +435,13 @@ static int sys_timer_timesync_init(struct platform_device *pdev)
 	goto out;
 
 fail_out:
-
-	/* ensure disabled */
-	timesync_cxt.enabled = 0;
-
 	ret = -1;
 
 out:
 	pr_info("enabled: %d, support_sysram: %d\n",
 		timesync_cxt.enabled, timesync_cxt.support_sysram);
 
-	return ret;
+	return 0;
 }
 
 #ifdef CONFIG_DEBUG_FS
@@ -491,10 +459,7 @@ static ssize_t sys_timer_dbgfs_debug_write(struct file *filp,
 	}
 
 	if (val == 1) {
-		/*
-		 * send IPI to request SSPM to write its timestamp in
-		 * SRAM for verification
-		 */
+		/* send IPI to request SSPM to write its timestamp in SRAM for verification */
 		sys_timer_timesync_verify_sspm();
 	} else if (val == 2) {
 		/* synchronous timesync test */
@@ -516,16 +481,14 @@ static ssize_t sys_timer_dbgfs_debug_write(struct file *filp,
 	return cnt;
 }
 
-static int
-sys_timer_dbgfs_debug_show(struct seq_file *file, void *data)
+static int sys_timer_dbgfs_debug_show(struct seq_file *file, void *data)
 {
 	sys_timer_timesync_print_base();
 
 	return 0;
 }
 
-static int
-sys_timer_dbgfs_debug_open(struct inode *inode, struct file *file)
+static int sys_timer_dbgfs_debug_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, sys_timer_dbgfs_debug_show, inode->i_private);
 }
@@ -557,9 +520,9 @@ static void sys_timer_init_debugfs(void)
 	}
 
 	timesync_cxt.dbgfs_debug =
-		debugfs_create_file("debug", 0600,
-			timesync_cxt.dbgfs_root, &timesync_cxt,
-				&sys_timer_dbgfs_debug_fops);
+		debugfs_create_file("debug", S_IRUSR | S_IWUSR,
+					   timesync_cxt.dbgfs_root, &timesync_cxt,
+					   &sys_timer_dbgfs_debug_fops);
 	if (!timesync_cxt.dbgfs_debug) {
 		pr_info("null err_stats file, exiting\n");
 		goto err;
@@ -588,8 +551,7 @@ static int sys_timer_device_probe(struct platform_device *pdev)
 
 	/* get sys timer base */
 
-	res = platform_get_resource_byname(pdev,
-			IORESOURCE_MEM, "sys_timer_base");
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "sys_timer_base");
 	sys_timer_base = devm_ioremap_resource(dev, res);
 
 	if (IS_ERR((void const *)sys_timer_base)) {
@@ -631,13 +593,8 @@ static int __init sys_timer_device_init(void)
 
 #endif
 
-/*
- * shall not be prior than initialization of target sub-sys,
- * for example,
- *   sspm: mbox shall be ready.
- *   adsp: io-remapped ram address for timesync base shall be ready.
- */
-late_initcall(sys_timer_device_init);
+/* shall not be prior than sspm init (mbox init) which is using arch_initcall */
+device_initcall(sys_timer_device_init);
 
 MODULE_AUTHOR("Stanley Chu <stanley.chu@mediatek.com>");
 MODULE_LICENSE("GPL");

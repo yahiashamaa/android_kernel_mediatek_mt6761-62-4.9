@@ -37,34 +37,30 @@ unsigned int pmic_dbg_level_set(unsigned int level)
  */
 void pmic_dump_register(struct seq_file *m)
 {
-	const PMU_FLAG_TABLE_ENTRY *pFlag =
-		&pmu_flags_table[PMU_COMMAND_MAX - 1];
+	const PMU_FLAG_TABLE_ENTRY *pFlag = &pmu_flags_table[PMU_COMMAND_MAX - 1];
 	unsigned int i = 0;
 
 	PMICLOG("dump PMIC register\n");
 
-	for (i = 0; i < (pFlag->offset - 10); i = i + 10) {
-
-
-		PMICLOG(
-		"[0x%x]=0x%x [0x%x]=0x%x [0x%x]=0x%x [0x%x]=0x%x [0x%x]=0x%x\n"
-			, i, upmu_get_reg_value(i)
-			, i + 2, upmu_get_reg_value(i + 2)
-			, i + 4, upmu_get_reg_value(i + 4)
-			, i + 6, upmu_get_reg_value(i + 6)
-			, i + 8, upmu_get_reg_value(i + 8));
-
-		if (m == NULL)
-			continue;
-
-		seq_printf(m,
-		"R[0x%x]=0x%x [0x%x]=0x%x [0x%x]=0x%x [0x%x]=0x%x [0x%x]=0x%x\n"
-			, i, upmu_get_reg_value(i)
-			, i + 2, upmu_get_reg_value(i + 2)
-			, i + 4, upmu_get_reg_value(i + 4)
-			, i + 6, upmu_get_reg_value(i + 6)
-			, i + 8, upmu_get_reg_value(i + 8));
+	for (i = 0; i < pFlag->offset; i = i + 10) {
+		pr_notice("Reg[0x%x]=0x%x Reg[0x%x]=0x%x Reg[0x%x]=0x%x Reg[0x%x]=0x%x Reg[0x%x]=0x%x\n",
+			i, upmu_get_reg_value(i),
+			i + 2, upmu_get_reg_value(i + 2),
+			i + 4, upmu_get_reg_value(i + 4),
+			i + 6, upmu_get_reg_value(i + 6),
+			i + 8, upmu_get_reg_value(i + 8));
+		if (m != NULL) {
+			seq_printf(m,
+				"Reg[0x%x]=0x%x Reg[0x%x]=0x%x Reg[0x%x]=0x%x Reg[0x%x]=0x%x Reg[0x%x]=0x%x\n",
+				i, upmu_get_reg_value(i),
+				i + 2, upmu_get_reg_value(i + 2),
+				i + 4, upmu_get_reg_value(i + 4),
+				i + 6, upmu_get_reg_value(i + 6),
+				i + 8, upmu_get_reg_value(i + 8));
+		}
+		mdelay(1);
 	}
+
 }
 
 /*
@@ -144,7 +140,7 @@ int pmic_dump_exception_reg(void)
 	udelay(200);
 	ret_val = pmic_set_register_value(PMIC_CLR_JUST_RST, 0x0);
 	udelay(200);
-	pr_info(PMICTAG "[pmic_boot_status] JUST_PWRKEY_RST=0x%x\n",
+	pr_err(PMICTAG "[pmic_boot_status] JUST_PWRKEY_RST=0x%x\n",
 		pmic_get_register_value(PMIC_JUST_PWRKEY_RST));
 
 	/* clear WDTRSTB_STATUS */

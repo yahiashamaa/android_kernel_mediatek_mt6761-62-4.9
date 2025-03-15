@@ -62,9 +62,7 @@ extern void (*mtk_gpu_sodi_exit_fp)(void);
 
 
 static struct workqueue_struct* g_psNotifyWorkQueue = NULL;
-#if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173)\
-|| defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6761)\
-|| defined(CONFIG_MACH_MT6765)
+#if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173) || defined(CONFIG_MACH_MT6739)
 static struct workqueue_struct *g_psDumpFW;
 #endif
 
@@ -79,9 +77,7 @@ typedef struct GED_NOTIFY_SW_SYNC_TAG
 	unsigned long ul3DFenceDoneTime;
 } GED_NOTIFY_SW_SYNC;
 
-#if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173)\
-|| defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6761)\
-|| defined(CONFIG_MACH_MT6765)
+#if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173) || defined(CONFIG_MACH_MT6739)
 struct GED_DUMP_FW {
 	struct work_struct	sWork;
 };
@@ -224,21 +220,17 @@ void ged_cancel_backup_timer(void)
 #ifdef ENABLE_TIMER_BACKUP
 	if (hrtimer_try_to_cancel(&g_HT_hwvsync_emu)) {
 		/* Timer is either queued or in cb
-		 * cancel it to ensure it is not bother any way
-		 */
+		* cancel it to ensure it is not bother any way
+		*/
 		hrtimer_cancel(&g_HT_hwvsync_emu);
-		hrtimer_start(&g_HT_hwvsync_emu,
-			ns_to_ktime(GED_DVFS_TIMER_TIMEOUT), HRTIMER_MODE_REL);
-		ged_log_buf_print(ghLogBuf_DVFS,
-			"[GED_K] Timer Restart (ts=%llu)", temp);
+		hrtimer_start(&g_HT_hwvsync_emu, ns_to_ktime(GED_DVFS_TIMER_TIMEOUT), HRTIMER_MODE_REL);
+		ged_log_buf_print(ghLogBuf_DVFS, "[GED_K] Timer Restart (ts=%llu)", temp);
 	} else {
 		/*
-		 * Timer is not existed
-		 */
-		hrtimer_start(&g_HT_hwvsync_emu,
-			ns_to_ktime(GED_DVFS_TIMER_TIMEOUT), HRTIMER_MODE_REL);
-		ged_log_buf_print(ghLogBuf_DVFS,
-			"[GED_K] New Timer Start (ts=%llu)", temp);
+		* Timer is not existed
+		*/
+		hrtimer_start(&g_HT_hwvsync_emu, ns_to_ktime(GED_DVFS_TIMER_TIMEOUT), HRTIMER_MODE_REL);
+		ged_log_buf_print(ghLogBuf_DVFS, "[GED_K] New Timer Start (ts=%llu)", temp);
 		timer_switch_locked(true);
 	}
 #endif			/*	#ifdef ENABLE_TIMER_BACKUP	*/
@@ -574,13 +566,10 @@ void ged_sodi_stop(void)
 }
 
 
-#if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173)\
-|| defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6761)\
-|| defined(CONFIG_MACH_MT6765)
+#if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173) || defined(CONFIG_MACH_MT6739)
 static void ged_dump_fw_handle(struct work_struct *psWork)
 {
-	struct GED_DUMP_FW *psNotify
-		= GED_CONTAINER_OF(psWork, struct GED_DUMP_FW, sWork);
+	struct GED_DUMP_FW *psNotify = GED_CONTAINER_OF(psWork, struct GED_DUMP_FW, sWork);
 
 	if (psNotify) {
 		MTKFWDump();
@@ -592,9 +581,7 @@ void ged_dump_fw(void)
 {
 	struct GED_DUMP_FW *psNotify;
 
-	psNotify = (struct GED_DUMP_FW *)
-		ged_alloc_atomic(sizeof(struct GED_DUMP_FW));
-
+	psNotify = (struct GED_DUMP_FW *)ged_alloc_atomic(sizeof(struct GED_DUMP_FW));
 	if (psNotify) {
 		INIT_WORK(&psNotify->sWork, ged_dump_fw_handle);
 		queue_work(g_psDumpFW, &psNotify->sWork);
@@ -613,9 +600,7 @@ GED_ERROR ged_notify_sw_vsync_system_init(void)
 		return GED_ERROR_OOM;
 	}
 
-#if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173)\
-|| defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6761)\
-|| defined(CONFIG_MACH_MT6765)
+#if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173) || defined(CONFIG_MACH_MT6739)
 	g_psDumpFW = NULL;
 	g_psDumpFW = create_workqueue("ged_dump_fw_log");
 
@@ -646,9 +631,7 @@ void ged_notify_sw_vsync_system_exit(void)
 		g_psNotifyWorkQueue = NULL;
 	}
 
-#if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173)\
-|| defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6761)\
-|| defined(CONFIG_MACH_MT6765)
+#if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173) || defined(CONFIG_MACH_MT6739)
 	if (g_psDumpFW != NULL) {
 		flush_workqueue(g_psDumpFW);
 

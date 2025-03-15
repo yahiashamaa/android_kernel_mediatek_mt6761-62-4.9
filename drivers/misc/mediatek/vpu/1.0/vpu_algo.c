@@ -48,8 +48,7 @@ const char *g_vpu_port_dir_names[VPU_NUM_PORT_DIRS] = {
 
 struct vpu_prop_desc g_vpu_prop_descs[VPU_NUM_PROPS] = {
 #define INS_PROP(id, name, type, count, access) \
-	{ VPU_PROP_ ## id, VPU_PROP_TYPE_ ## type, \
-	  VPU_PROP_ACCESS_ ## access, 0, count, name }
+	{ VPU_PROP_ ## id, VPU_PROP_TYPE_ ## type, VPU_PROP_ACCESS_ ## access, 0, count, name }
 
 	INS_PROP(RESERVED, "reserved", INT32, 256, RDONLY),
 #undef INS_PROP
@@ -67,8 +66,7 @@ int vpu_init_algo(struct vpu_device *vpu_device)
 	for (i = 0; i < VPU_NUM_PROPS; i++) {
 		prop_desc = &g_vpu_prop_descs[i];
 		prop_desc->offset = offset;
-		prop_data_length =
-		    prop_desc->count * g_vpu_prop_type_size[prop_desc->type];
+		prop_data_length = prop_desc->count * g_vpu_prop_type_size[prop_desc->type];
 		offset += prop_data_length;
 	}
 	/* the total length = last offset + last data length */
@@ -145,8 +143,7 @@ err:
 }
 
 static int vpu_calc_prop_offset(struct vpu_prop_desc *descs, uint32_t count,
-				uint32_t *length)
-{
+		uint32_t *length) {
 
 	struct vpu_prop_desc *prop_desc;
 	uint32_t offset = 0;
@@ -206,11 +203,9 @@ int vpu_create_algo(char *name, struct vpu_algo **ralgo)
 	CHECK_RET("vpu_hw_load_algo failed!\n");
 	ret = vpu_hw_get_algo_info(algo);
 	CHECK_RET("vpu_hw_get_algo_info failed!\n");
-	ret = vpu_calc_prop_offset(algo->info_descs, algo->info_desc_count,
-				   &algo->info_length);
+	ret = vpu_calc_prop_offset(algo->info_descs, algo->info_desc_count, &algo->info_length);
 	CHECK_RET("vpu_calc_prop_offset[info] failed!\n");
-	ret = vpu_calc_prop_offset(algo->sett_descs, algo->sett_desc_count,
-				   &algo->sett_length);
+	ret = vpu_calc_prop_offset(algo->sett_descs, algo->sett_desc_count, &algo->sett_length);
 	CHECK_RET("vpu_calc_prop_offset[sett] failed!\n");
 
 	*ralgo = algo;
@@ -227,8 +222,7 @@ int vpu_alloc_algo(struct vpu_algo **ralgo)
 {
 	struct vpu_algo *algo;
 
-	algo = kzalloc(sizeof(vlist_type(struct vpu_algo)) +
-					prop_info_data_length, GFP_KERNEL);
+	algo = kzalloc(sizeof(vlist_type(struct vpu_algo)) + prop_info_data_length, GFP_KERNEL);
 	if (algo == NULL) {
 		LOG_ERR("vpu_alloc_algo(), algo=0x%p\n", algo);
 		return -ENOMEM;
@@ -287,24 +281,20 @@ int vpu_dump_algo(struct seq_file *s)
 	list_for_each(head, &vpu_algo_pool)
 	{
 		algo = vlist_node_of(head, struct vpu_algo);
-		vpu_print_seq(s,
-					"[Algo: id=%d name=%s, address=0x%llx, length=%d]\n",
-					  algo->id, algo->name,
-					  algo->bin_ptr,
-					  algo->bin_length);
+		vpu_print_seq(s, "[Algo: id=%d name=%s, address=0x%llx, length=%d]\n",
+					  algo->id, algo->name, algo->bin_ptr, algo->bin_length);
 
 #define LINE_BAR "  +-----+---------------+-------+-------+\n"
 		vpu_print_seq(s, LINE_BAR);
-		vpu_print_seq(s, "  |%-5s|%-15s|%-7s|%-7s|\n", "Port", "Name",
-			      "Dir", "Usage");
+		vpu_print_seq(s, "  |%-5s|%-15s|%-7s|%-7s|\n", "Port", "Name", "Dir", "Usage");
 		vpu_print_seq(s, LINE_BAR);
 
 		for (i = 0; i < algo->port_count; i++) {
 			port = &algo->ports[i];
-			vpu_print_seq(s, "  |%-5d|%-15s|%-7s|%-7s|\n", port->id,
-				      port->name,
-				      g_vpu_port_dir_names[port->dir],
-				      g_vpu_port_usage_names[port->usage]);
+			vpu_print_seq(s, "  |%-5d|%-15s|%-7s|%-7s|\n",
+						  port->id, port->name,
+						  g_vpu_port_dir_names[port->dir],
+						  g_vpu_port_usage_names[port->usage]);
 		}
 		vpu_print_seq(s, LINE_BAR);
 		vpu_print_seq(s, "\n");
@@ -313,35 +303,31 @@ int vpu_dump_algo(struct seq_file *s)
 #define LINE_BAR "  +-----+---------------+-------+-------+------------------------------+\n"
 		if (algo->info_desc_count) {
 			vpu_print_seq(s, LINE_BAR);
-			vpu_print_seq(s, "  |%-5s|%-15s|%-7s|%-7s|%-30s|\n",
-				      "Info", "Name", "Type", "Count", "Value");
+			vpu_print_seq(s, "  |%-5s|%-15s|%-7s|%-7s|%-30s|\n", "Info", "Name", "Type", "Count", "Value");
 			vpu_print_seq(s, LINE_BAR);
 		}
 
 		for (i = 0; i < algo->info_desc_count; i++) {
 			prop_desc = &algo->info_descs[i];
-			data_length = prop_desc->count *
-				      g_vpu_prop_type_size[prop_desc->type];
+			data_length = prop_desc->count * g_vpu_prop_type_size[prop_desc->type];
 
 			vpu_print_seq(s, "  |%-5d|%-15s|%-7s|%-7d|%04XH ",
-				      prop_desc->id, prop_desc->name,
-				      g_vpu_prop_type_names[prop_desc->type],
-				      prop_desc->count, 0);
+						  prop_desc->id,
+						  prop_desc->name,
+						  g_vpu_prop_type_names[prop_desc->type],
+						  prop_desc->count,
+						  0);
 
-			info_data = (unsigned char *)(algo->info_ptr +
-						      prop_desc->offset);
+			info_data = (unsigned char *) (algo->info_ptr + prop_desc->offset);
 			memset(line_buffer, ' ', 24);
 			for (j = 0; j < data_length; j++, info_data++) {
 				int pos = j % 8;
 
 				if (j && pos == 0) {
-					vpu_print_seq(
-						s,
-						"  |%-5s|%-15s|%-7s|%-7s|%04XH ",
-						"", "", "", "", j);
+					vpu_print_seq(s, "  |%-5s|%-15s|%-7s|%-7s|%04XH ",
+								  "", "", "", "", j);
 				}
-				sprintf(line_buffer + pos * 3, "%02X",
-					*info_data);
+				sprintf(line_buffer + pos * 3, "%02X", *info_data);
 				line_buffer[pos * 3 + 2] = ' ';
 				if (pos == 7 || j + 1 == data_length)
 					vpu_print_seq(s, "%s|\n", line_buffer);
@@ -359,19 +345,18 @@ int vpu_dump_algo(struct seq_file *s)
 			continue;
 
 		vpu_print_seq(s, LINE_BAR);
-		vpu_print_seq(s, "  |%-5s|%-15s|%-7s|%-7s|%-7s|\n", "Sett",
-			      "Name", "Offset", "Type", "Count");
+		vpu_print_seq(s, "  |%-5s|%-15s|%-7s|%-7s|%-7s|\n", "Sett", "Name", "Offset", "Type", "Count");
 		vpu_print_seq(s, LINE_BAR);
 		for (i = 0; i < algo->sett_desc_count; i++) {
 			prop_desc = &algo->sett_descs[i];
-			data_length = prop_desc->count *
-				      g_vpu_prop_type_size[prop_desc->type];
+			data_length = prop_desc->count * g_vpu_prop_type_size[prop_desc->type];
 
 			vpu_print_seq(s, "  |%-5d|%-15s|%-7d|%-7s|%-7d|\n",
-				      prop_desc->id, prop_desc->name,
-				      prop_desc->offset,
-				      g_vpu_prop_type_names[prop_desc->type],
-				      prop_desc->count);
+						  prop_desc->id,
+						  prop_desc->name,
+						  prop_desc->offset,
+						  g_vpu_prop_type_names[prop_desc->type],
+						  prop_desc->count);
 		}
 		vpu_print_seq(s, LINE_BAR);
 		vpu_print_seq(s, "\n");

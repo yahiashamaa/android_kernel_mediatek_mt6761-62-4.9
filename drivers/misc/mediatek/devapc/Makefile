@@ -16,7 +16,7 @@ PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 
 subdir-ccflags-$(CONFIG_MTK_ENG_BUILD) += -DDBG_ENABLE
 
-$(info PLATFORM = $(PLATFORM))
+#$(info PLATFORM = $(PLATFORM))
 
 ifneq ($(wildcard $(LOCAL_PATH)/$(PLATFORM)/Makefile),)
    $(info DEVAPC platform code exists...)

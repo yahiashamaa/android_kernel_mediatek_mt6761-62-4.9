@@ -1,14 +1,15 @@
 /*
  * Copyright (C) 2011-2015 MediaTek Inc.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License version 2 as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program.
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <linux/types.h>
@@ -170,14 +171,14 @@ static unsigned int sspm_log_enable_set(unsigned int enable)
 		ipi_data.u.logger.enable = enable;
 
 		ret = sspm_ipi_send_sync(IPI_ID_PLATFORM, IPI_OPT_WAIT,
-		    &ipi_data, sizeof(ipi_data) / MBOX_SLOT_SIZE, &ackdata, 1);
+				&ipi_data, sizeof(ipi_data) / MBOX_SLOT_SIZE, &ackdata, 1);
 		if (ret != 0) {
 			pr_err("SSPM: logger IPI fail ret=%d\n", ret);
 			goto error;
 		}
 
 		if (enable != ackdata) {
-			pr_err("SSPM: %s fail ret=%d\n", __func__, ackdata);
+			pr_err("SSPM: sspm_log_enable_set fail ret=%d\n", ackdata);
 			goto error;
 		}
 
@@ -219,19 +220,16 @@ void sspm_log_lastk_recv(unsigned int exists)
 }
 #endif
 
-static ssize_t sspm_mobile_log_show(struct device *kobj,
-	struct device_attribute *attr, char *buf)
+static ssize_t sspm_mobile_log_show(struct device *kobj, struct device_attribute *attr, char *buf)
 {
 	unsigned int stat;
 
 	stat = (sspm_logger_inited && log_ctl->enable) ? 1 : 0;
 
-	return snprintf(buf, PAGE_SIZE, "SSPM mobile log is %s\n",
-		(stat == 0x1) ? "enabled" : "disabled");
+	return snprintf(buf, PAGE_SIZE, "SSPM mobile log is %s\n", (stat == 0x1) ? "enabled" : "disabled");
 }
 
-static ssize_t sspm_mobile_log_store(struct device *kobj,
-	struct device_attribute *attr, const char *buf, size_t n)
+static ssize_t sspm_mobile_log_store(struct device *kobj, struct device_attribute *attr, const char *buf, size_t n)
 {
 	unsigned int enable;
 
@@ -245,11 +243,10 @@ static ssize_t sspm_mobile_log_store(struct device *kobj,
 	return n;
 }
 
-DEVICE_ATTR(sspm_mobile_log, 0644, sspm_mobile_log_show, sspm_mobile_log_store);
+DEVICE_ATTR(sspm_mobile_log, S_IWUSR | S_IRUGO, sspm_mobile_log_show, sspm_mobile_log_store);
 
 #if SSPM_LASTK_SUPPORT
-static ssize_t sspm_log_lastk_show(struct device *kobj,
-	struct device_attribute *attr, char *buf)
+static ssize_t sspm_log_lastk_show(struct device *kobj, struct device_attribute *attr, char *buf)
 {
 	unsigned int ret;
 
@@ -258,7 +255,7 @@ static ssize_t sspm_log_lastk_show(struct device *kobj,
 	return ret;
 }
 
-DEVICE_ATTR(sspm_log_lastk, 0444, sspm_log_lastk_show, NULL);
+DEVICE_ATTR(sspm_log_lastk, S_IRUGO, sspm_log_lastk_show, NULL);
 #endif
 
 unsigned int __init sspm_logger_init(phys_addr_t start, phys_addr_t limit)
@@ -280,8 +277,7 @@ unsigned int __init sspm_logger_init(phys_addr_t start, phys_addr_t limit)
 	log_ctl->buff_ofs = last_ofs;
 	log_ctl->buff_size = BUF_LEN;
 
-	buf_info = (struct buffer_info_s *) (((unsigned char *) log_ctl) +
-						log_ctl->info_ofs);
+	buf_info = (struct buffer_info_s *) (((unsigned char *) log_ctl) + log_ctl->info_ofs);
 	buf_info->r_pos = 0;
 	buf_info->w_pos = 0;
 
@@ -295,8 +291,7 @@ unsigned int __init sspm_logger_init(phys_addr_t start, phys_addr_t limit)
 	log_ctl->lbuff_ofs = last_ofs;
 	log_ctl->lbuff_size = LBUF_LEN;
 
-	lbuf_info = (struct buffer_info_s *) (((unsigned char *) log_ctl) +
-						log_ctl->linfo_ofs);
+	lbuf_info = (struct buffer_info_s *) (((unsigned char *) log_ctl) + log_ctl->linfo_ofs);
 	lbuf_info->r_pos = 0;
 	lbuf_info->w_pos = 0;
 
@@ -304,8 +299,7 @@ unsigned int __init sspm_logger_init(phys_addr_t start, phys_addr_t limit)
 #endif
 
 	if (last_ofs >= limit) {
-		pr_err("SSPM:%s() initial fail, last_ofs=%u, limit=%u\n",
-			__func__, last_ofs, (unsigned int) limit);
+		pr_err("SSPM:%s() initial fail, last_ofs=%u, limit=%u\n", __func__, last_ofs, (unsigned int) limit);
 		goto error;
 	}
 

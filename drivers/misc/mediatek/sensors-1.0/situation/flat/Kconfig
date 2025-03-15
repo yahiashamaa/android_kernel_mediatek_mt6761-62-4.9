@@ -1,3 +1,4 @@
+
 config MTK_FLAT_HUB
 	bool "flat for MediaTek package"
 	default n

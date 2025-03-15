@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2017 MediaTek Inc.
+# Copyright (C) 2015 MediaTek Inc.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -22,9 +22,10 @@ endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 
 #Platform
-obj-$(CONFIG_MACH_MT6765) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
-obj-$(CONFIG_MACH_MT6761) += mt6765/
-obj-$(CONFIG_MACH_MT8163) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+obj-$(CONFIG_MACH_MT8167) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+obj-$(CONFIG_MACH_MT6763) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+obj-$(CONFIG_MACH_MT6739) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+obj-$(CONFIG_MACH_MT6775) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 
 #Driver
 obj-$(CONFIG_USB_MTK_HDRC) += musb_hdrc.o
@@ -37,7 +38,7 @@ musb_hdrc-$(CONFIG_DEBUG_FS) += musb_debugfs.o
 # QMU Realted
 obj-$(CONFIG_MTK_MUSB_QMU_SUPPORT) += mtk_qmu.o musb_qmu.o
 ifeq ($(CONFIG_MTK_MUSB_QMU_SUPPORT),y)
-subdir-ccflags-$(CONFIG_MACH_MT8163) += -DMUSB_QMU_LIMIT_SUPPORT -DMUSB_QMU_LIMIT_RXQ_NUM=4 -DMUSB_QMU_LIMIT_TXQ_NUM=4
+subdir-ccflags-$(CONFIG_ARCH_MT8163) += -DMUSB_QMU_LIMIT_SUPPORT -DMUSB_QMU_LIMIT_RXQ_NUM=4 -DMUSB_QMU_LIMIT_TXQ_NUM=4
 endif
 ifeq ($(CONFIG_MTK_MUSB_QMU_SUPPORT),y)
 subdir-ccflags-$(CONFIG_MACH_MT8167) += -DMUSB_QMU_LIMIT_SUPPORT -DMUSB_QMU_LIMIT_RXQ_NUM=4 -DMUSB_QMU_LIMIT_TXQ_NUM=4

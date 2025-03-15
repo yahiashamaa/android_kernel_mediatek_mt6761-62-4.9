@@ -14,17 +14,10 @@
 # drivers/cmdq
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v2 \
-             -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)\
-             -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
-             -I$(srctree)/drivers/misc/mediatek/include/mt-plat/trustzone/ \
+             -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)
 
 # Enable MET
 ccflags-y += -DMET_USER_EVENT_SUPPORT
-
-# Common Clock Framework
-ifneq ($(CONFIG_MTK_CLKMGR),y)
-ccflags-y += -DCMDQ_USE_CCF
-endif
 
 ifeq ($(CONFIG_MTK_CMDQ_TAB), y)
 ccflags-y += -DCMDQ_USE_LEGACY
@@ -38,9 +31,8 @@ endif
 	ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v2/$(MTK_PLATFORM)
 	ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v2/mtee
 	ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v2/inc/cmdq_sec_dr \
-		 -I$(srctree)/drivers/misc/mediatek/cmdq/v2/inc/cmdq_sec_tl \
+             	 -I$(srctree)/drivers/misc/mediatek/cmdq/v2/inc/cmdq_sec_tl \
 	             -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
-	             -I$(srctree)/include/trustzone
-#endif
+                 -I$(srctree)/drivers/misc/mediatek/include/mt-plat/trustzone
 
 obj-y += cmdq_sec.o

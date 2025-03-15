@@ -39,10 +39,6 @@ static int mt_dual_role_get_prop(struct dual_role_phy_instance *dual_role,
 	int ret = 0;
 	int mode, pr, dr;
 
-	mode = DUAL_ROLE_PROP_MODE_NONE;
-	pr = DUAL_ROLE_PROP_PR_NONE;
-	dr = DUAL_ROLE_PROP_DR_NONE;
-
 	if (state == DUALROLE_HOST) {
 		mode = DUAL_ROLE_PROP_MODE_DFP;
 		pr = DUAL_ROLE_PROP_PR_SRC;
@@ -78,7 +74,7 @@ static int mt_dual_role_get_prop(struct dual_role_phy_instance *dual_role,
 }
 
 static int mt_dual_role_prop_is_writeable(
-	struct dual_role_phy_instance *dual_role, enum dual_role_property prop)
+		struct dual_role_phy_instance *dual_role, enum dual_role_property prop)
 {
 	/* not support writeable */
 	return 0;

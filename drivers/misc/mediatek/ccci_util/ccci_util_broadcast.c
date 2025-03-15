@@ -94,8 +94,8 @@ struct ccci_util_bc_user_ctlb {
 	char user_name[32];
 };
 
-static void inject_event_helper(struct ccci_util_bc_user_ctlb *user_ctlb,
-	int md_id, struct timeval *ev_rtime, int event_type, char reason[])
+static void inject_event_helper(struct ccci_util_bc_user_ctlb *user_ctlb, int md_id,
+				struct timeval *ev_rtime, int event_type, char reason[])
 {
 	if (user_ctlb->pending_event_cnt == user_ctlb->buff_cnt) {
 		/* Free one space */
@@ -109,11 +109,9 @@ static void inject_event_helper(struct ccci_util_bc_user_ctlb *user_ctlb,
 	user_ctlb->event_buf[user_ctlb->curr_w].md_id = md_id;
 	user_ctlb->event_buf[user_ctlb->curr_w].event_type = event_type;
 	if (reason != NULL)
-		snprintf(user_ctlb->event_buf[user_ctlb->curr_w].reason, 32,
-			"%s", reason);
+		snprintf(user_ctlb->event_buf[user_ctlb->curr_w].reason, 32, "%s", reason);
 	else
-		snprintf(user_ctlb->event_buf[user_ctlb->curr_w].reason, 32,
-			"%s", "----");
+		snprintf(user_ctlb->event_buf[user_ctlb->curr_w].reason, 32, "%s", "----");
 	user_ctlb->curr_w++;
 	if (user_ctlb->curr_w >= user_ctlb->buff_cnt)
 		user_ctlb->curr_w = 0;
@@ -139,10 +137,8 @@ void inject_md_status_event(int md_id, int event_type, char reason[])
 	spin_lock_irqsave(&s_event_update_lock, flag);
 	for (i = 0; i < MD_BC_MAX_NUM; i++) {
 		if (s_bc_ctl_tbl[i]->md_bit_mask & md_mark) {
-			list_for_each_entry(user_ctlb,
-				&s_bc_ctl_tbl[i]->user_list, node)
-				inject_event_helper(user_ctlb, md_id,
-					&time_stamp, event_type, reason);
+			list_for_each_entry(user_ctlb, &s_bc_ctl_tbl[i]->user_list, node)
+				inject_event_helper(user_ctlb, md_id, &time_stamp, event_type, reason);
 			wake_up_interruptible(&s_bc_ctl_tbl[i]->wait);
 		}
 	}
@@ -172,12 +168,10 @@ int get_lock_rst_user_list(int md_id, char list_buff[], int size)
 
 	if (md_id == 0) {
 		spin_lock_irqsave(&s_event_update_lock, flag);
-		list_for_each_entry(user_ctlb,
-			&s_bc_ctl_tbl[0]->user_list, node) {
+		list_for_each_entry(user_ctlb, &s_bc_ctl_tbl[0]->user_list, node) {
 			if (user_ctlb->has_request_rst_lock) {
-				cpy_size = snprintf(&list_buff[total_size],
-				size - total_size,
-				"%s,", user_ctlb->user_name);
+				cpy_size = snprintf(&list_buff[total_size], size - total_size,
+							"%s,", user_ctlb->user_name);
 				if (cpy_size > 0)
 					total_size += cpy_size;
 			}
@@ -185,12 +179,10 @@ int get_lock_rst_user_list(int md_id, char list_buff[], int size)
 		spin_unlock_irqrestore(&s_event_update_lock, flag);
 	} else if (md_id == 2) {
 		spin_lock_irqsave(&s_event_update_lock, flag);
-		list_for_each_entry(user_ctlb,
-			&s_bc_ctl_tbl[3]->user_list, node) {
+		list_for_each_entry(user_ctlb, &s_bc_ctl_tbl[3]->user_list, node) {
 			if (user_ctlb->has_request_rst_lock) {
-				cpy_size = snprintf(&list_buff[total_size],
-				size - total_size,
-				"%s,", user_ctlb->user_name);
+				cpy_size = snprintf(&list_buff[total_size], size - total_size,
+							"%s,", user_ctlb->user_name);
 				if (cpy_size > 0)
 					total_size += cpy_size;
 			}
@@ -213,8 +205,7 @@ static int ccci_util_bc_open(struct inode *inode, struct file *filp)
 	minor = iminor(inode);
 	bc_dev = s_bc_ctl_tbl[minor];
 
-	user_ctlb = kzalloc(sizeof(struct ccci_util_bc_user_ctlb),
-					GFP_KERNEL);
+	user_ctlb = kzalloc(sizeof(struct ccci_util_bc_user_ctlb), GFP_KERNEL);
 	if (user_ctlb == NULL)
 		return -ENOMEM;
 
@@ -274,14 +265,12 @@ static int ccci_util_bc_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-static ssize_t ccci_util_bc_write(struct file *filp, const char __user *buf,
-	size_t size, loff_t *ppos)
+static ssize_t ccci_util_bc_write(struct file *filp, const char __user *buf, size_t size, loff_t *ppos)
 {
 	return 0;
 }
 
-static int read_out_event(struct ccci_util_bc_user_ctlb *user_ctlb,
-	struct md_status_event *event)
+static int read_out_event(struct ccci_util_bc_user_ctlb *user_ctlb, struct md_status_event *event)
 {
 	int ret;
 	struct md_status_event *src_event;
@@ -303,8 +292,7 @@ static int read_out_event(struct ccci_util_bc_user_ctlb *user_ctlb,
 	return ret;
 }
 
-static int cpy_compat_event_to_user(char __user *buf, size_t size,
-	const struct md_status_event *event)
+static int cpy_compat_event_to_user(char __user *buf, size_t size, const struct md_status_event *event)
 {
 	unsigned int event_size;
 #ifdef CONFIG_COMPAT
@@ -341,8 +329,7 @@ static int cpy_compat_event_to_user(char __user *buf, size_t size,
 #endif
 }
 
-static ssize_t ccci_util_bc_read(struct file *filp, char __user *buf,
-	size_t size, loff_t *ppos)
+static ssize_t ccci_util_bc_read(struct file *filp, char __user *buf, size_t size, loff_t *ppos)
 {
 	struct ccci_util_bc_user_ctlb *user_ctlb;
 	struct bc_ctl_block_t *bc_dev;
@@ -368,8 +355,7 @@ static ssize_t ccci_util_bc_read(struct file *filp, char __user *buf,
 			return cpy_compat_event_to_user(buf, size, &event);
 
 		ret = wait_event_interruptible(bc_dev->wait,
-				user_ctlb->pending_event_cnt ||
-				user_ctlb->exit);
+				user_ctlb->pending_event_cnt || user_ctlb->exit);
 		if (ret)
 			return ret;
 
@@ -379,8 +365,7 @@ static ssize_t ccci_util_bc_read(struct file *filp, char __user *buf,
 	return 0;
 }
 
-static long ccci_util_bc_ioctl(struct file *filp, unsigned int cmd,
-	unsigned long arg)
+static long ccci_util_bc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int err = 0;
 	struct ccci_util_bc_user_ctlb *user_ctlb;
@@ -434,22 +419,15 @@ static long ccci_util_bc_ioctl(struct file *filp, unsigned int cmd,
 			err = -1;
 		break;
 	case CCCI_IOC_GET_HOLD_RST_CNT:
-		if ((bc_dev->md_bit_mask & (MD1_BC_SUPPORT | MD3_BC_SUPPORT))
-			== (MD1_BC_SUPPORT | MD3_BC_SUPPORT))
-			lock_cnt = get_lock_rst_user_cnt(MD_SYS1) +
-			get_lock_rst_user_cnt(MD_SYS3);
-		else if ((bc_dev->md_bit_mask &
-				(MD1_BC_SUPPORT | MD3_BC_SUPPORT))
-				== MD1_BC_SUPPORT)
+		if ((bc_dev->md_bit_mask & (MD1_BC_SUPPORT | MD3_BC_SUPPORT)) == (MD1_BC_SUPPORT | MD3_BC_SUPPORT))
+			lock_cnt = get_lock_rst_user_cnt(MD_SYS1) + get_lock_rst_user_cnt(MD_SYS3);
+		else if ((bc_dev->md_bit_mask & (MD1_BC_SUPPORT | MD3_BC_SUPPORT)) == MD1_BC_SUPPORT)
 			lock_cnt = get_lock_rst_user_cnt(MD_SYS1);
-		else if ((bc_dev->md_bit_mask &
-				(MD1_BC_SUPPORT | MD3_BC_SUPPORT))
-				== MD3_BC_SUPPORT)
+		else if ((bc_dev->md_bit_mask & (MD1_BC_SUPPORT | MD3_BC_SUPPORT)) == MD3_BC_SUPPORT)
 			lock_cnt = get_lock_rst_user_cnt(MD_SYS3);
 		else
 			lock_cnt = 0;
-		err = put_user((unsigned int)lock_cnt,
-				(unsigned int __user *)arg);
+		err = put_user((unsigned int)lock_cnt, (unsigned int __user *)arg);
 		break;
 	case CCCI_IOC_SHOW_LOCK_USER:
 		buf = kmalloc(1024, GFP_KERNEL);
@@ -458,19 +436,14 @@ static long ccci_util_bc_ioctl(struct file *filp, unsigned int cmd,
 			break;
 		}
 		if ((bc_dev->md_bit_mask & (MD1_BC_SUPPORT | MD3_BC_SUPPORT))
-			== (MD1_BC_SUPPORT | MD3_BC_SUPPORT)) {
+						== (MD1_BC_SUPPORT | MD3_BC_SUPPORT)) {
 			cpy_size = get_lock_rst_user_list(0, buf, 1024);
-			get_lock_rst_user_list(2, &buf[cpy_size],
-			1024 - cpy_size);
+			get_lock_rst_user_list(2, &buf[cpy_size], 1024 - cpy_size);
 			md_id = 0;
-		} else if ((bc_dev->md_bit_mask &
-					(MD1_BC_SUPPORT | MD3_BC_SUPPORT))
-					== MD1_BC_SUPPORT) {
+		} else if ((bc_dev->md_bit_mask & (MD1_BC_SUPPORT | MD3_BC_SUPPORT)) == MD1_BC_SUPPORT) {
 			get_lock_rst_user_list(0, buf, 1024);
 			md_id = 1;
-		} else if ((bc_dev->md_bit_mask &
-					(MD1_BC_SUPPORT | MD3_BC_SUPPORT))
-					== MD3_BC_SUPPORT) {
+		} else if ((bc_dev->md_bit_mask & (MD1_BC_SUPPORT | MD3_BC_SUPPORT)) == MD3_BC_SUPPORT) {
 			get_lock_rst_user_list(2, buf, 1024);
 			md_id = 3;
 		} else {
@@ -490,8 +463,7 @@ static long ccci_util_bc_ioctl(struct file *filp, unsigned int cmd,
 }
 
 #ifdef CONFIG_COMPAT
-long ccci_util_bc_compat_ioctl(struct file *filp, unsigned int cmd,
-	unsigned long arg)
+long ccci_util_bc_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct ccci_util_bc_user_ctlb *user_ctlb;
 	struct bc_ctl_block_t *bc_dev;
@@ -500,18 +472,15 @@ long ccci_util_bc_compat_ioctl(struct file *filp, unsigned int cmd,
 	bc_dev = user_ctlb->bc_dev_ptr;
 
 	if (!filp->f_op || !filp->f_op->unlocked_ioctl) {
-		CCCI_UTIL_ERR_MSG(
-		"ccci_util_bc_compat_ioctl(!filp->f_op || !filp->f_op->unlocked_ioctl)\n");
+		CCCI_UTIL_ERR_MSG("ccci_util_bc_compat_ioctl(!filp->f_op || !filp->f_op->unlocked_ioctl)\n");
 		return -ENOTTY;
 	}
 
-	return filp->f_op->unlocked_ioctl(filp, cmd,
-			(unsigned long)compat_ptr(arg));
+	return filp->f_op->unlocked_ioctl(filp, cmd, (unsigned long)compat_ptr(arg));
 }
 #endif
 
-static unsigned int ccci_util_bc_poll(struct file *filp,
-	struct poll_table_struct *wait)
+static unsigned int ccci_util_bc_poll(struct file *filp, struct poll_table_struct *wait)
 {
 	unsigned int mask = 0;
 	struct ccci_util_bc_user_ctlb *user_ctlb;
@@ -550,8 +519,7 @@ int ccci_util_broadcast_init(void)
 	dev_t dev_n;
 
 	for (i = 0; i < MD_BC_MAX_NUM; i++) {
-		s_bc_ctl_tbl[i] = kmalloc(sizeof(struct bc_ctl_block_t),
-		GFP_KERNEL);
+		s_bc_ctl_tbl[i] = kmalloc(sizeof(struct bc_ctl_block_t), GFP_KERNEL);
 		if (s_bc_ctl_tbl[i] == NULL)
 			goto _exit;
 		INIT_LIST_HEAD(&s_bc_ctl_tbl[i]->user_list);
@@ -571,8 +539,7 @@ int ccci_util_broadcast_init(void)
 
 	ret = alloc_chrdev_region(&s_md_status_dev, 0, 3, "ccci_md_sta");
 	if (ret != 0) {
-		CCCI_UTIL_ERR_MSG("alloc chrdev fail for ccci_md_sta(%d)\n",
-		ret);
+		CCCI_UTIL_ERR_MSG("alloc chrdev fail for ccci_md_sta(%d)\n", ret);
 		goto _exit_1;
 	}
 	cdev_init(&s_bd_char_dev, &broad_cast_fops);
@@ -587,11 +554,9 @@ int ccci_util_broadcast_init(void)
 	for (i = 0; i < MD_BC_MAX_NUM; i++) {
 		dev_n = MKDEV(MAJOR(s_md_status_dev), i);
 		if (i == 0)
-			device_create(s_ccci_bd_class, NULL, dev_n,
-			NULL, "ccci_mdx_sta");
+			device_create(s_ccci_bd_class, NULL, dev_n, NULL, "ccci_mdx_sta");
 		else
-			device_create(s_ccci_bd_class, NULL, dev_n,
-			NULL, "ccci_md%d_sta", i);
+			device_create(s_ccci_bd_class, NULL, dev_n, NULL, "ccci_md%d_sta", i);
 	}
 
 	return 0;

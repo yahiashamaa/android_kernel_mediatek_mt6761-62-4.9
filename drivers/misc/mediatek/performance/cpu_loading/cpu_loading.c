@@ -151,7 +151,6 @@ bool sentuevent(const char *src)
 	if (uevent_enable) {
 		strlcpy(event_string, src, string_size);
 		if (event_string[0] == '\0') { /*string is null*/
-
 			trace_cpu_loading_log("cpu_loading", "string is null");
 			return false;
 		}
@@ -685,7 +684,6 @@ PROC_FOPS_RO(prev_cpu_loading);
 static int init_cpu_loading_kobj(void)
 {
 	int ret;
-
 	cpu_loading_object =
 		kzalloc(sizeof(struct cpu_loading_context), GFP_KERNEL);
 

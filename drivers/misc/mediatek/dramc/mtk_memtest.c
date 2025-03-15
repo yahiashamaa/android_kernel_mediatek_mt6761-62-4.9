@@ -83,9 +83,8 @@ static DEFINE_MUTEX(test_mem1_mutex);
 static DEFINE_MUTEX(test_client_mutex);
 
 static struct dentry *memtest_dir;
-static struct dentry *read_mr4, *read_mr5, *read_dram_addr;
-static struct dentry *memtest_result, *memtest_v2p;
-static struct dentry *memtest_mem0, *memtest_mem1;
+static struct dentry *read_mr4, *read_dram_addr;
+static struct dentry *memtest_result, *memtest_v2p, *memtest_mem0, *memtest_mem1;
 
 static phys_addr_t memtest_rank0_addr, memtest_rank1_addr;
 static unsigned int memtest_rank0_size, memtest_rank1_size;
@@ -126,11 +125,9 @@ DRAM_R1_MEMTEST_RESERVED_KEY,
 			dram_memtest_reserve_mem_of_init);
 #endif
 
-static ssize_t read_mr4_read(struct file *file,
-	char __user *user_buf, size_t len, loff_t *offset)
+static ssize_t read_mr4_read(struct file *file, char __user *user_buf, size_t len, loff_t *offset)
 {
 	void __iomem *emi_base;
-	void __iomem *dramc_nao_base;
 	unsigned int rank, channel, rank_max, channel_num;
 	unsigned int emi_cona, mr4;
 	unsigned char buf[64];
@@ -140,7 +137,7 @@ static ssize_t read_mr4_read(struct file *file,
 
 	emi_base = get_emi_base();
 	if (emi_base == NULL) {
-		pr_info("[DRAMC] can't find EMI base\n");
+		pr_err("[DRAMC] can't find EMI base\n");
 		return -1;
 	}
 
@@ -154,12 +151,9 @@ static ssize_t read_mr4_read(struct file *file,
 
 	for (rank = 0; rank < rank_max; rank++) {
 		for (channel = 0; channel < channel_num; channel++) {
-			dramc_nao_base = mt_dramc_nao_chn_base_get(channel);
-			if (!dramc_nao_base)
-				continue;
-			mr4 = Reg_Readl(dramc_nao_base + 0x90) & 0xFFFF;
-			ret += snprintf(buf + ret, sizeof(buf) - ret,
-				" R%uCH%c=0x%x,", rank, 'A' + channel, mr4);
+			if (!read_dram_mode_reg_by_rank(4, &mr4, rank, channel))
+				ret += snprintf(buf + ret, sizeof(buf) - ret, " R%uCH%c=0x%x,",
+					rank, 'A' + channel, mr4);
 		}
 	}
 
@@ -173,32 +167,7 @@ static const struct file_operations read_mr4_fops = {
 	.read = read_mr4_read,
 };
 
-__weak unsigned char get_ddr_mr(unsigned int index)
-{
-	return 0;
-}
-
-static ssize_t read_mr5_read(struct file *file,
-	char __user *user_buf, size_t len, loff_t *offset)
-{
-	unsigned char buf[64];
-	ssize_t ret;
-
-	ret = 0;
-
-	ret += snprintf(buf + ret, sizeof(buf) - ret,
-		"MR5:0x%x\n", get_ddr_mr(5));
-
-	return simple_read_from_buffer(user_buf, len, offset, buf, ret);
-}
-
-static const struct file_operations read_mr5_fops = {
-	.owner = THIS_MODULE,
-	.read = read_mr5_read,
-};
-
-__weak unsigned int mt_dramc_col_size_get(unsigned int emi_cona,
-	unsigned int rank)
+__weak unsigned int mt_dramc_col_size_get(unsigned int emi_cona, unsigned int rank)
 {
 	unsigned int col;
 
@@ -210,8 +179,7 @@ __weak unsigned int mt_dramc_col_size_get(unsigned int emi_cona,
 	return col + 9;
 }
 
-__weak unsigned int mt_dramc_row_size_get(unsigned int emi_cona,
-	unsigned int rank)
+__weak unsigned int mt_dramc_row_size_get(unsigned int emi_cona, unsigned int rank)
 {
 	unsigned int row;
 
@@ -222,28 +190,26 @@ __weak unsigned int mt_dramc_row_size_get(unsigned int emi_cona,
 
 	return row + 13;
 }
-void dramc_addr_descramble(phys_addr_t *addr, unsigned int emi_conf)
+void dramc_addr_descramble(phys_addr_t *phys_addr, unsigned int emi_conf)
 {
 	unsigned int bit_scramble, bit_xor, bit_shift;
 
-	/* calculate DRAM base address (addr) */
+	/* calculate DRAM base address (phys_addr) */
 	for (bit_scramble = 11; bit_scramble < 17; bit_scramble++) {
 		bit_xor = (emi_conf >> (4*(bit_scramble-11))) & 0xf;
-		bit_xor &= *addr >> 16;
+		bit_xor &= *phys_addr >> 16;
 		for (bit_shift = 0; bit_shift < 4; bit_shift++)
-			*addr ^= ((bit_xor>>bit_shift)&0x1) << bit_scramble;
+			*phys_addr ^= ((bit_xor>>bit_shift)&0x1) << bit_scramble;
 	}
 
 }
 
-int dramc_dram_address_get(phys_addr_t phys_addr,
-	unsigned int *rank, unsigned int *row,
-	unsigned int *bank, unsigned int *col, unsigned int *ch)
+int dramc_dram_address_get(phys_addr_t phys_addr, unsigned int *rank, unsigned int *row,
+		unsigned int *bank, unsigned int *col, unsigned int *ch)
 {
 	void __iomem *emi_base;
 	unsigned int emi_cona, emi_conf;
-	unsigned int ch_pos, channel_num;
-	unsigned int ch_width, col_width, row_width;
+	unsigned int channel_position, channel_num, channel_width, col_width, row_width;
 	unsigned int bit_shift;
 	unsigned int temp, rank_max;
 	unsigned int ddr_type;
@@ -252,7 +218,7 @@ int dramc_dram_address_get(phys_addr_t phys_addr,
 
 	emi_base = get_emi_base();
 	if (emi_base == NULL) {
-		pr_info("[DRAMC] can't find EMI base\n");
+		pr_err("[DRAMC] can't find EMI base\n");
 		return -1;
 	}
 	emi_cona = Reg_Readl(emi_base+0x000);
@@ -288,26 +254,23 @@ int dramc_dram_address_get(phys_addr_t phys_addr,
 
 	dramc_addr_descramble(&phys_addr, emi_conf);
 
-	/*
-	 * pr_info("[LastDRAMC] reserved address after emi: %llx\n", phys_addr);
-	 */
+	/* pr_err("[LastDRAMC] reserved address after emi: %llx\n", phys_addr); */
 
 	*ch = 0;
 
 	if (channel_num > 1) {
-		ch_pos = mt_dramc_chp_get(emi_cona);
+		channel_position = mt_dramc_chp_get(emi_cona);
 
-		*ch = (phys_addr >> ch_pos) & 0x1;
+		*ch = (phys_addr >> channel_position) & 0x1;
 
-		for (ch_width = bit_shift = 0; bit_shift < 4;
-				bit_shift++) {
+		for (channel_width = bit_shift = 0; bit_shift < 4; bit_shift++) {
 			if ((1 << bit_shift) >= channel_num)
 				break;
-			ch_width++;
+			channel_width++;
 		}
 
-		temp = (phys_addr & ~(((0x1<<ch_width)-1)<<ch_pos)) >> ch_width;
-		phys_addr = temp | (phys_addr & ((0x1<<ch_pos)-1));
+		temp = ((phys_addr & ~(((0x1<<channel_width)-1)<<channel_position)) >> channel_width);
+		phys_addr = temp | (phys_addr & ((0x1<<channel_position)-1));
 	}
 
 	col_width = mt_dramc_col_size_get(emi_cona, *rank);
@@ -338,18 +301,15 @@ static int dramc_format_dram_addr(phys_addr_t addr, char *buf, unsigned int len)
 
 	sz = 0;
 
-	if (dramc_dram_address_get(addr, &rank, &row, &bank, &col, &ch))
-		return 0;
-
+	if (!dramc_dram_address_get(addr, &rank, &row, &bank, &col, &ch)) {
 #ifdef CONFIG_PHYS_ADDR_T_64BIT
-	sz = snprintf(buf, len, "addr: 0x%llx ", addr);
+		sz = snprintf(buf, len, "addr: 0x%llx (rank=0x%x, row=0x%x, bank=0x%x, col=0x%x, ch=0x%x)\n",
+				addr, rank, row, bank, col, ch);
 #else
-	sz = snprintf(buf, len, "addr: 0x%x ", addr);
+		sz = snprintf(buf, len, "addr: 0x%x (rank=0x%x, row=0x%x, bank=0x%x, col=0x%x, ch=0x%x)\n",
+				addr, rank, row, bank, col, ch);
 #endif
-
-	sz += snprintf(buf + sz, len - sz,
-		"(rank=0x%x, row=0x%x, bank=0x%x, col=0x%x, ch=0x%x)\n",
-		rank, row, bank, col, ch);
+	}
 
 	return sz;
 }
@@ -360,8 +320,7 @@ struct read_dram_addr_ioctl_s {
 	unsigned char __user *buf;
 };
 
-static ssize_t read_dram_addr_read(struct file *file,
-	char __user *user_buf, size_t len, loff_t *offset)
+static ssize_t read_dram_addr_read(struct file *file, char __user *user_buf, size_t len, loff_t *offset)
 {
 	unsigned char buf[128];
 	ssize_t sz;
@@ -374,16 +333,14 @@ static ssize_t read_dram_addr_read(struct file *file,
 	return 0;
 }
 
-static ssize_t read_dram_addr_write(struct file *file,
-	const char __user *user_buf, size_t len, loff_t *offset)
+static ssize_t read_dram_addr_write(struct file *file, const char __user *user_buf, size_t len, loff_t *offset)
 {
 	unsigned long long adr;
 	unsigned char buf[32];
 	int sz;
 
 	if (len) {
-		sz = simple_write_to_buffer(buf, sizeof(buf), offset,
-			user_buf, len);
+		sz = simple_write_to_buffer(buf, sizeof(buf), offset, user_buf, len);
 
 		if (sz != len)
 			return -EIO;
@@ -401,8 +358,7 @@ static ssize_t read_dram_addr_write(struct file *file,
 	return len;
 }
 
-static long read_dram_addr_ioctl(struct file *file,
-	unsigned int cmd, unsigned long arg)
+static long read_dram_addr_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct read_dram_addr_ioctl_s info;
 	unsigned char buf[128];
@@ -431,8 +387,7 @@ static const struct file_operations read_dram_addr_fops = {
 	.unlocked_ioctl = read_dram_addr_ioctl,
 };
 
-static ssize_t test_result_read(struct file *file,
-	char __user *user_buf, size_t len, loff_t *offset)
+static ssize_t test_result_read(struct file *file, char __user *user_buf, size_t len, loff_t *offset)
 {
 	char const *str[] = { "initial", "on-going", "fail", "pass" };
 	char buf[64];
@@ -447,13 +402,11 @@ static ssize_t test_result_read(struct file *file,
 		sz2 += snprintf(buf + sz2, sizeof(buf) - sz2, "Fail region: ");
 		for (i = 0; i < FAIL_REGION_VIRT; i++) {
 			if (test_fail_region[i])
-				sz2 += snprintf(buf + sz2, sizeof(buf) - sz2,
-						"rank %d, ", i);
+				sz2 += snprintf(buf + sz2, sizeof(buf) - sz2, "rank %d, ", i);
 		}
 
 		if (test_fail_region[FAIL_REGION_VIRT])
-			sz2 += snprintf(buf + sz2, sizeof(buf) - sz2,
-					"virtual\n");
+			sz2 += snprintf(buf + sz2, sizeof(buf) - sz2, "virtual\n");
 
 		aee_kernel_warning("DRAM_MEMTEST", buf);
 	}
@@ -461,8 +414,7 @@ static ssize_t test_result_read(struct file *file,
 	return simple_read_from_buffer(user_buf, len, offset, buf, sz);
 }
 
-static ssize_t test_result_write(struct file *file,
-	const char __user *user_buf, size_t len, loff_t *offset)
+static ssize_t test_result_write(struct file *file, const char __user *user_buf, size_t len, loff_t *offset)
 {
 	struct memtest_client *client;
 	struct list_head *p;
@@ -530,8 +482,8 @@ static phys_addr_t memtest_user_v2p(unsigned long va)
 		return 0;
 	}
 	if (current->mm == NULL) {
-		pr_info("warning: memtest_user_v2p, current->mm is NULL!\n");
-		pr_info("tgid=0x%x, name=%s\n", current->tgid, current->comm);
+		pr_info("warning: memtest_user_v2p, current->mm is NULL! tgid=0x%x, name=%s\n",
+				current->tgid, current->comm);
 		return 0;
 	}
 
@@ -556,8 +508,7 @@ static phys_addr_t memtest_user_v2p(unsigned long va)
 	pte = pte_offset_map(pmd, va);
 	if (pte_present(*pte)) {
 		/* pa=(pte_val(*pte) & (PAGE_MASK)) | pageOffset; */
-		pa = (pte_val(*pte) & (PHYS_MASK) & (~((phys_addr_t) 0xfff))) |
-			pageOffset;
+		pa = (pte_val(*pte) & (PHYS_MASK) & (~((phys_addr_t) 0xfff))) | pageOffset;
 		pte_unmap(pte);
 		return pa;
 	}
@@ -568,8 +519,7 @@ static phys_addr_t memtest_user_v2p(unsigned long va)
 	return 0;
 }
 
-static long test_v2p_ioctl(struct file *file,
-	unsigned int cmd, unsigned long arg)
+static long test_v2p_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	unsigned long long va = 0x0L;
 	phys_addr_t pa = 0x0L;
@@ -622,10 +572,7 @@ static void mmap_mem_close(struct vm_area_struct *vma)
 	struct memtest_client *client;
 	struct list_head *p;
 
-	/*
-	 *pr_info("%s(): 0x%lx~0x%lx pgoff=0x%lx %x\n", __func__,
-	 *		vma->vm_start, vma->vm_end, vma->vm_pgoff, size);
-	 */
+	/*pr_info("%s(): 0x%lx~0x%lx pgoff=0x%lx %x\n", __func__, vma->vm_start, vma->vm_end, vma->vm_pgoff, size);*/
 
 	mutex_lock(&test_client_mutex);
 	list_for_each(p, &test_client) {
@@ -649,8 +596,7 @@ static const struct vm_operations_struct mmap_mem_ops = {
 #endif
 };
 
-static ssize_t test_mem_read(struct file *file,
-	char __user *user_buf, size_t len, loff_t *offset)
+static ssize_t test_mem_read(struct file *file, char __user *user_buf, size_t len, loff_t *offset)
 {
 	static char buf[32];
 	unsigned long rank = (unsigned long) file->private_data;
@@ -666,8 +612,7 @@ static ssize_t test_mem_read(struct file *file,
 		sz = &memtest_rank1_size;
 	}
 
-	size = snprintf(buf, sizeof(buf), "0x%lx 0x%x\n", (unsigned long) *addr,
-			(unsigned int) *sz);
+	size = snprintf(buf, sizeof(buf), "0x%lx 0x%x\n", (unsigned long) *addr, (unsigned int) *sz);
 
 	return simple_read_from_buffer(user_buf, len, offset, buf, size);
 }
@@ -696,7 +641,7 @@ static int test_mem_mmap(struct file *file, struct vm_area_struct *vma)
 	mutex_lock(lock);
 
 
-	/* pr_info("%s(0): pgoff=0x%lx 0x%lx %lu\n", __func__, */
+	/* pr_err("%s(0): pgoff=0x%lx 0x%lx %lu\n", __func__, */
 	/* vma->vm_pgoff, size, (unsigned long) file->private_data); */
 
 	if (((vma->vm_pgoff << PAGE_SHIFT) + size) >= *sz) {
@@ -706,7 +651,7 @@ static int test_mem_mmap(struct file *file, struct vm_area_struct *vma)
 
 	pfn = *addr >> PAGE_SHIFT;
 	vma->vm_pgoff += pfn;
-	/* pr_info("%s(1): pgoff=0x%lx 0x%lx %lu\n", __func__, */
+	/* pr_err("%s(1): pgoff=0x%lx 0x%lx %lu\n", __func__, */
 	/* vma->vm_pgoff, size, (unsigned long) file->private_data); */
 
 	if (!valid_mmap_phys_addr_range(vma->vm_pgoff, size)) {
@@ -771,75 +716,64 @@ static int __init dram_memtest_interface_init(void)
 
 	get_emi_base = (void __iomem *)symbol_get(mt_emi_base_get);
 	if (get_emi_base == NULL) {
-		pr_info("%s: mt_emi_base_get is NULL\n", __func__);
+		pr_err("%s: mt_emi_base_get is NULL\n", __func__);
 		return -1;
 	}
 
 	emi_base = get_emi_base();
 	if (emi_base == NULL) {
-		pr_info("%s: can't find EMI base\n", __func__);
+		pr_err("%s: can't find EMI base\n", __func__);
 		return -1;
 	}
 
 	memtest_dir = debugfs_create_dir("memtest", NULL);
 	if (!memtest_dir) {
-		pr_info("%s: create dir fail\n", __func__);
+		pr_err("%s: create dir fail\n", __func__);
 		return -1;
 	}
 
-	read_mr4 = debugfs_create_file("read_mr4", 0444,
+	read_mr4 = debugfs_create_file("read_mr4", S_IFREG | S_IRUGO,
 			memtest_dir, NULL, &read_mr4_fops);
 	if (!read_mr4) {
-		pr_info("%s: create read_mr4 interface fail\n", __func__);
+		pr_err("%s: create read_mr4 interface fail\n", __func__);
 		return -1;
 	}
 
-	read_mr5 = debugfs_create_file("read_mr5", 0444,
-			memtest_dir, NULL, &read_mr5_fops);
-	if (!read_mr5) {
-		pr_info("%s: create read_mr5 interface fail\n", __func__);
-		return -1;
-	}
-
-	read_dram_addr = debugfs_create_file("read_dram_addr",
-			0666,
+	read_dram_addr = debugfs_create_file("read_dram_addr", S_IFREG | S_IRUGO | S_IWUSR | S_IWGRP | S_IWOTH,
 			memtest_dir, NULL, &read_dram_addr_fops);
 	if (!read_dram_addr) {
-		pr_info("%s: create read_dram_addr interface fail\n", __func__);
+		pr_err("%s: create read_dram_addr interface fail\n", __func__);
 		return -1;
 	}
 
-	memtest_result = debugfs_create_file("result",
-			0666,
+	memtest_result = debugfs_create_file("result", S_IFREG | S_IRUGO | S_IWUSR | S_IWGRP | S_IWOTH,
 			memtest_dir, NULL, &test_result_fops);
 	if (!memtest_result) {
-		pr_info("%s: create result interface fail\n", __func__);
+		pr_err("%s: create result interface fail\n", __func__);
 		return -1;
 	}
 
-	memtest_v2p = debugfs_create_file("v2p", 0444,
+	memtest_v2p = debugfs_create_file("v2p", S_IFREG | S_IRUGO,
 			memtest_dir, NULL, &test_v2p_fops);
 	if (!memtest_v2p) {
-		pr_info("%s: create v2p interface fail\n", __func__);
+		pr_err("%s: create v2p interface fail\n", __func__);
 		return -1;
 	}
 
 	if (memtest_rank0_addr) {
-		memtest_mem0 = debugfs_create_file("mem0",
-				0666,
+		memtest_mem0 = debugfs_create_file("mem0", S_IFREG | S_IRUGO | S_IWUSR | S_IWGRP | S_IWOTH,
 				memtest_dir, (void *) 0, &test_mem_fops);
 		if (!memtest_mem0) {
-			pr_info("%s: create mem0 interface fail\n", __func__);
+			pr_err("%s: create mem0 interface fail\n", __func__);
 			return -1;
 		}
 	}
 
 	if (memtest_rank1_addr) {
-		memtest_mem1 = debugfs_create_file("mem1",
-				0666,
+		memtest_mem1 = debugfs_create_file("mem1", S_IFREG | S_IRUGO | S_IWUSR | S_IWGRP | S_IWOTH,
 				memtest_dir, (void *) 1, &test_mem_fops);
 		if (!memtest_mem1) {
-			pr_info("%s: create mem1 interface fail\n", __func__);
+			pr_err("%s: create mem1 interface fail\n", __func__);
 			return -1;
 		}
 	}
@@ -847,5 +781,6 @@ static int __init dram_memtest_interface_init(void)
 	return 0;
 }
 
+/* NOTE: must be called after aed driver initialized (i.e. must be later than arch_initcall) */
 late_initcall(dram_memtest_interface_init);
 #endif

@@ -30,7 +30,6 @@ extern const size_t g_vpu_prop_type_size[VPU_NUM_PROP_TYPES];
  * @ralgo:      return the created algo
  * @needload: need load algo tp dsp or not
  */
-int vpu_create_algo(int core, char *name, struct vpu_algo **ralgo,
-				bool needload);
+int vpu_create_algo(int core, char *name, struct vpu_algo **ralgo, bool needload);
 
 #endif

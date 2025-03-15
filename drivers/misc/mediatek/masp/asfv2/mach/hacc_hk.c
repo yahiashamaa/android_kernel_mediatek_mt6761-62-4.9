@@ -40,12 +40,17 @@ void HACC_V3_Init(bool encode, const unsigned int g_AC_CFG[])
 
 	unsigned int i, j;
 	const unsigned int *p1;
+	/* const unsigned int *p2; */
 	unsigned int acon_setting;
 
-	/* Power On HACC              */
+	/* -------------------------- */
+	/* Power On HACC               */
+	/* -------------------------- */
 	masp_hal_secure_algo_init();
 
+	/* -------------------------- */
 	/* Configuration              */
+	/* -------------------------- */
 
 	/* set little endian */
 	acon_setting = HACC_AES_CHG_BO_OFF;
@@ -62,23 +67,26 @@ void HACC_V3_Init(bool encode, const unsigned int g_AC_CFG[])
 	else
 		acon_setting |= HACC_AES_DEC;
 
+	/* -------------------------- */
+	/* Set Key                    */
+	/* -------------------------- */
+
 	/* clear key */
 	for (i = 0; i < 8; i++)
 		writel(0, (void *)(HACC_AKEY0 + 4 * i));
 
+	/* -------------------------- */
 	/* Generate META Key          */
+	/* -------------------------- */
 	writel(HACC_AES_CHG_BO_OFF | HACC_AES_128 | HACC_AES_CBC | HACC_AES_DEC,
-	       (void *)HACC_ACON);
+					(void *)HACC_ACON);
 
 	/* init ACONK
 	 * B2C: bind HUID/HUK to HACC
-	 */
+	*/
 	writel(HACC_AES_BK2C, (void *)HACC_ACONK);
-	/* enable R2K, so that output data is feedback to key
-	 * by HACC internal algorithm
-	 */
-	writel(readl((const void *)HACC_ACONK) | HACC_AES_R2K,
-	       (void *)HACC_ACONK);
+	/* enable R2K, so that output data is feedback to key by HACC internal algorithm */
+	writel(readl((const void *)HACC_ACONK) | HACC_AES_R2K, (void *)HACC_ACONK);
 
 	/* clear HACC_ASRC/HACC_ACFG/HACC_AOUT */
 	writel(HACC_AES_CLR, (void *)HACC_ACON2);
@@ -101,7 +109,9 @@ void HACC_V3_Init(bool encode, const unsigned int g_AC_CFG[])
 			;
 	}
 
-	/* Set CFG */
+	/* -------------------------- */
+	/* Set CFG                     */
+	/* -------------------------- */
 
 	/* clear HACC_ASRC/HACC_ACFG/HACC_AOUT */
 	writel(HACC_AES_CLR, (void *)HACC_ACON2);
@@ -134,10 +144,8 @@ void HACC_V3_Run(unsigned int *p_src, unsigned int src_len, unsigned int *p_dst)
 		while (0 == (readl((const void *)HACC_ACON2) & HACC_AES_RDY))
 			;
 		/* read out data */
-		for (j = 0; j < 4; j++) {
-			writel(readl((const void *)(HACC_AOUT0 + 4 * j)),
-			       (void *)(p_dst + j));
-		}
+		for (j = 0; j < 4; j++)
+			writel(readl((const void *)(HACC_AOUT0 + 4 * j)), (void *)(p_dst + j));
 	}
 }
 
@@ -148,6 +156,9 @@ void HACC_V3_Terminate(void)
 	/* clear HACC_ASRC/HACC_ACFG/HACC_AOUT */
 	writel(HACC_AES_CLR, (void *)HACC_ACON2);
 
+	/* -------------------------- */
+	/* Clear Key                  */
+	/* -------------------------- */
 	/* clear key */
 	for (i = 0; i < 8; i++)
 		writel(0, (void *)(HACC_AKEY0 + 4 * i));

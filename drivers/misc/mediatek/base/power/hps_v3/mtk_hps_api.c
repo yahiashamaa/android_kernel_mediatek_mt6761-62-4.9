@@ -41,16 +41,14 @@ static unsigned char iccs_target_power_state_bitmask;
  * hps set PPM request
  */
 
-int hps_set_PPM_request(unsigned int little_min, unsigned int little_max,
-	unsigned int big_min, unsigned int big_max)
+int hps_set_PPM_request(unsigned int little_min, unsigned int little_max, unsigned int big_min,
+			unsigned int big_max)
 {
 	if (hps_ctxt.init_state != INIT_STATE_DONE)
 		return -1;
-	if ((little_min > num_possible_little_cpus()) ||
-	(little_max > num_possible_little_cpus()))
+	if ((little_min > num_possible_little_cpus()) || (little_max > num_possible_little_cpus()))
 		return -1;
-	if ((big_min > num_possible_big_cpus()) ||
-	(big_max > num_possible_big_cpus()))
+	if ((big_min > num_possible_big_cpus()) || (big_max > num_possible_big_cpus()))
 		return -1;
 
 	mutex_lock(&hps_ctxt.lock);
@@ -67,8 +65,7 @@ int hps_set_PPM_request(unsigned int little_min, unsigned int little_max,
 /*
  * hps cpu num base
  */
-int hps_set_cpu_num_base(enum hps_base_type_e type, unsigned int little_cpu,
-	unsigned int big_cpu)
+int hps_set_cpu_num_base(enum hps_base_type type, unsigned int little_cpu, unsigned int big_cpu)
 {
 	unsigned int num_online;
 
@@ -81,12 +78,10 @@ int hps_set_cpu_num_base(enum hps_base_type_e type, unsigned int little_cpu,
 		if (little_cpu > num_possible_little_cpus())
 			return -1;
 	} else {
-		if ((little_cpu > num_possible_little_cpus()) ||
-		(little_cpu < 1))
+		if ((little_cpu > num_possible_little_cpus()) || (little_cpu < 1))
 			return -1;
 	}
-	if ((hps_ctxt.is_hmp || hps_ctxt.is_amp) &&
-	(big_cpu > num_possible_big_cpus()))
+	if ((hps_ctxt.is_hmp || hps_ctxt.is_amp) && (big_cpu > num_possible_big_cpus()))
 		return -1;
 
 	/* XXX: check mutex lock or not? use hps_ctxt.lock! */
@@ -110,8 +105,7 @@ int hps_set_cpu_num_base(enum hps_base_type_e type, unsigned int little_cpu,
 		num_online = num_online_big_cpus();
 		if ((num_online < big_cpu) &&
 		    (num_online <
-		     min(hps_ctxt.big_num_limit_thermal,
-		     hps_ctxt.big_num_limit_low_battery))
+		     min(hps_ctxt.big_num_limit_thermal, hps_ctxt.big_num_limit_low_battery))
 		    && (num_online <
 			min(hps_ctxt.big_num_limit_ultra_power_saving,
 			    hps_ctxt.big_num_limit_power_serv))) {
@@ -123,9 +117,8 @@ int hps_set_cpu_num_base(enum hps_base_type_e type, unsigned int little_cpu,
 			     min(hps_ctxt.little_num_limit_thermal,
 				 hps_ctxt.little_num_limit_low_battery))
 			    && (num_online <
-				min(
-				hps_ctxt.little_num_limit_ultra_power_saving,
-				hps_ctxt.little_num_limit_power_serv))
+				min(hps_ctxt.little_num_limit_ultra_power_saving,
+				    hps_ctxt.little_num_limit_power_serv))
 			    && (num_online_cpus() < (little_cpu + big_cpu)))
 				hps_task_wakeup_nolock();
 		}
@@ -133,8 +126,7 @@ int hps_set_cpu_num_base(enum hps_base_type_e type, unsigned int little_cpu,
 		num_online = num_online_little_cpus();
 		if ((num_online < little_cpu) &&
 		    (num_online <
-		     min(hps_ctxt.little_num_limit_thermal,
-		     hps_ctxt.little_num_limit_low_battery))
+		     min(hps_ctxt.little_num_limit_thermal, hps_ctxt.little_num_limit_low_battery))
 		    && (num_online <
 			min(hps_ctxt.little_num_limit_ultra_power_saving,
 			    hps_ctxt.little_num_limit_power_serv))) {
@@ -147,8 +139,7 @@ int hps_set_cpu_num_base(enum hps_base_type_e type, unsigned int little_cpu,
 	return 0;
 }
 
-int hps_get_cpu_num_base(enum hps_base_type_e type,
-			 unsigned int *little_cpu_ptr,
+int hps_get_cpu_num_base(enum hps_base_type type, unsigned int *little_cpu_ptr,
 			 unsigned int *big_cpu_ptr)
 {
 	if (hps_ctxt.init_state != INIT_STATE_DONE)
@@ -179,8 +170,7 @@ int hps_get_cpu_num_base(enum hps_base_type_e type,
 /*
  * hps cpu num limit
  */
-int hps_set_cpu_num_limit(enum hps_limit_type_e type, unsigned int little_cpu,
-	unsigned int big_cpu)
+int hps_set_cpu_num_limit(enum hps_limit_type type, unsigned int little_cpu, unsigned int big_cpu)
 {
 	if (hps_ctxt.init_state != INIT_STATE_DONE)
 		return -1;
@@ -191,13 +181,11 @@ int hps_set_cpu_num_limit(enum hps_limit_type_e type, unsigned int little_cpu,
 		if (little_cpu > num_possible_little_cpus())
 			return -1;
 	} else {
-		if ((little_cpu > num_possible_little_cpus()) ||
-		(little_cpu < 1))
+		if ((little_cpu > num_possible_little_cpus()) || (little_cpu < 1))
 			return -1;
 	}
 
-	if ((hps_ctxt.is_hmp || hps_ctxt.is_amp) &&
-	(big_cpu > num_possible_big_cpus()))
+	if ((hps_ctxt.is_hmp || hps_ctxt.is_amp) && (big_cpu > num_possible_big_cpus()))
 		return -1;
 
 	mutex_lock(&hps_ctxt.lock);
@@ -247,8 +235,7 @@ int hps_set_cpu_num_limit(enum hps_limit_type_e type, unsigned int little_cpu,
 	return 0;
 }
 
-int hps_get_cpu_num_limit(enum hps_limit_type_e type,
-			  unsigned int *little_cpu_ptr,
+int hps_get_cpu_num_limit(enum hps_limit_type type, unsigned int *little_cpu_ptr,
 			  unsigned int *big_cpu_ptr)
 {
 	if (hps_ctxt.init_state != INIT_STATE_DONE)
@@ -307,8 +294,7 @@ int hps_get_tlp(unsigned int *tlp_ptr)
 /*
  * hps num_possible_cpus
  */
-int hps_get_num_possible_cpus(unsigned int *little_cpu_ptr,
-	unsigned int *big_cpu_ptr)
+int hps_get_num_possible_cpus(unsigned int *little_cpu_ptr, unsigned int *big_cpu_ptr)
 {
 	if (hps_ctxt.init_state != INIT_STATE_DONE)
 		return -1;
@@ -325,8 +311,7 @@ int hps_get_num_possible_cpus(unsigned int *little_cpu_ptr,
 /*
  * hps num_online_cpus
  */
-int hps_get_num_online_cpus(unsigned int *little_cpu_ptr,
-	unsigned int *big_cpu_ptr)
+int hps_get_num_online_cpus(unsigned int *little_cpu_ptr, unsigned int *big_cpu_ptr)
 {
 	if (hps_ctxt.init_state != INIT_STATE_DONE)
 		return -1;
@@ -450,8 +435,7 @@ int hps_get_iccs_pwr_status(int cluster)
 void iccs_cluster_on_off(int cluster, int state)
 {
 	if (state == 1) {
-		mt_cpufreq_set_iccs_frequency_by_cluster(1, cluster,
-		iccs_get_shared_cluster_freq());
+		mt_cpufreq_set_iccs_frequency_by_cluster(1, cluster, iccs_get_shared_cluster_freq());
 		switch (cluster) {
 		case 0:
 			/*1. Turn on ARM PLL*/
@@ -569,8 +553,7 @@ void iccs_enter_low_power_state(void)
 
 	iccs_cache_shared_state = iccs_get_curr_cache_shared_state();
 	/*
-	 * pr_notice("[%s] iccs_cache_shared_state: 0x%x\n",
-	 * __func__, iccs_cache_shared_state);
+	 * pr_err("[%s] iccs_cache_shared_state: 0x%x\n", __func__, iccs_cache_shared_state);
 	 */
 
 	while (iccs_cache_shared_state) {

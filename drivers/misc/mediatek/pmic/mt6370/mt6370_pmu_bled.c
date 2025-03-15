@@ -376,8 +376,7 @@ static inline int mt6370_pmu_bled_init_register(
 static inline int mt6370_pmu_bled_parse_initdata(
 	struct mt6370_pmu_bled_data *bled_data)
 {
-	struct mt6370_pmu_bled_platdata *pdata = dev_get_platdata(
-							bled_data->dev);
+	struct mt6370_pmu_bled_platdata *pdata = dev_get_platdata(bled_data->dev);
 	uint32_t bright = (pdata->max_bled_brightness << 8) / 255;
 
 	if (pdata->ext_en_pin) {
@@ -569,4 +568,13 @@ module_platform_driver(mt6370_pmu_bled);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MediaTek MT6370 PMU Bled");
-MODULE_VERSION("1.0.0_G");
+MODULE_VERSION("1.0.1_MTK");
+
+/*
+ * Version Note
+ * 1.0.1_MTK
+ * (1) Remove typedef
+ *
+ * 1.0.0_MTK
+ * (1) Initial Release
+ */

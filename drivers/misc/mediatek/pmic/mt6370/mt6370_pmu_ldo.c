@@ -90,7 +90,7 @@ static void mt6370_pmu_ldo_irq_register(struct platform_device *pdev)
 }
 
 static int mt6370_ldo_list_voltage(struct regulator_dev *rdev,
-		unsigned int selector)
+		unsigned selector)
 {
 	int vout = 0;
 
@@ -101,7 +101,7 @@ static int mt6370_ldo_list_voltage(struct regulator_dev *rdev,
 }
 
 static int mt6370_ldo_set_voltage_sel(
-		struct regulator_dev *rdev, unsigned int selector)
+		struct regulator_dev *rdev, unsigned selector)
 {
 	struct mt6370_pmu_ldo_data *info = rdev_get_drvdata(rdev);
 	const int count = rdev->desc->n_voltages;

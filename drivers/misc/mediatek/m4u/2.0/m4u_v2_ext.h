@@ -83,7 +83,7 @@ typedef struct {
 	struct list_head mvaList;
 } m4u_client_t;
 
-struct port_mva_info_t {
+typedef struct {
 	int eModuleID;
 	unsigned long va;
 	unsigned int BufSize;
@@ -93,32 +93,30 @@ struct port_mva_info_t {
 	unsigned int iova_start;
 	unsigned int iova_end;
 	unsigned int mva;
-};
+} port_mva_info_t;
 
 struct sg_table *m4u_create_sgtable(unsigned long va, unsigned int size);
 
-int m4u_alloc_mva_sg(struct port_mva_info_t *port_info,
+int m4u_alloc_mva_sg(port_mva_info_t *port_info,
 		struct sg_table *sg_table);
 
 int m4u_dealloc_mva_sg(int eModuleID,
-		       struct sg_table *sg_table,
-		       const unsigned int BufSize, const unsigned int MVA);
+						struct sg_table *sg_table,
+						const unsigned int BufSize,
+						const unsigned int MVA);
 int m4u_config_port_ext(M4U_PORT_STRUCT *pM4uPort);
 int m4u_mva_map_kernel(unsigned int mva, unsigned int size,
-		       unsigned long *map_va, unsigned int *map_size);
-int m4u_mva_unmap_kernel(unsigned int mva,
-	unsigned int size, unsigned long va);
+		unsigned long *map_va, unsigned int *map_size);
+int m4u_mva_unmap_kernel(unsigned int mva, unsigned int size, unsigned long va);
 
 typedef enum m4u_callback_ret {
 	M4U_CALLBACK_HANDLED,
 	M4U_CALLBACK_NOT_HANDLED,
 } m4u_callback_ret_t;
 
-typedef m4u_callback_ret_t(m4u_fault_callback_t) (int port, unsigned int mva,
-						  void *data);
-int m4u_register_fault_callback(int port, m4u_fault_callback_t *fn,
-				void *data);
+typedef m4u_callback_ret_t (m4u_fault_callback_t)(int port, unsigned int mva, void *data);
+int m4u_register_fault_callback(int port, m4u_fault_callback_t *fn, void *data);
 int m4u_unregister_fault_callback(int port);
-int m4u_enable_tf(int port, bool fgenable);
+int m4u_enable_tf(unsigned int port, bool fgenable);
 
 #endif

@@ -18,8 +18,8 @@
 
 #include "gz_ut.h"
 
-#define KREE_DEBUG(fmt...) pr_debug("[KREE]" fmt)
-#define KREE_ERR(fmt...) pr_debug("[KREE][ERR]" fmt)
+#define KREE_DEBUG(fmt...) pr_debug("[KREE]"fmt)
+#define KREE_ERR(fmt...) pr_debug("[KREE][ERR]"fmt)
 
 int dma_test(void *args)
 {
@@ -33,8 +33,7 @@ int dma_test(void *args)
 
 	KREE_DEBUG("[%s] start\n", __func__);
 
-	rv = sscanf((char *)args, "%c %d %d %d", &c, &stress, &repeat,
-		    &page_num);
+	rv = sscanf((char *)args, "%c %d %d %d", &c, &stress, &repeat, &page_num);
 	if (rv != 4) {
 		KREE_ERR("[%s] ===> sscanf Fail.\n", __func__);
 		return TZ_RESULT_ERROR_GENERIC;
@@ -42,8 +41,8 @@ int dma_test(void *args)
 
 	ret = KREE_CreateSession(GZ_ECHO_SRV_NAME, &ut_session_handle);
 	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("[%s] KREE_CreateSession() Fail. ret=0x%x\n", __func__,
-			 ret);
+		KREE_ERR("[%s] KREE_CreateSession() Fail. ret=0x%x\n",
+				__func__, ret);
 		return ret;
 	}
 
@@ -51,18 +50,17 @@ int dma_test(void *args)
 	param[0].value.a = (uint32_t)stress;
 	param[1].value.a = (uint32_t)repeat;
 	param[1].value.b = (uint32_t)page_num;
-	ret = KREE_TeeServiceCall(ut_session_handle, TZCMD_DMA_TEST, paramTypes,
-				  param);
+	ret = KREE_TeeServiceCall(ut_session_handle, TZCMD_DMA_TEST, paramTypes, param);
 	if (ret != TZ_RESULT_SUCCESS) {
 		KREE_ERR("[%s] ====> KREE_TeeServiceCall() Fail. ret=0x%x\n",
-			 __func__, ret);
+				__func__, ret);
 		return ret;
 	}
 
 	ret = KREE_CloseSession(ut_session_handle);
 	if (ret != TZ_RESULT_SUCCESS) {
 		KREE_ERR("[%s] ====> KREE_CloseSession() Fail. ret=0x%x\n",
-			 __func__, ret);
+				__func__, ret);
 		return ret;
 	}
 

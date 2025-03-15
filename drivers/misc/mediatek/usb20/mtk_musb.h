@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2015 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -17,27 +17,17 @@
 #ifdef CONFIG_OF
 extern struct musb *mtk_musb;
 
-#define USBPHY_READ8(offset) \
-	readb((void __iomem *)\
-		(((unsigned long)\
-		mtk_musb->xceiv->io_priv)+0x800+offset))
+#define USBPHY_READ8(offset)          readb((void __iomem *)(((unsigned long)mtk_musb->xceiv->io_priv)+0x800+offset))
 #define USBPHY_WRITE8(offset, value)  writeb(value, (void __iomem *)\
 		(((unsigned long)mtk_musb->xceiv->io_priv)+0x800+offset))
-#define USBPHY_SET8(offset, mask) \
-	USBPHY_WRITE8(offset, (USBPHY_READ8(offset)) | (mask))
-#define USBPHY_CLR8(offset, mask) \
-	USBPHY_WRITE8(offset, (USBPHY_READ8(offset)) & (~(mask)))
+#define USBPHY_SET8(offset, mask)     USBPHY_WRITE8(offset, (USBPHY_READ8(offset)) | (mask))
+#define USBPHY_CLR8(offset, mask)     USBPHY_WRITE8(offset, (USBPHY_READ8(offset)) & (~(mask)))
 
-#define USBPHY_READ32(offset) \
-	readl((void __iomem *)(((unsigned long)\
-		mtk_musb->xceiv->io_priv)+0x800+offset))
-#define USBPHY_WRITE32(offset, value) \
-	writel(value, (void __iomem *)\
+#define USBPHY_READ32(offset)          readl((void __iomem *)(((unsigned long)mtk_musb->xceiv->io_priv)+0x800+offset))
+#define USBPHY_WRITE32(offset, value)  writel(value, (void __iomem *)\
 		(((unsigned long)mtk_musb->xceiv->io_priv)+0x800+offset))
-#define USBPHY_SET32(offset, mask) \
-	USBPHY_WRITE32(offset, (USBPHY_READ32(offset)) | (mask))
-#define USBPHY_CLR32(offset, mask) \
-	USBPHY_WRITE32(offset, (USBPHY_READ32(offset)) & (~(mask)))
+#define USBPHY_SET32(offset, mask)     USBPHY_WRITE32(offset, (USBPHY_READ32(offset)) | (mask))
+#define USBPHY_CLR32(offset, mask)     USBPHY_WRITE32(offset, (USBPHY_READ32(offset)) & (~(mask)))
 
 #ifdef MTK_UART_USB_SWITCH
 #define UART2_BASE 0x11003000
@@ -47,23 +37,15 @@ extern struct musb *mtk_musb;
 
 #include <mach/mt_reg_base.h>
 
-#define USBPHY_READ8(offset) \
-		readb((void __iomem *)(USB_SIF_BASE+0x800+offset))
-#define USBPHY_WRITE8(offset, value) \
-		writeb(value, (void __iomem *)(USB_SIF_BASE+0x800+offset))
-#define USBPHY_SET8(offset, mask) \
-	USBPHY_WRITE8(offset, (USBPHY_READ8(offset)) | (mask))
-#define USBPHY_CLR8(offset, mask) \
-	USBPHY_WRITE8(offset, (USBPHY_READ8(offset)) & (~mask))
+#define USBPHY_READ8(offset)          readb((void __iomem *)(USB_SIF_BASE+0x800+offset))
+#define USBPHY_WRITE8(offset, value)  writeb(value, (void __iomem *)(USB_SIF_BASE+0x800+offset))
+#define USBPHY_SET8(offset, mask)     USBPHY_WRITE8(offset, (USBPHY_READ8(offset)) | (mask))
+#define USBPHY_CLR8(offset, mask)     USBPHY_WRITE8(offset, (USBPHY_READ8(offset)) & (~mask))
 
-#define USBPHY_READ32(offset) \
-		readl((void __iomem *)(USB_SIF_BASE+0x800+offset))
-#define USBPHY_WRITE32(offset, value) \
-		writel(value, (void __iomem *)(USB_SIF_BASE+0x800+offset))
-#define USBPHY_SET32(offset, mask) \
-		USBPHY_WRITE32(offset, (USBPHY_READ32(offset)) | (mask))
-#define USBPHY_CLR32(offset, mask) \
-		USBPHY_WRITE32(offset, (USBPHY_READ32(offset)) & (~mask))
+#define USBPHY_READ32(offset)          readl((void __iomem *)(USB_SIF_BASE+0x800+offset))
+#define USBPHY_WRITE32(offset, value)  writel(value, (void __iomem *)(USB_SIF_BASE+0x800+offset))
+#define USBPHY_SET32(offset, mask)     USBPHY_WRITE32(offset, (USBPHY_READ32(offset)) | (mask))
+#define USBPHY_CLR32(offset, mask)     USBPHY_WRITE32(offset, (USBPHY_READ32(offset)) & (~mask))
 
 #endif
 struct musb;
@@ -75,7 +57,6 @@ enum usb_state_enum {
 };
 
 /* USB phy and clock */
-extern bool usb_pre_clock(bool enable);
 extern void usb_phy_poweron(void);
 extern void usb_phy_recover(void);
 extern void usb_phy_savecurrent(void);
@@ -111,6 +92,8 @@ extern void mt_usb_iddig_int(struct musb *musb);
 extern void switch_int_to_device(struct musb *musb);
 extern void switch_int_to_host(struct musb *musb);
 extern void switch_int_to_host_and_mask(struct musb *musb);
+extern void musb_disable_host(struct musb *musb);
+extern void musb_enable_host(struct musb *musb);
 extern void musb_session_restart(struct musb *musb);
 #ifdef CONFIG_DUAL_ROLE_USB_INTF
 extern int mt_usb_dual_role_init(struct musb *musb);

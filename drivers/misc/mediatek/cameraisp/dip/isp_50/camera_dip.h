@@ -18,12 +18,10 @@
 
 #ifndef CONFIG_OF
 extern void mt_irq_set_sens(unsigned int irq, unsigned int sens);
-extern void mt_irq_set_polarity
-	(unsigned int irq, unsigned int polarity);
+extern void mt_irq_set_polarity(unsigned int irq, unsigned int polarity);
 #endif
 
-m4u_callback_ret_t DIP_M4U_TranslationFault_callback
-	(int port, unsigned int mva, void *data);
+m4u_callback_ret_t DIP_M4U_TranslationFault_callback(int port, unsigned int mva, void *data);
 
 /**
  * enforce kernel log enable
@@ -32,31 +30,28 @@ m4u_callback_ret_t DIP_M4U_TranslationFault_callback
 #define ISR_LOG_ON
 
 #define SIG_ERESTARTSYS 512
-/**************************************************************
+/*******************************************************************************
  *
- **************************************************************/
+ ********************************************************************************/
 #define DIP_DEV_MAJOR_NUMBER    251
 #define DIP_MAGIC               'D'
 
 /*Chip Dependent Constanct*/
 #define DIP_IMGSYS_BASE_HW   0x15020000
 #define DIP_A_BASE_HW   0x15022000
-/*PAGE_SIZE*6 = 4096*6 <=dependent on device tree setting */
-#define DIP_REG_RANGE           (0x6000)
+#define DIP_REG_RANGE           (0x6000) /*PAGE_SIZE*6 = 4096*6 <=dependent on device tree setting */
 
 #define MAX_TILE_TOT_NO (256)
 #define MAX_ISP_DUMP_HEX_PER_TILE (256)
 #define MAX_ISP_TILE_TDR_HEX_NO (MAX_TILE_TOT_NO*MAX_ISP_DUMP_HEX_PER_TILE)
+/*(GET_MAX_CQ_DESCRIPTOR_SIZE()/ISP_DIP_CQ_DUMMY_BUFFER+1)*ISP_DIP_CQ_DUMMY_BUFFER;*/
 #define MAX_DIP_CMDQ_BUFFER_SIZE (0x1000)
 
 /* 0xffff0000 chip dependent, sizeof = 256x256 = 0x10000 */
 #define DIP_TDRI_ADDR_MASK       (0xffff0000)
 #define DIP_IMBI_BASEADDR_OFFSET (0x500>>2)
 #define DIP_DUMP_ADDR_MASK       (0xffffffff)
-
-/*0x15022214 -0x15022208 */
-/* DIP_A_CQ_THR1_BASEADDR-DIP_A_CQ_THR0_BASEADDR  */
-#define DIP_CMDQ_BASEADDR_OFFSET (12)
+#define DIP_CMDQ_BASEADDR_OFFSET (12) /*0x15022214 -0x15022208, DIP_A_CQ_THR1_BASEADDR-DIP_A_CQ_THR0_BASEADDR  */
 
 
 /* In order with the suquence of device nodes defined in dtsi */
@@ -88,7 +83,7 @@ enum DIP_IRQ_TYPE_ENUM {
 
 struct DIP_WAIT_IRQ_ST {
 	enum DIP_IRQ_CLEAR_ENUM Clear;
-	unsigned int Status;
+	unsigned int Status; /*ref. enum:ENUM_CAM_INT / ENUM_CAM_DMA_INT ...etc in dip_drv_stddef.h*/
 	int UserKey; /* user key for doing interrupt operation */
 	unsigned int Timeout;
 };
@@ -101,8 +96,7 @@ struct DIP_WAIT_IRQ_STRUCT {
 
 struct DIP_REGISTER_USERKEY_STRUCT {
 	int userKey;
-	/* this size must the same as the icamiopipe api - registerIrq(...) */
-	char userName[32];
+	char userName[32]; /* this size must the same as the icamiopipe api - registerIrq(...) */
 };
 
 struct DIP_CLEAR_IRQ_ST {
@@ -183,21 +177,14 @@ struct compat_DIP_MEM_INFO_STRUCT {
 
 
 /* struct for enqueue/dequeue control in ihalpipe wrapper */
-/* 0,signal that a specific buffer is enqueued */
-/* 1,a dequeue thread is waiting to do dequeue */
-/* 2,signal that a buffer is dequeued (success) */
-/* 3,signal that a buffer is dequeued (fail) */
-/* 4,wait for a specific buffer */
-/* 5,wake all slept users to check buffer is dequeued or not */
-/* 6,free all recored dequeued buffer */
 enum DIP_P2_BUFQUE_CTRL_ENUM {
-	DIP_P2_BUFQUE_CTRL_ENQUE_FRAME = 0,
-	DIP_P2_BUFQUE_CTRL_WAIT_DEQUE,
-	DIP_P2_BUFQUE_CTRL_DEQUE_SUCCESS,
-	DIP_P2_BUFQUE_CTRL_DEQUE_FAIL,
-	DIP_P2_BUFQUE_CTRL_WAIT_FRAME,
-	DIP_P2_BUFQUE_CTRL_WAKE_WAITFRAME,
-	DIP_P2_BUFQUE_CTRL_CLAER_ALL,
+	DIP_P2_BUFQUE_CTRL_ENQUE_FRAME = 0, /* 0,signal that a specific buffer is enqueued */
+	DIP_P2_BUFQUE_CTRL_WAIT_DEQUE, /* 1,a dequeue thread is waiting to do dequeue */
+	DIP_P2_BUFQUE_CTRL_DEQUE_SUCCESS, /* 2,signal that a buffer is dequeued (success) */
+	DIP_P2_BUFQUE_CTRL_DEQUE_FAIL, /* 3,signal that a buffer is dequeued (fail) */
+	DIP_P2_BUFQUE_CTRL_WAIT_FRAME, /* 4,wait for a specific buffer */
+	DIP_P2_BUFQUE_CTRL_WAKE_WAITFRAME, /* 5,wake all slept users to check buffer is dequeued or not */
+	DIP_P2_BUFQUE_CTRL_CLAER_ALL, /* 6,free all recored dequeued buffer */
 	DIP_P2_BUFQUE_CTRL_MAX
 };
 
@@ -211,8 +198,7 @@ struct DIP_P2_BUFQUE_STRUCT {
 	enum DIP_P2_BUFQUE_CTRL_ENUM ctrl;
 	enum DIP_P2_BUFQUE_PROPERTY property;
 	unsigned int processID; /* judge multi-process */
-	/* judge multi-thread and different buffer type */
-	unsigned int callerID;
+	unsigned int callerID; /* judge multi-thread and different kinds of buffer type */
 	int frameNum; /* total frame number in the enque request */
 	int cQIdx; /* cq index */
 	int dupCQIdx; /* dup cq index */
@@ -241,10 +227,13 @@ enum DIP_P2_BUFQUE_MATCH_TYPE {
 };
 
 
-/**************************************************************
+/********************************************************************************************
  *
- **************************************************************/
+ ********************************************************************************************/
 
+/*******************************************************************************
+ *
+ ********************************************************************************/
 enum DIP_CMD_ENUM {
 	DIP_CMD_RESET_BY_HWMODULE,
 	DIP_CMD_READ_REG, /* Read register from driver */
@@ -264,57 +253,36 @@ enum DIP_CMD_ENUM {
 };
 
 
-#define DIP_RESET_BY_HWMODULE \
-	_IOW(DIP_MAGIC, DIP_CMD_RESET_BY_HWMODULE, unsigned long)
+/* Everest reset ioctl */
+#define DIP_RESET_BY_HWMODULE    _IOW(DIP_MAGIC, DIP_CMD_RESET_BY_HWMODULE, unsigned long)
 
 /* read phy reg  */
-#define DIP_READ_REGISTER \
-	_IOWR(DIP_MAGIC, DIP_CMD_READ_REG, struct DIP_REG_IO_STRUCT)
+#define DIP_READ_REGISTER        _IOWR(DIP_MAGIC, DIP_CMD_READ_REG, struct DIP_REG_IO_STRUCT)
 
 /* write phy reg */
-#define DIP_WRITE_REGISTER \
-	_IOWR(DIP_MAGIC, DIP_CMD_WRITE_REG, struct DIP_REG_IO_STRUCT)
+#define DIP_WRITE_REGISTER       _IOWR(DIP_MAGIC, DIP_CMD_WRITE_REG, struct DIP_REG_IO_STRUCT)
 
-#define DIP_WAIT_IRQ \
-	_IOW(DIP_MAGIC, DIP_CMD_WAIT_IRQ, struct DIP_WAIT_IRQ_STRUCT)
-#define DIP_CLEAR_IRQ \
-	_IOW(DIP_MAGIC, DIP_CMD_CLEAR_IRQ, struct DIP_CLEAR_IRQ_STRUCT)
-#define DIP_FLUSH_IRQ_REQUEST \
-	_IOW(DIP_MAGIC, DIP_CMD_FLUSH_IRQ_REQUEST, struct DIP_WAIT_IRQ_STRUCT)
-#define DIP_DEBUG_FLAG \
-	_IOW(DIP_MAGIC, DIP_CMD_DEBUG_FLAG, unsigned char*)
-#define DIP_P2_BUFQUE_CTRL \
-	_IOWR(DIP_MAGIC, DIP_CMD_P2_BUFQUE_CTRL, struct DIP_P2_BUFQUE_STRUCT)
+#define DIP_WAIT_IRQ        _IOW(DIP_MAGIC, DIP_CMD_WAIT_IRQ,      struct DIP_WAIT_IRQ_STRUCT)
+#define DIP_CLEAR_IRQ       _IOW(DIP_MAGIC, DIP_CMD_CLEAR_IRQ,     struct DIP_CLEAR_IRQ_STRUCT)
+#define DIP_FLUSH_IRQ_REQUEST       _IOW(DIP_MAGIC, DIP_CMD_FLUSH_IRQ_REQUEST, struct DIP_WAIT_IRQ_STRUCT)
+#define DIP_DEBUG_FLAG      _IOW(DIP_MAGIC, DIP_CMD_DEBUG_FLAG,    unsigned char*)
+#define DIP_P2_BUFQUE_CTRL     _IOWR(DIP_MAGIC, DIP_CMD_P2_BUFQUE_CTRL, struct DIP_P2_BUFQUE_STRUCT)
 
-#define DIP_WAKELOCK_CTRL \
-	_IOWR(DIP_MAGIC, DIP_CMD_WAKELOCK_CTRL, unsigned long)
+#define DIP_WAKELOCK_CTRL           _IOWR(DIP_MAGIC, DIP_CMD_WAKELOCK_CTRL, unsigned long)
 
-#define DIP_DUMP_BUFFER \
-	_IOWR(DIP_MAGIC, DIP_CMD_DUMP_BUFFER, struct DIP_DUMP_BUFFER_STRUCT)
-#define DIP_GET_DUMP_INFO \
-	_IOWR(DIP_MAGIC, DIP_CMD_GET_DUMP_INFO, \
-	struct DIP_GET_DUMP_INFO_STRUCT)
-#define DIP_SET_MEM_INFO \
-	_IOWR(DIP_MAGIC, DIP_CMD_SET_MEM_INFO, struct DIP_MEM_INFO_STRUCT)
+#define DIP_DUMP_BUFFER             _IOWR(DIP_MAGIC, DIP_CMD_DUMP_BUFFER, struct DIP_DUMP_BUFFER_STRUCT)
+#define DIP_GET_DUMP_INFO           _IOWR(DIP_MAGIC, DIP_CMD_GET_DUMP_INFO, struct DIP_GET_DUMP_INFO_STRUCT)
+#define DIP_SET_MEM_INFO            _IOWR(DIP_MAGIC, DIP_CMD_SET_MEM_INFO, struct DIP_MEM_INFO_STRUCT)
 
 #ifdef CONFIG_COMPAT
-#define COMPAT_DIP_RESET_BY_HWMODULE \
-	_IOW(DIP_MAGIC, DIP_CMD_RESET_BY_HWMODULE, compat_uptr_t)
-#define COMPAT_DIP_READ_REGISTER \
-	_IOWR(DIP_MAGIC, DIP_CMD_READ_REG, struct compat_DIP_REG_IO_STRUCT)
-#define COMPAT_DIP_WRITE_REGISTER \
-	_IOWR(DIP_MAGIC, DIP_CMD_WRITE_REG, struct compat_DIP_REG_IO_STRUCT)
-#define COMPAT_DIP_DEBUG_FLAG \
-	_IOW(DIP_MAGIC, DIP_CMD_DEBUG_FLAG, compat_uptr_t)
+#define COMPAT_DIP_RESET_BY_HWMODULE _IOW(DIP_MAGIC, DIP_CMD_RESET_BY_HWMODULE, compat_uptr_t)
+#define COMPAT_DIP_READ_REGISTER    _IOWR(DIP_MAGIC, DIP_CMD_READ_REG,      struct compat_DIP_REG_IO_STRUCT)
+#define COMPAT_DIP_WRITE_REGISTER   _IOWR(DIP_MAGIC, DIP_CMD_WRITE_REG,     struct compat_DIP_REG_IO_STRUCT)
+#define COMPAT_DIP_DEBUG_FLAG      _IOW(DIP_MAGIC, DIP_CMD_DEBUG_FLAG,     compat_uptr_t)
 
-#define COMPAT_DIP_WAKELOCK_CTRL \
-	_IOWR(DIP_MAGIC, DIP_CMD_WAKELOCK_CTRL, compat_uptr_t)
-#define COMPAT_DIP_DUMP_BUFFER \
-	_IOWR(DIP_MAGIC, DIP_CMD_DUMP_BUFFER, \
-	struct compat_DIP_DUMP_BUFFER_STRUCT)
-#define COMPAT_DIP_SET_MEM_INFO \
-	_IOWR(DIP_MAGIC, DIP_CMD_SET_MEM_INFO, \
-	struct compat_DIP_MEM_INFO_STRUCT)
+#define COMPAT_DIP_WAKELOCK_CTRL    _IOWR(DIP_MAGIC, DIP_CMD_WAKELOCK_CTRL, compat_uptr_t)
+#define COMPAT_DIP_DUMP_BUFFER      _IOWR(DIP_MAGIC, DIP_CMD_DUMP_BUFFER, struct compat_DIP_DUMP_BUFFER_STRUCT)
+#define COMPAT_DIP_SET_MEM_INFO     _IOWR(DIP_MAGIC, DIP_CMD_SET_MEM_INFO, struct compat_DIP_MEM_INFO_STRUCT)
 
 #endif
 
@@ -324,10 +292,8 @@ int32_t DIP_MDPResetCallback(uint64_t engineFlag);
 
 int32_t DIP_MDPClockOffCallback(uint64_t engineFlag);
 
-int32_t DIP_BeginGCECallback
-	(uint32_t taskID, uint32_t *regCount, uint32_t **regAddress);
-int32_t DIP_EndGCECallback
-	(uint32_t taskID, uint32_t regCount, uint32_t *regValues);
+int32_t DIP_BeginGCECallback(uint32_t taskID, uint32_t *regCount, uint32_t **regAddress);
+int32_t DIP_EndGCECallback(uint32_t taskID, uint32_t regCount, uint32_t *regValues);
 
 #endif
 

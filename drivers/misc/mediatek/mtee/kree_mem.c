@@ -21,12 +21,12 @@
 /* #define DBG_KREE_MEM */
 
 /* notiec: handle type is the same */
-static inline int _allocFunc(uint32_t cmd, KREE_SESSION_HANDLE session,
+static inline TZ_RESULT _allocFunc(uint32_t cmd, KREE_SESSION_HANDLE session,
 				uint32_t *mem_handle, uint32_t alignment,
-				uint32_t size, const char *dbg, const char *tag)
+				uint32_t size, char *dbg, const char *tag)
 {
 	union MTEEC_PARAM p[4];
-	int ret;
+	TZ_RESULT ret;
 	int handle;
 
 	if ((session == 0) || (mem_handle == NULL) || (size == 0))
@@ -74,11 +74,11 @@ static inline int _allocFunc(uint32_t cmd, KREE_SESSION_HANDLE session,
 	return TZ_RESULT_SUCCESS;
 }
 
-static inline int _handleOpFunc(uint32_t cmd, KREE_SESSION_HANDLE session,
-				      uint32_t mem_handle, const char *dbg)
+static inline TZ_RESULT _handleOpFunc(uint32_t cmd, KREE_SESSION_HANDLE session,
+				      uint32_t mem_handle, char *dbg)
 {
 	union MTEEC_PARAM p[4];
-	int ret;
+	TZ_RESULT ret;
 
 	if ((session == 0) || (mem_handle == 0))
 		return TZ_RESULT_ERROR_BAD_PARAMETERS;
@@ -94,13 +94,13 @@ static inline int _handleOpFunc(uint32_t cmd, KREE_SESSION_HANDLE session,
 	return TZ_RESULT_SUCCESS;
 }
 
-static inline int _handleOpFunc_1(uint32_t cmd,
+static inline TZ_RESULT _handleOpFunc_1(uint32_t cmd,
 					KREE_SESSION_HANDLE session,
 					uint32_t mem_handle, uint32_t *count,
-					const char *dbg)
+					char *dbg)
 {
 	union MTEEC_PARAM p[4];
-	int ret;
+	TZ_RESULT ret;
 
 	if ((session == 0) || (mem_handle == 0) || (count == NULL))
 		return TZ_RESULT_ERROR_BAD_PARAMETERS;
@@ -122,13 +122,13 @@ static inline int _handleOpFunc_1(uint32_t cmd,
 }
 
 
-int kree_register_sharedmem(KREE_SESSION_HANDLE session,
+TZ_RESULT kree_register_sharedmem(KREE_SESSION_HANDLE session,
 					KREE_SHAREDMEM_HANDLE *mem_handle,
 					void *start, uint32_t size, void *map_p,
 					const char *tag)
 {
 	union MTEEC_PARAM p[4];
-	int ret;
+	TZ_RESULT ret;
 	struct shm_buffer_s shmbuf;
 
 	shmbuf.buffer = (unsigned long)start;
@@ -161,11 +161,11 @@ int kree_register_sharedmem(KREE_SESSION_HANDLE session,
 	return TZ_RESULT_SUCCESS;
 }
 
-int kree_unregister_sharedmem(KREE_SESSION_HANDLE session,
+TZ_RESULT kree_unregister_sharedmem(KREE_SESSION_HANDLE session,
 					KREE_SHAREDMEM_HANDLE mem_handle)
 {
 	union MTEEC_PARAM p[4];
-	int ret;
+	TZ_RESULT ret;
 
 	p[0].value.a = (uint32_t) mem_handle;
 	ret = KREE_TeeServiceCall(session, TZCMD_MEM_SHAREDMEM_UNREG,
@@ -174,13 +174,13 @@ int kree_unregister_sharedmem(KREE_SESSION_HANDLE session,
 }
 
 /* APIs
- */
-static int KREE_RegisterSharedmem_Helper(KREE_SESSION_HANDLE session,
+*/
+static TZ_RESULT KREE_RegisterSharedmem_Helper(KREE_SESSION_HANDLE session,
 					KREE_SHAREDMEM_HANDLE *shm_handle,
 					struct KREE_SHAREDMEM_PARAM *param,
 					const char *tag)
 {
-	int ret;
+	TZ_RESULT ret;
 
 	if ((session == 0) || (shm_handle == NULL) ||
 		(param->buffer == NULL) || (param->size == 0))
@@ -206,14 +206,14 @@ static int KREE_RegisterSharedmem_Helper(KREE_SESSION_HANDLE session,
 	return TZ_RESULT_SUCCESS;
 }
 
-int KREE_RegisterSharedmem(KREE_SESSION_HANDLE session,
+TZ_RESULT KREE_RegisterSharedmem(KREE_SESSION_HANDLE session,
 					KREE_SHAREDMEM_HANDLE *shm_handle,
 					struct KREE_SHAREDMEM_PARAM *param)
 {
 	return KREE_RegisterSharedmem_Helper(session, shm_handle, param, NULL);
 }
 
-int KREE_RegisterSharedmemWithTag(KREE_SESSION_HANDLE session,
+TZ_RESULT KREE_RegisterSharedmemWithTag(KREE_SESSION_HANDLE session,
 					KREE_SHAREDMEM_HANDLE *shm_handle,
 					struct KREE_SHAREDMEM_PARAM *param,
 					const char *tag)
@@ -221,72 +221,72 @@ int KREE_RegisterSharedmemWithTag(KREE_SESSION_HANDLE session,
 	return KREE_RegisterSharedmem_Helper(session, shm_handle, param, tag);
 }
 
-int KREE_UnregisterSharedmem(KREE_SESSION_HANDLE session,
+TZ_RESULT KREE_UnregisterSharedmem(KREE_SESSION_HANDLE session,
 					KREE_SHAREDMEM_HANDLE shm_handle)
 {
-	int ret;
+	TZ_RESULT ret;
 
 	if ((session == 0) || (shm_handle == 0))
 		return TZ_RESULT_ERROR_BAD_PARAMETERS;
 
 	ret = kree_unregister_sharedmem(session, shm_handle);
 	if (ret != TZ_RESULT_SUCCESS) {
-		pr_warn("[kree] %s Error: %d\n", __func__, ret);
+		pr_warn("[kree] KREE_UnregisterSharedmem Error: %d\n", ret);
 		return ret;
 	}
 
 	return TZ_RESULT_SUCCESS;
 }
 
-int KREE_AllocSecuremem(KREE_SESSION_HANDLE session,
+TZ_RESULT KREE_AllocSecuremem(KREE_SESSION_HANDLE session,
 				KREE_SECUREMEM_HANDLE *mem_handle,
 				uint32_t alignment, uint32_t size)
 {
-	int ret;
+	TZ_RESULT ret;
 
 	ret =
 	    _allocFunc(TZCMD_MEM_SECUREMEM_ALLOC, session, mem_handle,
-			alignment, size, __func__, NULL);
+			alignment, size, "KREE_AllocSecuremem", NULL);
 
 	return ret;
 }
 
-int KREE_AllocSecurememWithTag(KREE_SESSION_HANDLE session,
+TZ_RESULT KREE_AllocSecurememWithTag(KREE_SESSION_HANDLE session,
 				KREE_SECUREMEM_HANDLE *mem_handle,
 				uint32_t alignment, uint32_t size,
 				const char *tag)
 {
-	int ret;
+	TZ_RESULT ret;
 
 	ret =
 	    _allocFunc(TZCMD_MEM_SECUREMEM_ALLOC_WITH_TAG, session, mem_handle,
-			alignment, size, __func__, tag);
+			alignment, size, "KREE_AllocSecuremem", tag);
 
 	return ret;
 }
 
-int KREE_ZallocSecurememWithTag(KREE_SESSION_HANDLE session,
+TZ_RESULT KREE_ZallocSecurememWithTag(KREE_SESSION_HANDLE session,
 				KREE_SECUREMEM_HANDLE *mem_handle,
 				uint32_t alignment, uint32_t size,
 				const char *tag)
 {
-	int ret;
+	TZ_RESULT ret;
 
 	ret =
 	    _allocFunc(TZCMD_MEM_SECUREMEM_ZALLOC_WITH_TAG, session, mem_handle,
-			alignment, size, __func__, tag);
+			alignment, size, "KREE_ZallocSecuremem", tag);
 
 	return ret;
 }
 
-int KREE_ReferenceSecuremem(KREE_SESSION_HANDLE session,
+TZ_RESULT KREE_ReferenceSecuremem(KREE_SESSION_HANDLE session,
 					KREE_SECUREMEM_HANDLE mem_handle)
 {
-	int ret;
+	TZ_RESULT ret;
 
 	ret =
 	    _handleOpFunc(TZCMD_MEM_SECUREMEM_REF, session, mem_handle,
-				__func__);
+				"KREE_ReferenceSecuremem");
 
 #ifdef DBG_KREE_MEM
 	pr_debug("%s: handle=0x%x count=0x%x\n", __func__, mem_handle, count);
@@ -295,15 +295,15 @@ int KREE_ReferenceSecuremem(KREE_SESSION_HANDLE session,
 	return ret;
 }
 
-int KREE_UnreferenceSecuremem(KREE_SESSION_HANDLE session,
+TZ_RESULT KREE_UnreferenceSecuremem(KREE_SESSION_HANDLE session,
 					KREE_SECUREMEM_HANDLE mem_handle)
 {
-	int ret;
+	TZ_RESULT ret;
 	uint32_t count = 0;
 
 	ret =
 	    _handleOpFunc_1(TZCMD_MEM_SECUREMEM_UNREF, session, mem_handle,
-				&count, __func__);
+				&count, "KREE_UnreferenceSecuremem");
 #ifdef DBG_KREE_MEM
 	pr_debug("%s: handle=0x%x count=0x%x\n", __func__, mem_handle, count);
 #endif
@@ -311,56 +311,56 @@ int KREE_UnreferenceSecuremem(KREE_SESSION_HANDLE session,
 	return ret;
 }
 
-int KREE_AllocSecurechunkmem(KREE_SESSION_HANDLE session,
+TZ_RESULT KREE_AllocSecurechunkmem(KREE_SESSION_HANDLE session,
 					KREE_SECUREMEM_HANDLE *cm_handle,
 					uint32_t alignment,
 					uint32_t size)
 {
-	int ret;
+	TZ_RESULT ret;
 
 	ret =
 	    _allocFunc(TZCMD_MEM_SECURECM_ALLOC, session, cm_handle,
-			alignment, size, __func__, NULL);
+			alignment, size, "KREE_AllocSecurechunkmem", NULL);
 
 	return ret;
 }
 
-int KREE_AllocSecurechunkmemWithTag(KREE_SESSION_HANDLE session,
+TZ_RESULT KREE_AllocSecurechunkmemWithTag(KREE_SESSION_HANDLE session,
 					KREE_SECUREMEM_HANDLE *cm_handle,
 					uint32_t alignment,
 					uint32_t size, const char *tag)
 {
-	int ret;
+	TZ_RESULT ret;
 
 	ret =
 	    _allocFunc(TZCMD_MEM_SECURECM_ALLOC_WITH_TAG, session, cm_handle,
-			alignment, size, __func__, tag);
+			alignment, size, "KREE_AllocSecurechunkmem", tag);
 
 	return ret;
 }
 
-int KREE_ZallocSecurechunkmemWithTag(KREE_SESSION_HANDLE session,
+TZ_RESULT KREE_ZallocSecurechunkmemWithTag(KREE_SESSION_HANDLE session,
 					KREE_SECUREMEM_HANDLE *cm_handle,
 					uint32_t alignment,
 					uint32_t size, const char *tag)
 {
-	int ret;
+	TZ_RESULT ret;
 
 	ret =
 	    _allocFunc(TZCMD_MEM_SECURECM_ZALLOC_WITH_TAG, session, cm_handle,
-			alignment, size, __func__, tag);
+			alignment, size, "KREE_ZallocSecurechunkmem", tag);
 
 	return ret;
 }
 
-int KREE_ReferenceSecurechunkmem(KREE_SESSION_HANDLE session,
+TZ_RESULT KREE_ReferenceSecurechunkmem(KREE_SESSION_HANDLE session,
 					KREE_SECURECM_HANDLE cm_handle)
 {
-	int ret;
+	TZ_RESULT ret;
 
 	ret =
 	    _handleOpFunc(TZCMD_MEM_SECURECM_REF, session, cm_handle,
-			  __func__);
+			  "KREE_ReferenceSecurechunkmem");
 
 #ifdef DBG_KREE_MEM
 	pr_debug("%s: handle=0x%x\n", __func__, cm_handle);
@@ -368,15 +368,15 @@ int KREE_ReferenceSecurechunkmem(KREE_SESSION_HANDLE session,
 	return ret;
 }
 
-int KREE_UnreferenceSecurechunkmem(KREE_SESSION_HANDLE session,
+TZ_RESULT KREE_UnreferenceSecurechunkmem(KREE_SESSION_HANDLE session,
 					 KREE_SECURECM_HANDLE cm_handle)
 {
-	int ret;
+	TZ_RESULT ret;
 	uint32_t count = 0;
 
 	ret =
 	    _handleOpFunc_1(TZCMD_MEM_SECURECM_UNREF, session, cm_handle,
-				&count, __func__);
+				&count, "KREE_UnreferenceSecurechunkmem");
 #ifdef DBG_KREE_MEM
 	pr_debug("%s: handle=0x%x count=0x%x\n", __func__, cm_handle, count);
 #endif
@@ -384,11 +384,11 @@ int KREE_UnreferenceSecurechunkmem(KREE_SESSION_HANDLE session,
 	return ret;
 }
 
-int KREE_ReadSecurechunkmem(KREE_SESSION_HANDLE session, uint32_t offset,
+TZ_RESULT KREE_ReadSecurechunkmem(KREE_SESSION_HANDLE session, uint32_t offset,
 					uint32_t size, void *buffer)
 {
 	union MTEEC_PARAM p[4];
-	int ret;
+	TZ_RESULT ret;
 
 	if ((session == 0) || (size == 0))
 		return TZ_RESULT_ERROR_BAD_PARAMETERS;
@@ -403,18 +403,18 @@ int KREE_ReadSecurechunkmem(KREE_SESSION_HANDLE session, uint32_t offset,
 							TZPT_MEM_OUTPUT),
 					p);
 	if (ret != TZ_RESULT_SUCCESS) {
-		pr_warn("[kree] %s Error: %d\n", __func__, ret);
+		pr_warn("[kree] KREE_ReadSecurechunkmem Error: %d\n", ret);
 		return ret;
 	}
 
 	return TZ_RESULT_SUCCESS;
 }
 
-int KREE_WriteSecurechunkmem(KREE_SESSION_HANDLE session, uint32_t offset,
+TZ_RESULT KREE_WriteSecurechunkmem(KREE_SESSION_HANDLE session, uint32_t offset,
 					uint32_t size, void *buffer)
 {
 	union MTEEC_PARAM p[4];
-	int ret;
+	TZ_RESULT ret;
 
 	if ((session == 0) || (size == 0))
 		return TZ_RESULT_ERROR_BAD_PARAMETERS;
@@ -429,7 +429,7 @@ int KREE_WriteSecurechunkmem(KREE_SESSION_HANDLE session, uint32_t offset,
 							TZPT_MEM_INPUT),
 					p);
 	if (ret != TZ_RESULT_SUCCESS) {
-		pr_warn("[kree] %s Error: %d\n", __func__, ret);
+		pr_warn("[kree] KREE_WriteSecurechunkmem Error: %d\n", ret);
 		return ret;
 	}
 
@@ -437,17 +437,18 @@ int KREE_WriteSecurechunkmem(KREE_SESSION_HANDLE session, uint32_t offset,
 }
 
 
-int KREE_GetSecurechunkReleaseSize(KREE_SESSION_HANDLE session,
+TZ_RESULT KREE_GetSecurechunkReleaseSize(KREE_SESSION_HANDLE session,
 						uint32_t *size)
 {
 	union MTEEC_PARAM p[4];
-	int ret;
+	TZ_RESULT ret;
 
 	ret =
 	    KREE_TeeServiceCall(session, TZCMD_MEM_SECURECM_RSIZE,
 				TZ_ParamTypes1(TZPT_VALUE_OUTPUT), p);
 	if (ret != TZ_RESULT_SUCCESS) {
-		pr_warn("[kree] %s Error: %d\n", __func__, ret);
+		pr_warn("[kree] KREE_GetSecurechunkReleaseSize Error: %d\n",
+			ret);
 		return ret;
 	}
 
@@ -456,15 +457,15 @@ int KREE_GetSecurechunkReleaseSize(KREE_SESSION_HANDLE session,
 	return TZ_RESULT_SUCCESS;
 }
 
-int KREE_GetTEETotalSize(KREE_SESSION_HANDLE session, uint32_t *size)
+TZ_RESULT KREE_GetTEETotalSize(KREE_SESSION_HANDLE session, uint32_t *size)
 {
 	union MTEEC_PARAM p[4];
-	int ret;
+	TZ_RESULT ret;
 
 	ret = KREE_TeeServiceCall(session, TZCMD_MEM_TOTAL_SIZE,
 					TZ_ParamTypes1(TZPT_VALUE_OUTPUT), p);
 	if (ret != TZ_RESULT_SUCCESS) {
-		pr_warn("[kree] %s Error: %d\n", __func__, ret);
+		pr_warn("[kree] KREE_GetTEETotalSize Error: %d\n", ret);
 		return ret;
 	}
 

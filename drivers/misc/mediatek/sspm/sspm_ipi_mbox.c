@@ -1,14 +1,15 @@
 /*
  * Copyright (C) 2011-2015 MediaTek Inc.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License version 2 as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program.
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <linux/delay.h>
@@ -47,12 +48,9 @@ static int test_cnt;
 #ifdef IPI_MONITOR
 #define IPI_MONITOR_TIMESTAMP
 struct ipi_monitor {
-	/* 0: has no timestamp of t1/t2/t3 otherwise 1*/
-	unsigned int has_time: 1,
-	/* 0: no IPI, 1: t1 finished, 2: t2 finished, 3: t3 finished */
-		 state   : 2,
-	/* count of the IPI pin used */
-		 seqno   : 29;
+	unsigned int has_time: 1,    /* 0: has no timestamp of t1/t2/t3 otherwise 1*/
+				 state   : 2,    /* 0: no IPI, 1: t1 finished, 2: t2 finished, 3: t3 finished */
+				 seqno   : 29;   /* count of the IPI pin used */
 #ifdef IPI_MONITOR_TIMESTAMP
 	unsigned long long t0;
 	unsigned long long t4;
@@ -66,6 +64,8 @@ static spinlock_t lock_monitor;
 static int err_pin;
 static unsigned long long err_ts;
 #endif /* IPI_MONITOR_TIMESTAMP */
+
+
 static void ipi_monitor_dump_timeout(int mid, int opts)
 {
 	int i;
@@ -94,12 +94,12 @@ static void ipi_monitor_dump_timeout(int mid, int opts)
 	for (i = 0; i < IPI_ID_TOTAL; i++) {
 		if ((ipimon[i].state == 0) || (ipimon[i].state == 3))
 			pr_err("IPI %d: seqno=%d, state=%d, t0=%lld, t4=%lld, t5=%lld\n",
-				i, ipimon[i].seqno, ipimon[i].state,
-				ipimon[i].t0, ipimon[i].t4, ipimon[i].t5);
+					i, ipimon[i].seqno, ipimon[i].state,
+					ipimon[i].t0, ipimon[i].t4, ipimon[i].t5);
 		else
 			pr_err("IPI %d: seqno=%d, state_err=%d, t0=%lld, t4=%lld, t5=%lld\n",
-				i, ipimon[i].seqno, ipimon[i].state,
-				ipimon[i].t0, ipimon[i].t4, ipimon[i].t5);
+					i, ipimon[i].seqno, ipimon[i].state,
+					ipimon[i].t0, ipimon[i].t4, ipimon[i].t5);
 	}
 #else
 	for (i = 0; i < IPI_ID_TOTAL; i++) {
@@ -113,7 +113,9 @@ static void ipi_monitor_dump_timeout(int mid, int opts)
 #endif /* IPI_MONITOR_TIMESTAMP */
 	spin_unlock_irqrestore(&lock_monitor, flags);
 	pr_err("Error: SSPM IPI=%d timeout\n", mid);
+
 	sspm_ipi_timeout_cb(mid);
+
 	BUG_ON(1);
 }
 #endif
@@ -147,11 +149,9 @@ static void ipi_check_ack(int mid, int opts, int ret)
 			struct chk_data *pdata = test_table[mid].data;
 			int cnt = test_table[mid].test_cnt;
 
-			pdata[cnt].time_spent = ((unsigned int)
-				(cpu_clock(0)/1000) - test_table[mid].start_us);
+			pdata[cnt].time_spent = ((unsigned int)(cpu_clock(0)/1000) - test_table[mid].start_us);
 			if (retbuf)
-				pdata[cnt].ack_data_feedback =
-					*((unsigned int *)retbuf);
+				pdata[cnt].ack_data_feedback = *((unsigned int *)retbuf);
 			else
 				pdata[cnt].ack_data_feedback = 0;
 			test_table[mid].test_cnt++;
@@ -193,8 +193,7 @@ spinlock_t lock_polling[TOTAL_SEND_PIN];
 struct completion sema_ipi_task[TOTAL_RECV_PIN];
 struct mutex mutex_ipi_reg;
 static int sspm_ipi_inited;
-static unsigned int ipi_isr_cb(unsigned int mbox, void __iomem *base,
-	unsigned int irq);
+static unsigned int ipi_isr_cb(unsigned int mbox, void __iomem *base, unsigned int irq);
 
 int sspm_ipi_init(void)
 {
@@ -273,8 +272,7 @@ int sspm_ipi_recv_registration(int mid, struct ipi_action *act)
 }
 EXPORT_SYMBOL(sspm_ipi_recv_registration);
 
-int sspm_ipi_recv_registration_ex(int mid, spinlock_t *lock,
-	struct ipi_action *act)
+int sspm_ipi_recv_registration_ex(int mid, spinlock_t *lock, struct ipi_action *act)
 {
 	int ret = IPI_REG_OK;
 
@@ -324,8 +322,8 @@ int sspm_ipi_recv_unregistration(int mid)
 }
 EXPORT_SYMBOL(sspm_ipi_recv_unregistration);
 
-static void ipi_do_ack(struct _mbox_info *mbox, unsigned int in_irq,
-	void __iomem *base)
+
+static void ipi_do_ack(struct _mbox_info *mbox, unsigned int in_irq, void __iomem *base)
 {
 	/* executed from ISR */
 	int idx_end = mbox->end;
@@ -337,14 +335,11 @@ static void ipi_do_ack(struct _mbox_info *mbox, unsigned int in_irq,
 		if ((in_irq & 0x01) == 0x01) { /* irq bit enable */
 
 			atomic_inc(&lock_ack[i]);
-			/* check if pin user send in WAIT mode,
-			 * wait lock & continue if not
-			 */
+			/* check if pin user send in WAIT mode, wait lock & continue if not */
 			if (mutex_is_locked(&pin->mutex_send)) { /* WAIT mode */
 
 #ifdef GET_IPI_TIMESTAMP
-				if ((i == IPI_TS_TEST_PIN) &&
-					  (test_cnt < IPI_TS_TEST_MAX))
+				if ((i == IPI_TS_TEST_PIN) && (test_cnt < IPI_TS_TEST_MAX))
 					ipi_t4[test_cnt] = cpu_clock(0);
 #endif /* GET_IPI_TIMESTAMP */
 #ifdef IPI_MONITOR
@@ -361,8 +356,7 @@ static void ipi_do_ack(struct _mbox_info *mbox, unsigned int in_irq,
 	}
 }
 
-static int handle_action(struct ipi_action *action, void *mbox_addr,
-	int bytelen)
+static int handle_action(struct ipi_action *action, void *mbox_addr, int bytelen)
 {
 	/* if user has no data, just wakeup user without data */
 	if (action->data == NULL)
@@ -384,8 +378,7 @@ static int handle_action(struct ipi_action *action, void *mbox_addr,
 	return 1;
 }
 
-static void ipi_do_recv(struct _mbox_info *mbox, unsigned int in_irq,
-	void __iomem *base)
+static void ipi_do_recv(struct _mbox_info *mbox, unsigned int in_irq, void __iomem *base)
 {
 	/* executed from ISR */
 	/* get the value from INT_IRQ_x (MD32 side) or OUT_IRQ_0 (Linux side) */
@@ -406,9 +399,8 @@ static void ipi_do_recv(struct _mbox_info *mbox, unsigned int in_irq,
 			action = pin->act;
 			if (action != NULL) {
 				/* do the action */
-				ret = handle_action(action, (void *)
-					(base + (pin->slot * MBOX_SLOT_SIZE)),
-					pin->size * MBOX_SLOT_SIZE);
+				ret = handle_action(action, (void *)(base + (pin->slot * MBOX_SLOT_SIZE)),
+									pin->size * MBOX_SLOT_SIZE);
 				if (ret)
 					complete(&sema_ipi_task[i]);
 			}
@@ -535,15 +527,13 @@ int sspm_ipi_send_async_wait_ex(int mid, int opts, void *retbuf, int retslot)
 	}
 
 	if (lock == 0) { /* use completion */
-		wait_comp = wait_for_completion_timeout(&pin->comp_ack,
-							TIMEOUT_COMPLETE);
+		wait_comp = wait_for_completion_timeout(&pin->comp_ack, TIMEOUT_COMPLETE);
 		if ((wait_comp == 0) && (atomic_read(&lock_ack[mid]) == 0)) {
 			/* wait mode timeout */
 			ret = IPI_TIMEOUT_ACK;
 		} else {
 			if (retbuf)
-				memcpy_from_sspm(retbuf, pin->prdata,
-						(MBOX_SLOT_SIZE * retslot));
+				memcpy_from_sspm(retbuf, pin->prdata, (MBOX_SLOT_SIZE * retslot));
 		}
 		atomic_set(&lock_ack[mid], 0);
 	} else { /* use spin method */
@@ -553,16 +543,15 @@ int sspm_ipi_send_async_wait_ex(int mid, int opts, void *retbuf, int retslot)
 			int mbno = pin->mbox;
 			struct _mbox_info *mbox = &(mbox_table[mbno]);
 
-			ret = sspm_mbox_polling(mbno, mid - mbox->start,
-					pin->slot, retbuf, retslot, 2000);
+			ret = sspm_mbox_polling(mbno, mid - mbox->start, pin->slot,
+									retbuf, retslot, 2000);
 
 			if (ret == 0)
 				break;
 
 			if (atomic_read(&lock_ack[mid])) {
 				if (retbuf)
-					memcpy_from_sspm(retbuf, pin->prdata,
-						(MBOX_SLOT_SIZE * retslot));
+					memcpy_from_sspm(retbuf, pin->prdata, (MBOX_SLOT_SIZE * retslot));
 
 				ret = 0;
 				break;
@@ -630,9 +619,7 @@ int sspm_ipi_send_ack_ex(int mid, void *data, int retslot)
 	return 0;
 }
 
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #include <mtk_spm.h>
-#endif
 int sspm_ipi_send_sync(int mid, int opts, void *buffer, int slot,
 						   void *retbuf, int retslot)
 {
@@ -664,8 +651,7 @@ int sspm_ipi_send_sync(int mid, int opts, void *buffer, int slot,
 		if (mutex_is_locked(&pin->mutex_send)) {
 			spin_unlock_irqrestore(&lock_polling[mid], flags);
 			sspm_ipi_lock_spm_scenario(0, mid, opts, pin_name[mid]);
-			pr_err("Error: IPI pin=%d has been used in WAIT mode\n",
-				mid);
+			pr_err("Error: IPI pin=%d has been used in WAIT mode\n", mid);
 			BUG_ON(1);
 			return IPI_USED_IN_WAIT;
 		}
@@ -674,8 +660,7 @@ int sspm_ipi_send_sync(int mid, int opts, void *buffer, int slot,
 		/* Check if users call in atomic/interrupt/IRQ disabled */
 		if (preempt_count() || in_interrupt() || irqs_disabled()) {
 			pr_err("IPI panic: pin id=%d, atomic=%d, interrupt=%ld, irq disabled=%d\n",
-				mid, preempt_count(), in_interrupt(),
-				irqs_disabled());
+				  mid, preempt_count(), in_interrupt(), irqs_disabled());
 			BUG_ON(1);
 		}
 
@@ -715,16 +700,15 @@ int sspm_ipi_send_sync(int mid, int opts, void *buffer, int slot,
 		int retries = 2000000;
 
 		while (retries-- > 0) {
-			ret = sspm_mbox_polling(mbno, mid - mbox->start,
-					pin->slot, retbuf, retslot, 2000);
+			ret = sspm_mbox_polling(mbno, mid - mbox->start, pin->slot,
+							retbuf, retslot, 2000);
 
 			if (ret == 0)
 				break;
 
 			if (atomic_read(&lock_ack[mid])) {
 				if (retbuf)
-					memcpy_from_sspm(retbuf, pin->prdata,
-						(MBOX_SLOT_SIZE * retslot));
+					memcpy_from_sspm(retbuf, pin->prdata, (MBOX_SLOT_SIZE * retslot));
 
 				ret = 0;
 				break;
@@ -741,15 +725,13 @@ int sspm_ipi_send_sync(int mid, int opts, void *buffer, int slot,
 		spin_unlock_irqrestore(&lock_polling[mid], flags);
 
 	} else {                    /* WAIT mode */
-		wait_comp = wait_for_completion_timeout(&pin->comp_ack,
-							TIMEOUT_COMPLETE);
+		wait_comp = wait_for_completion_timeout(&pin->comp_ack, TIMEOUT_COMPLETE);
 		if ((wait_comp == 0) && (atomic_read(&lock_ack[mid]) == 0)) {
 			/* wait mode timeout */
 			ret = IPI_TIMEOUT_ACK;
 		} else {
 			if (retbuf)
-				memcpy_from_sspm(retbuf, pin->prdata,
-						(MBOX_SLOT_SIZE * retslot));
+				memcpy_from_sspm(retbuf, pin->prdata, (MBOX_SLOT_SIZE * retslot));
 
 		}
 		atomic_set(&lock_ack[mid], 0);
@@ -763,8 +745,7 @@ int sspm_ipi_send_sync(int mid, int opts, void *buffer, int slot,
 }
 EXPORT_SYMBOL(sspm_ipi_send_sync);
 
-static unsigned int ipi_isr_cb(unsigned int mbno, void __iomem *base,
-	unsigned int irq)
+static unsigned int ipi_isr_cb(unsigned int mbno, void __iomem *base, unsigned int irq)
 {
 	struct _mbox_info *mbox;
 

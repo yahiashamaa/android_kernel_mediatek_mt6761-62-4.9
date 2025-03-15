@@ -13,6 +13,8 @@
 
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi_bwl/$(MTK_PLATFORM)/
 
-obj-$(CONFIG_MTK_DRAMC) := dramc.o mtk_lastdramc.o mtk_memtest.o mtk_rshmoo.o
-obj-$(CONFIG_MTK_DRAMC) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+obj-$(CONFIG_MTK_DRAMC) := dramc.o mtk_lastdramc.o mtk_memtest.o
+
+obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/

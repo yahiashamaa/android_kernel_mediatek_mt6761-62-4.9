@@ -14,21 +14,21 @@
 #ifndef __MMPROFILE_STATIC_EVENT_H__
 #define __MMPROFILE_STATIC_EVENT_H__
 
-enum mmp_static_events {
+typedef enum {
 	MMP_INVALID_EVENT = 0,
 	MMP_ROOT_EVENT = 1,
 	/* User defined static events begin */
 	MMP_TOUCH_PANEL_EVENT,
 	/* User defined static events end. */
 	MMP_MAX_STATIC_EVENT
-};
+} mmp_static_events;
 
 #ifdef MMPROFILE_INTERNAL
-struct mmp_static_event_t {
-	enum mmp_static_events event;
+typedef struct {
+	mmp_static_events event;
 	char *name;
-	enum mmp_static_events parent;
-};
+	mmp_static_events parent;
+} mmp_static_event_t;
 #endif
 
 #endif

@@ -1,15 +1,17 @@
 /*
- * Copyright (C) 2016 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
- */
+* Copyright (C) 2011-2015 MediaTek Inc.
+*
+* This program is free software: you can redistribute it and/or modify it under the terms of the
+* GNU General Public License version 2 as published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+* without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See the GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License along with this program.
+* If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #include <linux/spinlock.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
@@ -45,6 +47,7 @@ irqreturn_t scp_A_irq_handler(int irq, void *dev_id)
 	/* if WDT and IPI triggered on the same time, ignore the IPI */
 	if (reg & SCP_IRQ_WDT) {
 		int retry;
+		unsigned long spin_flags;
 		unsigned long tmp;
 
 		scp_A_wdt_handler();
@@ -58,7 +61,9 @@ irqreturn_t scp_A_irq_handler(int irq, void *dev_id)
 		 * or SCP may lost INT max wait 5000*40u = 200ms
 		 */
 		for (retry = SCP_AWAKE_TIMEOUT; retry > 0; retry--) {
+			spin_lock_irqsave(&scp_awake_spinlock, spin_flags);
 			tmp = readl(SCP_GPR_CM4_A_REBOOT);
+			spin_unlock_irqrestore(&scp_awake_spinlock, spin_flags);
 			if (tmp == CM4_A_READY_TO_REBOOT)
 				break;
 			udelay(40);
@@ -73,7 +78,7 @@ irqreturn_t scp_A_irq_handler(int irq, void *dev_id)
 		writel(SCP_IRQ_SCP2HOST, SCP_A_TO_HOST_REG);
 	}
 #else
-	enum scp_excep_id reset_type;
+	scp_excep_id reset_type;
 	int reboot = 0;
 
 	if (reg & SCP_IRQ_WDT) {

@@ -15,26 +15,17 @@
 #include <linux/ioctl.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
-
-#include <mt-plat/mtk_smi.h>
 #include "smi_info_util.h"
 #include "smi_common.h"
 
-struct MTK_SMI_BWC_MM_INFO g_smi_bwc_mm_info = {
-	0, 0, {0, 0}, {0, 0}, {0, 0}, {0, 0}, 0, 0, 0,
-	SF_HWC_PIXEL_MAX_NORMAL
-};
-
-int smi_set_mm_info_ioctl_wrapper(struct file *pFile, unsigned int cmd,
-	unsigned long param)
+int smi_set_mm_info_ioctl_wrapper(struct file *pFile, unsigned int cmd, unsigned long param)
 {
 	int ret = 0;
 	struct MTK_SMI_BWC_INFO_SET cfg;
 
-	ret = copy_from_user(&cfg, (void *)param,
-		sizeof(struct MTK_SMI_BWC_INFO_SET));
+	ret = copy_from_user(&cfg, (void *)param, sizeof(struct MTK_SMI_BWC_INFO_SET));
 	if (ret) {
-		SMIMSG("IOC_SMI_BWC_INFO_SET, copy_to_user failed: %d\n", ret);
+		SMIMSG(" MTK_IOC_SMI_BWC_INFO_SET, copy_to_user failed: %d\n", ret);
 		return -EFAULT;
 	}
 	/* Set the address to the value assigned by user space program */
@@ -43,24 +34,25 @@ int smi_set_mm_info_ioctl_wrapper(struct file *pFile, unsigned int cmd,
 	return ret;
 }
 
-int smi_get_mm_info_ioctl_wrapper(struct file *pFile, unsigned int cmd,
-	unsigned long param)
+
+int smi_get_mm_info_ioctl_wrapper(struct file *pFile, unsigned int cmd, unsigned long param)
 {
 	int ret = 0;
 
-	ret = copy_to_user((void *)param, (void *)&g_smi_bwc_mm_info,
-		sizeof(struct MTK_SMI_BWC_MM_INFO));
+	ret = copy_to_user((void *)param, (void *)&g_smi_bwc_mm_info, sizeof(struct MTK_SMI_BWC_MM_INFO));
 
 	if (ret) {
-		SMIMSG("IOC_SMI_BWC_INFO_GET copy_to_user failed: %d\n", ret);
+		SMIMSG(" MTK_IOC_SMI_BWC_INFO_GET, copy_to_user failed: %d\n", ret);
 		return -EFAULT;
 	}
 	/* SMIMSG("Handle MTK_IOC_SMI_BWC_INFO_GET request... finish"); */
 	return ret;
 }
 
+
 void smi_bwc_mm_info_set(int property_id, long val1, long val2)
 {
+
 	switch (property_id) {
 	case SMI_BWC_INFO_CON_PROFILE:
 		g_smi_bwc_mm_info.concurrent_profile = (int)val1;
@@ -86,6 +78,19 @@ void smi_bwc_mm_info_set(int property_id, long val1, long val2)
 		break;
 	case SMI_BWC_INFO_VIDEO_ENCODE_CODEC:
 		g_smi_bwc_mm_info.video_encode_codec = (int)val1;
+#if defined(SMI_J)
+		/* AVC @ 60 needs HPM */
+		/*
+		 * if (g_smi_bwc_mm_info.video_encode_codec == 2) {
+		 * int is_smvr = 0;
+		 * spin_lock(&g_SMIInfo.SMI_lock);
+		 * is_smvr = g_SMIInfo.pu4ConcurrencyTable[SMI_BWC_SCEN_VR_SLOW] ? 1 : 0;
+		 * spin_unlock(&g_SMIInfo.SMI_lock);
+		 * if (is_smvr)
+		 * mmdvfs_notify_scenario_enter(SMI_BWC_SCEN_VR_SLOW);
+		 * }
+		 */
+#endif
 		break;
 	case SMI_BWC_INFO_VIDEO_DECODE_CODEC:
 		g_smi_bwc_mm_info.video_decode_codec = (int)val1;

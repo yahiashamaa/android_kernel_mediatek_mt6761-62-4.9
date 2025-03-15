@@ -18,8 +18,7 @@
 #include "sspm_ipi.h"
 
 
-static int ppm_ipi_to_sspm_command(unsigned char cmd,
-	struct ppm_ipi_data *data)
+static int ppm_ipi_to_sspm_command(unsigned char cmd, struct ppm_ipi_data *data)
 {
 	int ack_data = 0, ret = 0, i, opt;
 	ktime_t now;
@@ -35,19 +34,15 @@ static int ppm_ipi_to_sspm_command(unsigned char cmd,
 	case PPM_IPI_INIT:
 		data->cmd = cmd;
 
-		ppm_dbg(IPI,
-			"efuse_val=%d,cobra_tbl_addr=0x%x,dvfs_tbl_type=%d\n",
-			data->u.init.efuse_val,
-			data->u.init.cobra_tbl_addr,
-			data->u.init.dvfs_tbl_type);
+		ppm_dbg(IPI, "efuse_val = %d, cobra_tbl_addr = 0x%x, dvfs_tbl_type = %d\n",
+			data->u.init.efuse_val, data->u.init.cobra_tbl_addr, data->u.init.dvfs_tbl_type);
 
-		ret = sspm_ipi_send_sync(IPI_ID_PPM,
-			opt, data, PPM_D_LEN, &ack_data, 1);
+		ret = sspm_ipi_send_sync(IPI_ID_PPM, opt, data, PPM_D_LEN, &ack_data, 1);
 		if (ret != 0)
-			ppm_err("sspm_ipi_send_sync failed, ret=%d\n", ret);
+			ppm_err("@%s: sspm_ipi_send_sync failed, ret=%d\n", __func__, ret);
 		else if (ack_data < 0) {
 			ret = ack_data;
-			ppm_err("cmd(0x%x) return %d\n", cmd, ret);
+			ppm_err("@%s cmd(0x%x) return %d\n", __func__, cmd, ret);
 		}
 		break;
 
@@ -56,53 +51,46 @@ static int ppm_ipi_to_sspm_command(unsigned char cmd,
 
 		for_each_ppm_clusters(i) {
 			ppm_dbg(IPI, "cluster %d limit: (%d)(%d) (%d) (%d)\n",
-			i,
-			data->u.update_limit.cluster_limit[i].min_cpufreq_idx,
-			data->u.update_limit.cluster_limit[i].max_cpufreq_idx,
-			data->u.update_limit.cluster_limit[i].max_cpu_core,
-			data->u.update_limit.cluster_limit[i].advise_freq_idx
-			);
+				i, data->u.update_limit.cluster_limit[i].min_cpufreq_idx,
+				data->u.update_limit.cluster_limit[i].max_cpufreq_idx,
+				data->u.update_limit.cluster_limit[i].max_cpu_core,
+				data->u.update_limit.cluster_limit[i].advise_cpufreq_idx);
 		}
 
-		ret = sspm_ipi_send_sync(IPI_ID_PPM,
-			opt, data, PPM_D_LEN, &ack_data, 1);
+		ret = sspm_ipi_send_sync(IPI_ID_PPM, opt, data, PPM_D_LEN, &ack_data, 1);
 		if (ret != 0)
-			ppm_err("sspm_ipi_send_sync failed, ret=%d\n", ret);
+			ppm_err("@%s: sspm_ipi_send_sync failed, ret=%d\n", __func__, ret);
 		else if (ack_data < 0) {
 			ret = ack_data;
-			ppm_err("cmd(0x%x) return %d\n", cmd, ret);
+			ppm_err("@%s cmd(0x%x) return %d\n", __func__, cmd, ret);
 		}
 		break;
 
 	case PPM_IPI_THERMAL_LIMIT_TEST:
 		data->cmd = cmd;
 
-		ppm_dbg(IPI, "thermal test budget = %d\n",
-			data->u.thermal_limit_test.budget);
+		ppm_dbg(IPI, "thermal test budget = %d\n", data->u.thermal_limit_test.budget);
 
-		ret = sspm_ipi_send_sync(IPI_ID_PPM,
-			opt, data, PPM_D_LEN, &ack_data, 1);
+		ret = sspm_ipi_send_sync(IPI_ID_PPM, opt, data, PPM_D_LEN, &ack_data, 1);
 		if (ret != 0)
-			ppm_err("sspm_ipi_send_sync failed, ret=%d\n", ret);
+			ppm_err("@%s: sspm_ipi_send_sync failed, ret=%d\n", __func__, ret);
 		else if (ack_data < 0) {
 			ret = ack_data;
-			ppm_err("cmd(0x%x) return %d\n", cmd, ret);
+			ppm_err("@%s cmd(0x%x) return %d\n", __func__, cmd, ret);
 		}
 		break;
 
 	case PPM_IPI_PTPOD_TEST:
 		data->cmd = cmd;
 
-		ppm_dbg(IPI, "ptpod test activate=%d\n",
-			data->u.ptpod_test.activate);
+		ppm_dbg(IPI, "ptpod test activate = %d\n", data->u.ptpod_test.activate);
 
-		ret = sspm_ipi_send_sync(IPI_ID_PPM,
-			opt, data, PPM_D_LEN, &ack_data, 1);
+		ret = sspm_ipi_send_sync(IPI_ID_PPM, opt, data, PPM_D_LEN, &ack_data, 1);
 		if (ret != 0)
-			ppm_err("sspm_ipi_send_sync failed, ret=%d\n", ret);
+			ppm_err("@%s: sspm_ipi_send_sync failed, ret=%d\n", __func__, ret);
 		else if (ack_data < 0) {
 			ret = ack_data;
-			ppm_err("cmd(0x%x) return %d\n", cmd, ret);
+			ppm_err("@%s cmd(0x%x) return %d\n", __func__, cmd, ret);
 		}
 		break;
 
@@ -134,14 +122,10 @@ void ppm_ipi_update_limit(struct ppm_client_req req)
 	int i;
 
 	for (i = 0; i < req.cluster_num; i++) {
-		data.u.update_limit.cluster_limit[i].min_cpufreq_idx =
-			(char)req.cpu_limit[i].min_cpufreq_idx;
-		data.u.update_limit.cluster_limit[i].max_cpufreq_idx =
-			(char)req.cpu_limit[i].max_cpufreq_idx;
-		data.u.update_limit.cluster_limit[i].max_cpu_core =
-			(unsigned char)req.cpu_limit[i].max_cpu_core;
-		data.u.update_limit.cluster_limit[i].advise_freq_idx =
-			(req.cpu_limit[i].advise_cpufreq_idx < 0)
+		data.u.update_limit.cluster_limit[i].min_cpufreq_idx = (char)req.cpu_limit[i].min_cpufreq_idx;
+		data.u.update_limit.cluster_limit[i].max_cpufreq_idx = (char)req.cpu_limit[i].max_cpufreq_idx;
+		data.u.update_limit.cluster_limit[i].max_cpu_core = (unsigned char)req.cpu_limit[i].max_cpu_core;
+		data.u.update_limit.cluster_limit[i].advise_cpufreq_idx = (req.cpu_limit[i].advise_cpufreq_idx < 0)
 			? 0xFF : (char)req.cpu_limit[i].advise_cpufreq_idx;
 	}
 

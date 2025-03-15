@@ -19,6 +19,10 @@
 #include <linux/smp.h>
 #include <linux/topology.h>
 
+#ifdef CONFIG_MTK_CACHE_FLUSH_BY_SF
+#include <mtk_secure_api.h>
+#endif
+
 #include "cmo-mtk.h"
 
 void __attribute__((weak)) mt_fiq_cache_flush_all(void) {}
@@ -37,8 +41,7 @@ void __attribute__((weak)) mt_fiq_cache_flush_all(void) {}
  *     inner_dcache_flush_all();
  *     outer_flush_all();
  *     // Can touch the buffer from here.
- * If preemption occurs and the driver cannot guarantee
- * that no other process will touch the buffer,
+ * If preemption occurs and the driver cannot guarantee that no other process will touch the buffer,
  * the driver should use LOCK to protect this code segment.
  */
 
@@ -63,9 +66,23 @@ void inner_dcache_disable(void)
 	__disable_dcache();
 }
 
+#ifdef CONFIG_MTK_CACHE_FLUSH_BY_SF
+static DEFINE_SPINLOCK(cache_lock);
+
+static void mt_cache_flush_by_sf(void)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&cache_lock, flags);
+	trace_printk("[snoop] starts\n");
+	mt_secure_call(MTK_SIP_KERNEL_CACHE_FLUSH_BY_SF, 0, 0, 0);
+	trace_printk("[snoop] done\n");
+	spin_unlock_irqrestore(&cache_lock, flags);
+}
+#endif
+
 /*
- * smp_inner_dcache_flush_all:
- * Flush (clean + invalidate) the entire L1 data cache.
+ * smp_inner_dcache_flush_all: Flush (clean + invalidate) the entire L1 data cache.
  *
  * This can be used ONLY by the M4U driver!!
  * Other drivers should NOT use this function at all!!
@@ -78,16 +95,18 @@ void inner_dcache_disable(void)
  */
 void smp_inner_dcache_flush_all(void)
 {
-#ifdef CONFIG_MTK_FIQ_CACHE
+#if defined(CONFIG_MTK_FIQ_CACHE)
 	mt_fiq_cache_flush_all();
+	return;
+#elif defined(CONFIG_MTK_CACHE_FLUSH_BY_SF)
+	mt_cache_flush_by_sf();
+	return;
 #else
 	int i, total_core, cid, last_cid;
 	struct cpumask mask;
 
 	if (in_interrupt()) {
-		pr_notice
-			("Cannot invoke %s in interrupt/softirq context\n",
-				__func__);
+		pr_err("Cannot invoke smp_inner_dcache_flush_all() in interrupt/softirq context\n");
 		return;
 	}
 
@@ -160,7 +179,7 @@ static void *cache_flush_map_page_va(struct vm_struct *vm, struct page *page)
 
 	ret = map_vm_area(vm, PAGE_KERNEL, ppPage);
 	if (ret) {
-		pr_notice("error to map page (err %d)\n", ret);
+		pr_err("error to map page (err %d)\n", ret);
 		return NULL;
 	}
 	return vm->addr;
@@ -198,9 +217,7 @@ static void _smp_inner_dcache_flush_all(void)
 				cpumask_set_cpu(j, &mask);
 		}
 		online_cpu = cpumask_first_and(cpu_online_mask, &mask);
-		smp_call_function_single(online_cpu,
-					(smp_call_func_t) inner_dcache_flush_L2,
-					 NULL,
+		smp_call_function_single(online_cpu, (smp_call_func_t) inner_dcache_flush_L2, NULL,
 					 true);
 
 	}
@@ -212,15 +229,15 @@ static void _smp_inner_dcache_flush_all(void)
 	preempt_enable();
 }
 
-enum flush_state {
-	FAILED,
+enum {
+	FAILED = 0,
 	STARTING,
 	FLUSHING,
 	WAITING_FOR_OTHERS,
 };
 
 static struct scatterlist *sg_sync;
-static enum flush_state f_state;
+static int f_state;
 
 spinlock_t sg_flush_lock;
 spinlock_t smp_cache_flush_lock;
@@ -256,8 +273,7 @@ void _flush_sg_list(struct smp_sync_sg_list_arg *args)
 		}
 
 		if (sg_sync != NULL) {
-			npages_this_entry =
-				PAGE_ALIGN(sg_sync->length) / PAGE_SIZE;
+			npages_this_entry = PAGE_ALIGN(sg_sync->length) / PAGE_SIZE;
 			page = sg_page(sg_sync);
 		} else {
 			/* sg_sync == NULL when reaching the end of sg list */
@@ -274,13 +290,9 @@ void _flush_sg_list(struct smp_sync_sg_list_arg *args)
 			/* flush pages */
 			for (j = 0; j < npages_this_entry; j++) {
 				start = (unsigned long)
-					cache_flush_map_page_va
-					(cache_flush_vm_struct[this_cpu],
-						page++);
+					cache_flush_map_page_va(cache_flush_vm_struct[this_cpu], page++);
 				if (unlikely(IS_ERR_OR_NULL((void *) start))) {
-					pr_notice(
-				"[smp cache flush] cannot do cache sync: ret=%lu\n",
-							start);
+					pr_err("[smp cache flush] cannot do cache sync: ret=%lu\n", start);
 					args->ret_value = -EFAULT;
 					spin_lock(&sg_flush_lock);
 					f_state = FAILED;
@@ -289,14 +301,11 @@ void _flush_sg_list(struct smp_sync_sg_list_arg *args)
 				}
 
 				if (likely(ion_sync_kernel_func))
-					ion_sync_kernel_func(start,
-					PAGE_SIZE, sync_type);
+					ion_sync_kernel_func(start, PAGE_SIZE, sync_type);
 				else
-					pr_notice(
-				"[smp cache flush] ion_sync_kernel_func is NULL\n");
+					pr_err("[smp cache flush] ion_sync_kernel_func is NULL\n");
 
-				cache_flush_unmap_page_va
-					(cache_flush_vm_struct[this_cpu]);
+				cache_flush_unmap_page_va(cache_flush_vm_struct[this_cpu]);
 			}
 			/* atomic increment */
 			atomic_add(npages_this_entry, &nr_done_pages);
@@ -307,8 +316,7 @@ void _flush_sg_list(struct smp_sync_sg_list_arg *args)
 	} while (f_state == FLUSHING);
 }
 
-int smp_sync_cache_by_cpu_pool_ion(struct sg_table *table,
-					unsigned int sync_type, int npages)
+int smp_sync_cache_by_cpu_pool_ion(struct sg_table *table, unsigned int sync_type, int npages)
 {
 	struct smp_sync_sg_list_arg smp_call_args;
 	struct cpumask mask;
@@ -334,6 +342,7 @@ int smp_sync_cache_by_cpu_pool_ion(struct sg_table *table,
 	smp_call_args.sync_type = sync_type;
 	smp_call_args.ret_value = 0;
 
+	/* mask = {cpu_online_mask} - {the other online cpus with largest affinity} */
 	this_cpu = smp_processor_id();
 	cpumask_copy(&mask, cpu_online_mask);
 
@@ -343,8 +352,7 @@ int smp_sync_cache_by_cpu_pool_ion(struct sg_table *table,
 	if (largest_affinity_cpu != -1)
 		cpumask_clear_cpu(largest_affinity_cpu, &mask);
 
-	on_each_cpu_mask(&mask, (smp_call_func_t) _flush_sg_list,
-					(void *)&smp_call_args, false);
+	on_each_cpu_mask(&mask, (smp_call_func_t) _flush_sg_list, (void *)&smp_call_args, false);
 
 	/* this cpu waits for the flush complete before returns */
 	while ((atomic_read(&nr_done_pages) < npages) && (f_state != FAILED))
@@ -360,16 +368,14 @@ int smp_sync_cache_by_cpu_pool_ion(struct sg_table *table,
 	return smp_call_args.ret_value;
 }
 
-int mt_smp_cache_flush(struct sg_table *table, unsigned int sync_type,
-			int npages)
+int mt_smp_cache_flush(struct sg_table *table, unsigned int sync_type, int npages)
 {
 	int ret = -1;
 	bool get_lock = false;
 	long timeout = CACHE_FLUSH_TIMEOUT;
 
 	if (in_interrupt()) {
-		pr_notice(
-			"Cannot invoke mt_smp_cache_flush() in interrupt/softirq context\n");
+		pr_err("Cannot invoke mt_smp_cache_flush() in interrupt/softirq context\n");
 		return -EFAULT;
 	}
 
@@ -384,8 +390,7 @@ int mt_smp_cache_flush(struct sg_table *table, unsigned int sync_type,
 		return CACHE_FLUSH_BY_SETWAY;
 	}
 
-	ret = smp_sync_cache_by_cpu_pool_ion
-			(table, sync_type, npages);
+	ret = smp_sync_cache_by_cpu_pool_ion(table, sync_type, npages);
 	return (ret >= 0) ? CACHE_FLUSH_BY_MVA : ret;
 }
 EXPORT_SYMBOL(mt_smp_cache_flush);
@@ -421,12 +426,9 @@ void _flush_range(struct smp_sync_range_arg *args)
 			break;
 		case FLUSHING:
 			start = flush_range_head;
-			if (flush_range_head +
-				(NR_PAGES_PER_FLUSH * PAGE_SIZE) >
-					args->va_end) {
+			if (flush_range_head + (NR_PAGES_PER_FLUSH * PAGE_SIZE) > args->va_end) {
 				size = (NR_PAGES_PER_FLUSH * PAGE_SIZE);
-				flush_range_head +=
-					(NR_PAGES_PER_FLUSH * PAGE_SIZE);
+				flush_range_head += (NR_PAGES_PER_FLUSH * PAGE_SIZE);
 			} else {
 				size = args->va_end - flush_range_head;
 				flush_range_head = args->va_end + 1;
@@ -441,8 +443,7 @@ void _flush_range(struct smp_sync_range_arg *args)
 
 		switch (f_state) {
 		case FLUSHING:
-			if ((size == 0) || (start <= args->va_start)
-				|| (start > args->va_end))
+			if ((size == 0) || (start <= args->va_start) || (start > args->va_end))
 				break;
 #ifdef CONFIG_ARM64
 			__dma_flush_range((void *)start, (void *) start + size);
@@ -484,6 +485,7 @@ int smp_sync_cache_by_cpu_pool_m4u(const void *va, const unsigned long size)
 	smp_call_args.size = size;
 	smp_call_args.ret_value = 0;
 
+	/* mask = {cpu_online_mask} - {the other online cpus with largest affinity} */
 	this_cpu = smp_processor_id();
 	cpumask_copy(&mask, cpu_online_mask);
 
@@ -493,8 +495,7 @@ int smp_sync_cache_by_cpu_pool_m4u(const void *va, const unsigned long size)
 	if (largest_affinity_cpu != -1)
 		cpumask_clear_cpu(largest_affinity_cpu, &mask);
 
-	on_each_cpu_mask(&mask, (smp_call_func_t) _flush_range,
-				(void *)&smp_call_args, false);
+	on_each_cpu_mask(&mask, (smp_call_func_t) _flush_range, (void *)&smp_call_args, false);
 
 	/* this cpu waits for the flush complete before returns */
 	while ((atomic_read(&done_range) < size) && (f_state != FAILED))
@@ -516,8 +517,10 @@ int mt_smp_cache_flush_m4u(const void *va, const unsigned long size)
 	bool get_lock = false;
 	long timeout = CACHE_FLUSH_TIMEOUT;
 
-	if (in_interrupt())
+	if (in_interrupt()) {
+		pr_err("Cannot invoke mt_smp_cache_flush() in interrupt/softirq context\n");
 		return -EFAULT;
+	}
 
 	/* trylock for timeout nsec */
 	while (!(get_lock = try_get_online_cpus()) && (timeout-- > 0))

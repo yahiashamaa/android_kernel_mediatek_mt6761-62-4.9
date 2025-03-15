@@ -14,6 +14,13 @@
 #ifndef _MTK_CPUIDLE_PRIVATE_H_
 #define _MTK_CPUIDLE_PRIVATE_H_
 
+#define MAX_SPM_WAKEUP_SRC 5
+
+struct spm_wakeup_source {
+	int irq_nr;
+	int irq_pending;
+};
+
 unsigned long *aee_rr_rec_mtk_cpuidle_footprint_va(void);
 unsigned long *aee_rr_rec_mtk_cpuidle_footprint_pa(void);
 int request_uart_to_wakeup(void);
@@ -72,26 +79,26 @@ void __weak dpm_mcsi_mtcmos_on_flow(int on)
 #define NR_CPUIDLE_TS				20
 
 struct cpuidle_perf_time {
-	unsigned int count;
-	unsigned int kernel_plat_backup;
-	unsigned int kernel_to_atf;
-	unsigned int atf_setup;
-	unsigned int atf_l2_flush;
-	unsigned int atf_spm_suspend;
-	unsigned int atf_gic_backup;
-	unsigned int atf_plat_backup;
+	unsigned count;
+	unsigned kernel_plat_backup;
+	unsigned kernel_to_atf;
+	unsigned atf_setup;
+	unsigned atf_l2_flush;
+	unsigned atf_spm_suspend;
+	unsigned atf_gic_backup;
+	unsigned atf_plat_backup;
 
-	unsigned int atf_cpu_init;
-	unsigned int atf_gic_restore;
-	unsigned int atf_spm_suspend_finish;
-	unsigned int atf_plat_restore;
-	unsigned int atf_to_kernel;
-	unsigned int kernel_plat_restore;
+	unsigned atf_cpu_init;
+	unsigned atf_gic_restore;
+	unsigned atf_spm_suspend_finish;
+	unsigned atf_plat_restore;
+	unsigned atf_to_kernel;
+	unsigned kernel_plat_restore;
 
-	unsigned int k2atf;
-	unsigned int atf2wfi;
-	unsigned int wfi2k;
-	unsigned int k2leave;
+	unsigned k2atf;
+	unsigned atf2wfi;
+	unsigned wfi2k;
+	unsigned k2leave;
 };
 
 #endif

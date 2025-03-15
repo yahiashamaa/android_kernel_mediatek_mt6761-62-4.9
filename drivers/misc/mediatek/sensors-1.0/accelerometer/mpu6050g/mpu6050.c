@@ -258,7 +258,7 @@ static int mpu_i2c_write_block(struct i2c_client *client, u8 addr, u8 *data, u8 
 int MPU6050_hwmsen_read_block(u8 addr, u8 *buf, u8 len)
 {
 	if (mpu6050_i2c_client == NULL) {
-		GSE_ERR("%s null ptr!!\n", __func__);
+		GSE_ERR("MPU6050_hwmsen_read_block null ptr!!\n");
 		return -EINVAL;
 	}
 	return mpu_i2c_read_block(mpu6050_i2c_client, addr, buf, len);
@@ -268,7 +268,7 @@ EXPORT_SYMBOL(MPU6050_hwmsen_read_block);
 int MPU6050_hwmsen_write_block(u8 addr, u8 *buf, u8 len)
 {
 	if (mpu6050_i2c_client == NULL) {
-		GSE_ERR("%s null ptr!!\n", __func__);
+		GSE_ERR("MPU6050_hwmsen_write_block null ptr!!\n");
 		return -EINVAL;
 	}
 	return mpu_i2c_write_block(mpu6050_i2c_client, addr, buf, len);
@@ -593,7 +593,7 @@ static int MPU6050_CheckDeviceID(struct i2c_client *client)
 	if (res < 0)
 		goto exit_MPU6050_CheckDeviceID;
 
-	GSE_LOG("%s 0x%x\n", __func__, databuf[0]);
+	GSE_LOG("MPU6050_CheckDeviceID 0x%x\n", databuf[0]);
 exit_MPU6050_CheckDeviceID:
 	if (res < 0)
 		return res;
@@ -1346,14 +1346,14 @@ static ssize_t show_status_value(struct device_driver *ddri, char *buf)
 }
 
 /*----------------------------------------------------------------------------*/
-static DRIVER_ATTR(chipinfo, 0444, show_chipinfo_value, NULL);
-static DRIVER_ATTR(sensordata, 0444, show_sensordata_value, NULL);
-static DRIVER_ATTR(cali, 0644, show_cali_value, store_cali_value);
-static DRIVER_ATTR(self, 0644, show_selftest_value, store_selftest_value);
-static DRIVER_ATTR(selftest, 0644, show_self_value, store_self_value);
-static DRIVER_ATTR(firlen, 0644, show_firlen_value, store_firlen_value);
-static DRIVER_ATTR(trace, 0644, show_trace_value, store_trace_value);
-static DRIVER_ATTR(status, 0444, show_status_value, NULL);
+static DRIVER_ATTR(chipinfo, S_IRUGO, show_chipinfo_value, NULL);
+static DRIVER_ATTR(sensordata, S_IRUGO, show_sensordata_value, NULL);
+static DRIVER_ATTR(cali, S_IWUSR | S_IRUGO, show_cali_value, store_cali_value);
+static DRIVER_ATTR(self, S_IWUSR | S_IRUGO, show_selftest_value, store_selftest_value);
+static DRIVER_ATTR(selftest, S_IWUSR | S_IRUGO, show_self_value, store_self_value);
+static DRIVER_ATTR(firlen, S_IWUSR | S_IRUGO, show_firlen_value, store_firlen_value);
+static DRIVER_ATTR(trace, S_IWUSR | S_IRUGO, show_trace_value, store_trace_value);
+static DRIVER_ATTR(status, S_IRUGO, show_status_value, NULL);
 /*----------------------------------------------------------------------------*/
 static struct driver_attribute *mpu6050_attr_list[] = {
 	&driver_attr_chipinfo,	/*chip information */
@@ -1760,7 +1760,7 @@ static int mpu6050_suspend(struct device *dev)
 		GSE_ERR("write power control fail!!\n");
 		return err;
 	}
-	GSE_LOG("%s ok\n", __func__);
+	GSE_LOG("mpu6050_suspend ok\n");
 
 	return err;
 }
@@ -1785,7 +1785,7 @@ static int mpu6050_resume(struct device *dev)
 		return err;
 	}
 	atomic_set(&obj->suspend, 0);
-	GSE_LOG("%s ok\n", __func__);
+	GSE_LOG("mpu6050_resume ok\n");
 
 	return 0;
 }

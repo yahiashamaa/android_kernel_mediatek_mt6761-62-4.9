@@ -28,16 +28,12 @@
 #include "include/pmic_irq.h"
 #include "include/pmic_throttling_dlpt.h"
 #include "include/pmic_debugfs.h"
-#if defined(CONFIG_MTK_PMIC_WRAP_HAL)
 #include "pwrap_hal.h"
-#endif
+
 #ifdef CONFIG_MTK_AUXADC_INTF
 #include <mt-plat/mtk_auxadc_intf.h>
 #endif /* CONFIG_MTK_AUXADC_INTF */
 
-#if defined(CONFIG_MTK_EXTBUCK)
-#include "include/extbuck/fan53526.h"
-#endif
 
 static unsigned int vmd1_trim;
 
@@ -45,7 +41,7 @@ void vmd1_pmic_trim_setting(bool enable)
 {
 	unsigned int hwcid = pmic_get_register_value(PMIC_HWCID);
 
-	PMICLOG("%s HWCID: 0x%X\n", __func__, hwcid);
+	PMICLOG("vmd1_pmic_trim_setting HWCID: 0x%X\n", hwcid);
 	if (hwcid != 0x5520)
 		return;
 
@@ -55,15 +51,18 @@ void vmd1_pmic_trim_setting(bool enable)
 	/*Set Trim Value*/
 	if (enable) {
 		pmic_set_register_value(PMIC_RG_VMODEM_ZXOS_TRIM, vmd1_trim);
-		PMICLOG("%s OFF, zxos trim 0x%X, __func__, new_value: 0x%X\n"
-			, __func__, vmd1_trim, vmd1_trim);
+		PMICLOG("vmd1_pmic_trim_setting OFF, zxos trim 0x%X, new_value: 0x%X\n",
+			vmd1_trim,
+			vmd1_trim
+			);
 	} else {
 		unsigned int vmd1_trim_new = vmd1_trim+9;
 
-		pmic_set_register_value(
-				PMIC_RG_VMODEM_ZXOS_TRIM, vmd1_trim_new);
-		PMICLOG("%s ON, zxos trim 0x%X, new_value: 0x%X\n"
-			, __func__, vmd1_trim, vmd1_trim_new);
+		pmic_set_register_value(PMIC_RG_VMODEM_ZXOS_TRIM, vmd1_trim_new);
+		PMICLOG("vmd1_pmic_trim_setting ON, zxos trim 0x%X, new_value: 0x%X\n",
+			vmd1_trim,
+			vmd1_trim_new
+			);
 	}
 }
 
@@ -71,7 +70,7 @@ void vmd1_pmic_setting_on(void)
 {
 	unsigned int ret = 0;
 
-#if defined(CONFIG_MACH_MT6759) || defined(CONFIG_MACH_MT6758)
+#if defined(CONFIG_MACH_MT6759) || defined(CONFIG_MACH_MT6758) || defined(CONFIG_MACH_MT6775)
 	ret = pmic_buck_vmodem_lp(SRCLKEN0, 1, HW_LP);
 	ret = pmic_ldo_vsram_md_lp(SRCLKEN0, 1, HW_LP);
 	ret = pmic_buck_vmodem_lp(SRCLKEN2, 1, HW_LP);
@@ -84,44 +83,42 @@ void vmd1_pmic_setting_on(void)
 		return;
 
 #if defined(CONFIG_MACH_MT6759)
-	/* 1.configure VMODEM voltage as 0.75V (0.4+0.00625*step)*/
-	/* set to 0.75V */
-	ret = pmic_set_register_value(PMIC_RG_BUCK_VMODEM_VOSEL, 0x38);
-	/* 2.configure VSRAM_MD voltage as 0.88125V (0.51875+0.00625*step)*/
-	/* set to 0.88125V */
-	ret = pmic_set_register_value(PMIC_RG_LDO_VSRAM_MD_VOSEL, 0x3A);
+	/* 1.Call PMIC driver API configure VMODEM voltage as 0.75V (0.4+0.00625*step)*/
+	ret = pmic_set_register_value(PMIC_RG_BUCK_VMODEM_VOSEL, 0x38); /* set to 0.75V */
+	/* 2.Call PMIC driver API configure VSRAM_MD voltage as 0.88125V (0.51875+0.00625*step)*/
+	ret = pmic_set_register_value(PMIC_RG_LDO_VSRAM_MD_VOSEL, 0x3A); /* set to 0.88125V */
 #elif defined(CONFIG_MACH_MT6758)
-	/* 1.configure VMODEM voltage as 0.9V (0.4+0.00625*step)*/
-	/* set to 0.9V */
-	ret = pmic_set_register_value(PMIC_RG_BUCK_VMODEM_VOSEL, 0x50);
-	/* 2.configure VSRAM_MD voltage as 0.95V (0.51875+0.00625*step)*/
-	/* set to 0.95V */
-	ret = pmic_set_register_value(PMIC_RG_LDO_VSRAM_MD_VOSEL, 0x45);
+	/* 1.Call PMIC driver API configure VMODEM voltage as 0.9V (0.4+0.00625*step)*/
+	ret = pmic_set_register_value(PMIC_RG_BUCK_VMODEM_VOSEL, 0x50); /* set to 0.9V */
+	/* 2.Call PMIC driver API configure VSRAM_MD voltage as 0.95V (0.51875+0.00625*step)*/
+	ret = pmic_set_register_value(PMIC_RG_LDO_VSRAM_MD_VOSEL, 0x45); /* set to 0.95V */
+#elif defined(CONFIG_MACH_MT6775)
+	/* 2.Call PMIC driver API configure VSRAM_MD voltage as 0.975V (0.51875+0.00625*step)*/
+	ret = pmic_set_register_value(PMIC_RG_LDO_VSRAM_MD_VOSEL, 0x49); /* set to 0.975V */
+	/* 1.Call PMIC driver API configure VMODEM voltage as 0.925V (0.4+0.00625*step)*/
+	udelay(10);
+	ret = pmic_set_register_value(PMIC_RG_BUCK_VMODEM_VOSEL, 0x54); /* set to 0.925V */
 #else
-	/* 1.configure VMODEM voltage as 0.8V */
-	/* set to 0.8V */
-	ret = pmic_set_register_value(PMIC_RG_BUCK_VMODEM_VOSEL, 0x40);
-	/* 2.configure VSRAM_MD voltage as 0.93125V */
-	/* set to 0.93125V */
-	ret = pmic_set_register_value(PMIC_RG_LDO_VSRAM_MD_VOSEL, 0x42);
+	/* 1.Call PMIC driver API configure VMODEM voltage as 0.8V */
+	ret = pmic_set_register_value(PMIC_RG_BUCK_VMODEM_VOSEL, 0x40); /* set to 0.8V */
+	/* 2.Call PMIC driver API configure VSRAM_MD voltage as 0.93125V */
+	ret = pmic_set_register_value(PMIC_RG_LDO_VSRAM_MD_VOSEL, 0x42); /* set to 0.93125V */
 #endif
 
 	/* Apply new trim value */
 	vmd1_pmic_trim_setting(true);
-	/* Enable FPFM before enable BUCK */
-	/* SW workaround to avoid VMODEM overshoot */
+	/* Enable FPFM before enable BUCK, SW workaround to avoid VMODEM overshoot */
 	pmic_config_interface(0x128E, 0x1, 0x1, 12);	/* 0x128E[12] = 1 */
-	PMICLOG("%s vmodem fpfm %d\n", __func__,
-		(pmic_get_register_value(PMIC_RG_VMODEM_TRAN_BST) & 0x20) >> 5);
+	PMICLOG("vmd1_pmic_setting_on vmodem fpfm %d\n",
+		((pmic_get_register_value(PMIC_RG_VMODEM_TRAN_BST) & 0x20) >> 5));
 	pmic_set_register_value(PMIC_RG_LDO_VSRAM_MD_EN, 1);
 	pmic_set_register_value(PMIC_RG_BUCK_VMODEM_EN, 1);
 	udelay(500);
 
-	/* Disable FPFM after enable BUCK */
-	/* SW workaround to avoid VMODME overshoot */
+	/* Disable FPFM after enable BUCK, SW workaround to avoid VMODME overshoot */
 	pmic_config_interface(0x128E, 0x0, 0x1, 12);	/* 0x128E[12] = 0 */
-	PMICLOG("%s vmodem fpfm %d\n", __func__,
-		(pmic_get_register_value(PMIC_RG_VMODEM_TRAN_BST) & 0x20) >> 5);
+	PMICLOG("vmd1_pmic_setting_on vmodem fpfm %d\n",
+		((pmic_get_register_value(PMIC_RG_VMODEM_TRAN_BST) & 0x20) >> 5));
 	/* Recover new trim value */
 	vmd1_pmic_trim_setting(false);
 
@@ -129,30 +126,32 @@ void vmd1_pmic_setting_on(void)
 	if (pmic_get_register_value(PMIC_DA_VMODEM_VOSEL) != 0x38)
 #elif defined(CONFIG_MACH_MT6758)
 	if (pmic_get_register_value(PMIC_DA_VMODEM_VOSEL) != 0x50)
+#elif defined(CONFIG_MACH_MT6775)
+	if (pmic_get_register_value(PMIC_DA_VMODEM_VOSEL) != 0x54)
 #else
 	if (pmic_get_register_value(PMIC_DA_VMODEM_VOSEL) != 0x40)
 #endif
-		pr_info("%s vmodem vosel = 0x%x, da_vosel = 0x%x"
-			, __func__
-			, pmic_get_register_value(PMIC_RG_BUCK_VMODEM_VOSEL)
-			, pmic_get_register_value(PMIC_DA_VMODEM_VOSEL));
+		pr_err("vmd1_pmic_setting_on vmodem vosel = 0x%x, da_vosel = 0x%x",
+			pmic_get_register_value(PMIC_RG_BUCK_VMODEM_VOSEL),
+			pmic_get_register_value(PMIC_DA_VMODEM_VOSEL));
 
 #if defined(CONFIG_MACH_MT6759)
 	if (pmic_get_register_value(PMIC_DA_QI_VSRAM_MD_VOSEL) != 0x3A)
 #elif defined(CONFIG_MACH_MT6758)
 	if (pmic_get_register_value(PMIC_DA_QI_VSRAM_MD_VOSEL) != 0x45)
+#elif defined(CONFIG_MACH_MT6775)
+	if (pmic_get_register_value(PMIC_DA_QI_VSRAM_MD_VOSEL) != 0x49)
 #else
 	if (pmic_get_register_value(PMIC_DA_QI_VSRAM_MD_VOSEL) != 0x42)
 #endif
-		pr_info("%s vsram_md vosel = 0x%x, da_vosel = 0x%x"
-			, __func__
-			, pmic_get_register_value(PMIC_RG_LDO_VSRAM_MD_VOSEL)
-			, pmic_get_register_value(PMIC_DA_QI_VSRAM_MD_VOSEL));
+		pr_err("vmd1_pmic_setting_on vsram_md vosel = 0x%x, da_vosel = 0x%x",
+			pmic_get_register_value(PMIC_RG_LDO_VSRAM_MD_VOSEL),
+			pmic_get_register_value(PMIC_DA_QI_VSRAM_MD_VOSEL));
 }
 
 void vmd1_pmic_setting_off(void)
 {
-#if defined(CONFIG_MACH_MT6759) || defined(CONFIG_MACH_MT6758)
+#if defined(CONFIG_MACH_MT6759) || defined(CONFIG_MACH_MT6758) || defined(CONFIG_MACH_MT6775)
 	pmic_buck_vmodem_lp(SW, 1, SW_OFF);
 	pmic_ldo_vsram_md_lp(SW, 1, SW_OFF);
 #endif
@@ -160,11 +159,12 @@ void vmd1_pmic_setting_off(void)
 	/* 1.Call PMIC driver API configure VMODEM off */
 	pmic_set_register_value(PMIC_RG_BUCK_VMODEM_EN, 0);
 	/* 2.Call PMIC driver API configure VSRAM_MD off */
+	mdelay(25);
 	pmic_set_register_value(PMIC_RG_LDO_VSRAM_MD_EN, 0);
 
-	PMICLOG("%s vmodem en %d\n", __func__,
+	PMICLOG("vmd1_pmic_setting_off vmodem en %d\n",
 		(pmic_get_register_value(PMIC_DA_VMODEM_EN) & 0x1));
-	PMICLOG("%s vsram_md en %d\n", __func__,
+	PMICLOG("vmd1_pmic_setting_off vsram_md en %d\n",
 		(pmic_get_register_value(PMIC_DA_QI_VSRAM_MD_EN) & 0x1));
 }
 
@@ -177,6 +177,14 @@ int vcore_pmic_set_mode(unsigned char mode)
 	ret = pmic_get_register_value(PMIC_RG_VCORE_FPWM);
 
 	return (ret == mode) ? (0) : (-1);
+}
+
+void pmic_enable_smart_reset(unsigned char smart_en,
+	unsigned char smart_sdn_en)
+{
+	pmic_set_register_value(PMIC_RG_SMART_RST_MODE, smart_en);
+	pr_info("[%s] smart_en:%d, smart_sdn_en not support\n",
+		__func__, smart_en);
 }
 
 int vproc_pmic_set_mode(unsigned char mode)
@@ -203,8 +211,7 @@ int vgpu_pmic_set_mode(unsigned char mode)
 
 /* [Export API] */
 
-/* SCP set VCORE voltage */
-/* return 0 if success, otherwise return set voltage(uV) */
+/* SCP set VCORE voltage, return 0 if success, otherwise return set voltage(uV) */
 unsigned int pmic_scp_set_vcore(unsigned int voltage)
 {
 	const char *name = "SSHUB_VCORE";
@@ -215,8 +222,8 @@ unsigned int pmic_scp_set_vcore(unsigned int voltage)
 	unsigned short read_val = 0;
 
 	if (voltage > max_uV || voltage < min_uV) {
-		pr_info("[PMIC]Set Wrong buck voltage for %s, range (%duV - %duV)\n"
-			, name, min_uV, max_uV);
+		pr_err("[PMIC]Set Wrong buck voltage for %s, range (%duV - %duV)\n",
+			name, min_uV, max_uV);
 		return voltage;
 	}
 	value = (voltage - min_uV) / uV_step;
@@ -226,26 +233,23 @@ unsigned int pmic_scp_set_vcore(unsigned int voltage)
 	if (pmic_get_register_value(PMIC_DA_VCORE_EN)) {
 		pmic_set_register_value(PMIC_RG_BUCK_VCORE_SSHUB_VOSEL, value);
 		udelay(220);
-		read_val = pmic_get_register_value(
-					PMIC_RG_BUCK_VCORE_SSHUB_VOSEL);
+		read_val = pmic_get_register_value(PMIC_RG_BUCK_VCORE_SSHUB_VOSEL);
 		if (read_val == value)
 			PMICLOG("Set %s Voltage to %duV pass\n", name, voltage);
 		else {
-			pr_info("[PMIC] Set %s Voltage fail with step = %d, read voltage = %duV\n"
-				, name, value, (read_val * uV_step + min_uV));
+			pr_err("[PMIC] Set %s Voltage fail with step = %d, read voltage = %duV\n",
+				name, value, (read_val * uV_step + min_uV));
 			return voltage;
 		}
 	} else {
-		pr_info("[PMIC] Set %s Votage to %duV fail, due to buck non-enable\n"
-				, name, voltage);
+		pr_err("[PMIC] Set %s Votage to %duV fail, due to buck non-enable\n", name, voltage);
 		return voltage;
 	}
 
 	return 0;
 }
 
-/* SCP set VSRAM_VCORE voltage */
-/* return 0 if success, otherwise return set voltage(uV) */
+/* SCP set VSRAM_VCORE voltage, return 0 if success, otherwise return set voltage(uV) */
 unsigned int pmic_scp_set_vsram_vcore(unsigned int voltage)
 {
 	const char *name = "VSRAM_VCORE_SSHUB";
@@ -256,8 +260,8 @@ unsigned int pmic_scp_set_vsram_vcore(unsigned int voltage)
 	unsigned short read_val = 0;
 
 	if (voltage > max_uV || voltage < min_uV) {
-		pr_info("[PMIC]Set Wrong buck voltage for %s, range (%duV - %duV)\n"
-			, name, min_uV, max_uV);
+		pr_err("[PMIC]Set Wrong buck voltage for %s, range (%duV - %duV)\n",
+			name, min_uV, max_uV);
 		return voltage;
 	}
 	value = (voltage - min_uV) / uV_step;
@@ -265,21 +269,18 @@ unsigned int pmic_scp_set_vsram_vcore(unsigned int voltage)
 
 	/*---Make sure BUCK VSRAM_VCORE ON before setting---*/
 	if (pmic_get_register_value(PMIC_DA_QI_VSRAM_CORE_EN)) {
-		pmic_set_register_value(
-				PMIC_RG_LDO_VSRAM_CORE_SSHUB_VOSEL, value);
+		pmic_set_register_value(PMIC_RG_LDO_VSRAM_CORE_SSHUB_VOSEL, value);
 		udelay(220);
-		read_val = pmic_get_register_value(
-					PMIC_RG_LDO_VSRAM_CORE_SSHUB_VOSEL);
+		read_val = pmic_get_register_value(PMIC_RG_LDO_VSRAM_CORE_SSHUB_VOSEL);
 		if (read_val == value)
 			PMICLOG("Set %s Voltage to %duV pass\n", name, voltage);
 		else {
-			pr_info("[PMIC] Set %s Voltage fail with step = %d, read voltage = %duV\n"
-				, name, value, (read_val * uV_step + min_uV));
+			pr_err("[PMIC] Set %s Voltage fail with step = %d, read voltage = %duV\n",
+				name, value, (read_val * uV_step + min_uV));
 			return voltage;
 		}
 	} else {
-		pr_info("[PMIC] Set %s Votage to %duV fail, due to buck non-enable\n"
-				, name, voltage);
+		pr_err("[PMIC] Set %s Votage to %duV fail, due to buck non-enable\n", name, voltage);
 		return voltage;
 	}
 
@@ -299,15 +300,13 @@ unsigned int enable_vsram_vcore_hw_tracking(unsigned int en)
 	pmic_config_interface(MT6355_LDO_TRACKING_CON0, wdata, 0x7, 0);
 	pmic_read_interface(MT6355_LDO_TRACKING_CON0, &rdata, 0x7, 0);
 	if (!(rdata ^ wdata)) {
-		pr_info("[PMIC][%s] %s HW TRACKING success\n"
-			, __func__, (en == 1) ? "enable" : "disable");
+		pr_err("[PMIC][%s] %s HW TRACKING success\n", __func__, (en == 1)?"enable":"disable");
 		/*By AP, LP DE Give*/
 		/*if (en == 0)*/	/* set VSRAM_VCORE to 1.0V*/
-		/*pmic_set_register_value(PMIC_RG_VSRAM_CORE_VOSEL, 0x60);*/
+		/*	pmic_set_register_value(PMIC_RG_VSRAM_CORE_VOSEL, 0x60);*/
 		return 0;
 	}
-	pr_info("[PMIC][%s] %s HW TRACKING fail\n"
-		, __func__, (en == 1) ? "enable" : "disable");
+	pr_err("[PMIC][%s] %s HW TRACKING fail\n", __func__, (en == 1)?"enable":"disable");
 	return 1;
 }
 
@@ -326,7 +325,9 @@ int pmic_tracking_init(void)
 	/* 0.65V */
 	pmic_set_register_value(PMIC_RG_VSRAM_VCORE_VOSEL_SLEEP_LB, 0x28);
 #endif
-
+#if defined(CONFIG_MACH_MT6775)
+	return ret;
+#else
 #if defined(CONFIG_MACH_MT6758) || defined(CONFIG_MACH_MT6759)
 	ret = enable_vsram_vcore_hw_tracking(1);
 	PMICLOG("Enable VSRAM_VCORE hw tracking\n");
@@ -335,43 +336,32 @@ int pmic_tracking_init(void)
 	PMICLOG("Disable VSRAM_VCORE hw tracking\n");
 #endif
 	return ret;
+#endif
 }
 
-/***************************************************************************
+/*****************************************************************************
  * upmu_interrupt_chrdet_int_en
- ****************************************************************************/
+ ******************************************************************************/
 #if 0 /* May not used, marked by Jeter */
 void upmu_interrupt_chrdet_int_en(unsigned int val)
 {
-	PMICLOG("[%s] val=%d\n", __func__, val);
+	PMICLOG("[upmu_interrupt_chrdet_int_en] val=%d\n", val);
 	pmic_enable_interrupt(INT_CHRDET, val, "PMIC");
 }
 EXPORT_SYMBOL(upmu_interrupt_chrdet_int_en);
 #endif
 
-/***************************************************************************
+/*****************************************************************************
  * PMIC charger detection
- ****************************************************************************/
+ ******************************************************************************/
 unsigned int upmu_get_rgs_chrdet(void)
 {
 	unsigned int val = 0;
 
 	val = pmic_get_register_value(PMIC_RGS_CHRDET);
-	PMICLOG("[%s] CHRDET status = %d\n", __func__, val);
+	PMICLOG("[upmu_get_rgs_chrdet] CHRDET status = %d\n", val);
 
 	return val;
-}
-
-int is_ext_buck2_exist(void)
-{
-#if defined(CONFIG_MTK_EXTBUCK)
-	if ((is_fan53526_exist() == 1))
-		return 1;
-	else
-		return 0;
-#else
-	return 0;
-#endif /* End of #if defined(CONFIG_MTK_EXTBUCK) */
 }
 
 int is_ext_vbat_boost_exist(void)
@@ -404,24 +394,6 @@ int get_ext_buck_i2c_ch_num(void)
 		return get_mt6313_i2c_ch_num();
 #endif
 		return -1;
-}
-
-int is_ext_buck_sw_ready(void)
-{
-#if defined(CONFIG_MTK_PMIC_CHIP_MT6313)
-	if ((is_mt6313_sw_ready() == 1))
-		return 1;
-#endif
-		return 0;
-}
-
-int is_ext_buck_exist(void)
-{
-#if defined(CONFIG_MTK_PMIC_CHIP_MT6313)
-	if ((is_mt6313_exist() == 1))
-		return 1;
-#endif
-		return 0;
 }
 
 int is_ext_buck_gpio_exist(void)

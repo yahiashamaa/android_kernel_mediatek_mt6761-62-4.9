@@ -35,8 +35,7 @@ void __weak ccci_power_off(void)
 {
 
 }
-int __weak exec_ccci_kern_func_by_md_id(int md_id, unsigned int id, char *buf,
-	unsigned int len)
+int __weak exec_ccci_kern_func_by_md_id(int md_id, unsigned int id, char *buf, unsigned int len)
 {
 	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
 	return 0;
@@ -60,8 +59,7 @@ unsigned int __weak get_modem_is_enabled(int md_id)
 	return 0;
 }
 
-int __weak register_ccci_sys_call_back(int md_id, unsigned int id,
-	int (*func)(int, int))
+int __weak register_ccci_sys_call_back(int md_id, unsigned int id, int (*func) (int, int))
 {
 	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
 	return 0;

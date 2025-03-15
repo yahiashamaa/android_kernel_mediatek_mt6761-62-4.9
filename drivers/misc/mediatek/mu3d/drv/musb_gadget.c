@@ -39,7 +39,6 @@
 #include <linux/slab.h>
 #include <linux/usb/composite.h>
 
-
 #include "musb_core.h"
 #include "mu3d_hal_osal.h"
 #include "mu3d_hal_qmu_drv.h"
@@ -127,11 +126,20 @@ static inline void map_dma_buffer(struct musb_request *request,
 
 #endif
 	if (request->request.dma == DMA_ADDR_INVALID) {
-		request->request.dma = dma_map_single(musb->controller,
+		dma_addr_t dma_addr;
+		int ret;
+
+		dma_addr = dma_map_single(musb->controller,
 						      request->request.buf,
 						      length,
 						      request->tx
 						      ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
+		ret = dma_mapping_error(musb->controller, dma_addr);
+		if (unlikely(ret)) {
+			os_printk(K_ERR, "DMA MAPP ERROR, ret:%d\n", ret);
+			return;
+		}
+		request->request.dma = dma_addr;
 		request->map_state = MUSB_MAPPED;
 	} else {
 		dma_sync_single_for_device(musb->controller,
@@ -651,6 +659,7 @@ end:
 	return ret;
 }
 
+
 static int musb_gadget_enable(struct usb_ep *ep, const struct usb_endpoint_descriptor *desc)
 {
 	unsigned long flags;
@@ -661,14 +670,14 @@ static int musb_gadget_enable(struct usb_ep *ep, const struct usb_endpoint_descr
 	u8 epnum = 0;
 	unsigned maxp = 0;
 	int status = -EINVAL;
-	TRANSFER_TYPE type = USB_CTRL;
-	USB_DIR dir = USB_TX;
+	enum TRANSFER_TYPE type = USB_CTRL;
+	enum USB_DIR dir = USB_TX;
 
 
 	if (!ep || !desc)
 		return -EINVAL;
 
-	pr_debug("musb_gadget_enable %s\n", ep->name);
+	os_printk(K_DEBUG, "musb_gadget_enable %s\n", ep->name);
 
 	musb_ep = to_musb_ep(ep);
 	hw_ep = musb_ep->hw_ep;
@@ -1648,7 +1657,7 @@ static struct musb *mu3d_clk_off_musb;
 static void do_mu3d_clk_off_work(struct work_struct *work)
 {
 	os_printk(K_NOTICE, "do_mu3d_clk_off_work, issue connection work\n");
-	queue_delayed_work(mu3d_clk_off_musb->st_wq, &mu3d_clk_off_musb->connection_work, 0);
+	mt_usb_reconnect();
 }
 
 void set_usb_rdy(void)
@@ -1658,10 +1667,10 @@ void set_usb_rdy(void)
 
 	/* yield CPU to make queued connection work exection */
 	msleep(200);
-/*
- *#if defined(CONFIG_MTK_CHARGER)
- *#endif
- */
+
+#if defined(CONFIG_MTK_SMART_BATTERY)
+	wake_up_bat();
+#endif
 }
 
 bool is_usb_rdy(void)
@@ -1866,6 +1875,7 @@ int musb_gadget_setup(struct musb *musb)
 	if (is_otg_enabled(musb))
 		musb->g.is_otg = 1;
 
+	musb->g.quirk_ep_out_aligned_size = true;
 	musb_g_init_endpoints(musb);
 
 	musb->is_active = 0;
@@ -2238,8 +2248,7 @@ void musb_g_reset(struct musb *musb) __releases(musb->lock) __acquires(musb->loc
 
 		ep = &musb->endpoints[0].ep_in;
 		if (!list_empty(&ep->req_list)) {
-			os_printk(K_NOTICE, "%s reinit EP[0] req_list\n",
-				 __func__);
+			os_printk(K_NOTICE, "%s reinit EP[0] req_list\n", __func__);
 			INIT_LIST_HEAD(&ep->req_list);
 		}
 	}

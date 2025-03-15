@@ -38,7 +38,7 @@
 
 int entropy_thread(void *arg)
 {
-	int ret;
+	TZ_RESULT ret;
 	KREE_SESSION_HANDLE ndbg_session;
 	KREE_SESSION_HANDLE mem_session;
 	KREE_SHAREDMEM_HANDLE shm_handle;
@@ -136,7 +136,7 @@ int entropy_thread(void *arg)
 #ifdef CC_NDBG_TEST_PROGRAM
 int test_random_thread(void *arg)
 {
-	int ret;
+	TZ_RESULT ret;
 	KREE_SESSION_HANDLE ndbg_session;
 	KREE_SESSION_HANDLE mem_session;
 	KREE_SHAREDMEM_HANDLE shm_handle;

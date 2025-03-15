@@ -21,121 +21,183 @@
 #include <linux/kthread.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <asm/setup.h>
+#include <mt-plat/mtk_memcfg.h>
 #include <linux/of_fdt.h>
 #include <linux/of.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/mod_devicetable.h>
+#include <linux/io.h>
+#include <linux/sort.h>
 #include <linux/mm.h>
-#include <linux/memory.h>
 #include <linux/memblock.h>
 #include <linux/oom.h>
 #include <linux/swap.h>
-#include <linux/sort.h>
-
-#include <asm/setup.h>
-
-#include <mt-plat/mtk_memcfg.h>
-#include <mt-plat/mtk_memcfg_reserve_info.h>
-
+#include "mtk_memcfg_reserve_info.h"
 #ifdef CONFIG_MTK_AEE_FEATURE
 #include <mt-plat/aee.h>
 #endif
 
-/* kenerl memory fragmentation trigger */
+#define MTK_MEMCFG_SIMPLE_BUFFER_LEN 16
+#define MTK_MEMCFG_LARGE_BUFFER_LEN (2048)
 
-static LIST_HEAD(frag_page_list);
-static DEFINE_SPINLOCK(frag_page_list_lock);
-static DEFINE_MUTEX(frag_task_lock);
-static unsigned long mtk_memcfg_frag_round;
-static struct kmem_cache *frag_page_cache;
+struct mtk_memcfg_info_buf {
+	unsigned long max_len;
+	unsigned long curr_pos;
+	char buf[MTK_MEMCFG_LARGE_BUFFER_LEN];
+};
 
-/* kernel memory layout */
+static struct mtk_memcfg_info_buf mtk_memcfg_layout_buf = {
+	.buf = {[0 ... (MTK_MEMCFG_LARGE_BUFFER_LEN - 1)] = 0,},
+	.max_len = MTK_MEMCFG_LARGE_BUFFER_LEN,
+	.curr_pos = 0,
+};
+
 static void mtk_memcfg_show_layout_region(struct seq_file *m, const char *name,
-		unsigned long long end, unsigned long long size,
-		int nomap, int is_end)
-{
-	int i = 0;
-	int name_length = strlen(name);
-	int padding = (40 - name_length - 2) / 2;
-	int odd = (40 - name_length - 2) % 2;
-
-	seq_printf(m,
-		"----------------------------------------  0x%08llx\n", end);
-	seq_puts(m, "-");
-	for (i = 0; i < padding; i++)
-		seq_puts(m, " ");
-	if (nomap) {
-		seq_puts(m, "*");
-		padding -= 1;
-	}
-	seq_printf(m, "%s", name);
-	for (i = 0; i < padding + odd; i++)
-		seq_puts(m, " ");
-	seq_printf(m, "-  size : (0x%0llx)\n", size);
-
-	if (is_end)
-		seq_printf(m, "----------------------------------------  0x%0llx\n"
-				, end - size);
-}
+		unsigned long long end, unsigned long long size, int nomap, int is_end);
 
 static void mtk_memcfg_show_layout_region_kernel(struct seq_file *m,
-		unsigned long long end, unsigned long long size)
+		unsigned long long end, unsigned long long size);
+
+static int mtk_memcfg_layout_phy_count;
+static int sort_layout;
+
+#define MAX_INFO_NAME 20
+struct mtk_memcfg_layout_info {
+	char name[MAX_INFO_NAME];
+	unsigned long long start;
+	unsigned long long size;
+};
+
+#define MAX_LAYOUT_INFO 30
+static struct mtk_memcfg_layout_info mtk_memcfg_layout_info_phy[MAX_LAYOUT_INFO];
+
+int mtk_memcfg_memory_layout_info_compare(const void *p1, const void *p2)
 {
-	seq_printf(m,
-		"----------------------------------------  0x%08llx\n", end);
-	seq_printf(m,
-		"-               kernel                 -  size : (0x%0llx)\n",
-		size);
+	if (((struct mtk_memcfg_layout_info *)p1)->start > ((struct mtk_memcfg_layout_info *)p2)->start)
+		return 1;
+	return -1;
 }
 
-#define MAX_RESERVED_COUNT 30
+void mtk_memcfg_sort_memory_layout(void)
+{
+	if (sort_layout != 0)
+		return;
+	sort(&mtk_memcfg_layout_info_phy, mtk_memcfg_layout_phy_count,
+			sizeof(struct mtk_memcfg_layout_info),
+			mtk_memcfg_memory_layout_info_compare, NULL);
+	sort_layout = 1;
+}
+
+void mtk_memcfg_write_memory_layout_info(int type, const char *name, unsigned long
+		start, unsigned long size)
+{
+	struct mtk_memcfg_layout_info *info = NULL;
+	int len = 0;
+
+	if (type == MTK_MEMCFG_MEMBLOCK_PHY &&
+			mtk_memcfg_layout_phy_count < MAX_LAYOUT_INFO)
+		info = &mtk_memcfg_layout_info_phy[mtk_memcfg_layout_phy_count++];
+	else
+#ifdef CONFIG_MTK_AEE_FEATURE
+		aee_kernel_warning("memory layout info", "count > MAX_LAYOUT_INFO");
+#else
+		pr_info("memory layout info: count > MAX_LAYOUT_INFO");
+#endif
+
+	if (info) {
+		len = sizeof(info->name) > MAX_INFO_NAME ? MAX_INFO_NAME : sizeof(info->name);
+		strncpy(info->name, name, len - 1);
+		info->name[len - 1] = '\0';
+		info->start = start;
+		info->size = size;
+	}
+}
+
+static unsigned long mtk_memcfg_late_warning_flag;
+
+void mtk_memcfg_write_memory_layout_buf(char *fmt, ...)
+{
+	va_list ap;
+	struct mtk_memcfg_info_buf *layout_buf = &mtk_memcfg_layout_buf;
+
+	if (layout_buf->curr_pos <= layout_buf->max_len) {
+		va_start(ap, fmt);
+		layout_buf->curr_pos +=
+		    vsnprintf((layout_buf->buf + layout_buf->curr_pos),
+			      (layout_buf->max_len - layout_buf->curr_pos), fmt,
+			      ap);
+		va_end(ap);
+	}
+}
+
+void mtk_memcfg_late_warning(unsigned long flag)
+{
+	mtk_memcfg_late_warning_flag |= flag;
+}
+
+/* kenerl memory information */
+
 static int mtk_memcfg_memory_layout_show(struct seq_file *m, void *v)
 {
-	int i, ret = 0;
-	int count;
-	struct reserved_mem_ext *reserved_mem = NULL;
+	int i = 0;
+	int reserved_count;
 	phys_addr_t dram_end = 0;
+	struct reserved_mem_ext *reserved_mem = NULL;
 	struct reserved_mem_ext *rmem, *prmem;
+	char *path = "/memory";
+	struct device_node *dt_node;
+	const struct mblock_info *mb_info = NULL;
 
-	if (kptr_restrict == 2) {
-		seq_puts(m, "Need kptr_restrict permission\n");
+	dt_node = of_find_node_by_path(path);
+	if (!dt_node) {
+		seq_puts(m, "Failed to get dts not \"memory\"\n");
 		goto debug_info;
 	}
 
-	count = get_reserved_mem_count();
+	mb_info = of_get_property(dt_node, "mblock_info", NULL);
+	if (!mb_info || !(mb_info->mblock_magic == 0x99999999 && mb_info->mblock_version >= 2)) {
+		seq_puts(m, "Memory layout does not support mblock version < 2\n");
+		goto debug_info;
+	}
 
-	reserved_mem = kcalloc(MAX_RESERVED_COUNT,
+	if (kptr_restrict == 2) {
+		seq_puts(m, "Do not show memory layout because of kptr_restrict level\n");
+		goto debug_info;
+	}
+
+	reserved_mem = kcalloc(MAX_RESERVED_REGIONS,
 				sizeof(struct reserved_mem_ext),
 				GFP_KERNEL);
 	if (!reserved_mem) {
-		seq_puts(m, "Fail to allocate memory\n");
+		seq_puts(m, "Can't get memory to parse reserve memory.(Is it OOM?)\n");
 		return 0;
 	}
 
-	ret = memcfg_get_reserve_info(reserved_mem, count);
-	if (ret) {
-		pr_info("reserved_mem over limit!\n");
+	reserved_count = mtk_memcfg_get_reserved_memory(reserved_mem);
+	if (reserved_count == 0) {
+		pr_info("Can't get reserve memory.\n");
 		kfree(reserved_mem);
 		goto debug_info;
 	}
 
-	count = memcfg_remove_free_mem(reserved_mem, count);
-	if (count <= 0 || count > MAX_RESERVED_REGIONS) {
-		seq_printf(m, "count(%d) over limit after parsing!\n",
-				count);
+	reserved_count = mtk_memcfg_parse_reserved_memory(reserved_mem, reserved_count);
+	if (reserved_count <= 0 || reserved_count > MAX_RESERVED_REGIONS) {
+		seq_printf(m, "reserved_count(%d) over limit after parsing!\n",
+				reserved_count);
 		kfree(reserved_mem);
 		goto debug_info;
 	}
 
+	clean_reserved_mem_by_name(reserved_mem, reserved_count, "zone-movable-cma-memory");
 
-	clear_reserve(reserved_mem, count, "zone-movable-cma-memory");
-
-	sort(reserved_mem, count,
+	sort(reserved_mem, reserved_count,
 			sizeof(struct reserved_mem_ext),
 			reserved_mem_ext_compare, NULL);
 
 	seq_puts(m, "Reserve Memory Layout (prefix with \"*\" is no-map)\n");
 
-	i = count - 1;
+	i = reserved_count - 1;
 	rmem = &reserved_mem[i];
 	dram_end = memblock_end_of_DRAM();
 
@@ -144,7 +206,7 @@ static int mtk_memcfg_memory_layout_show(struct seq_file *m, void *v)
 		dram_end - (rmem->base + rmem->size));
 	}
 
-	for (i = count - 1; i >= 0; i--) {
+	for (i = reserved_count - 1; i >= 0; i--) {
 		rmem = &reserved_mem[i];
 
 		if (i == 0)
@@ -159,11 +221,9 @@ static int mtk_memcfg_memory_layout_show(struct seq_file *m, void *v)
 				rmem->base + rmem->size,
 				rmem->size, rmem->nomap, 0);
 
-		if (prmem && prmem->base != 0 &&
-			rmem->base > prmem->base + prmem->size) {
-
+		if (prmem && prmem->base != 0 && rmem->base > prmem->base + prmem->size) {
 			mtk_memcfg_show_layout_region_kernel(m, rmem->base,
-				rmem->base - (prmem->base + prmem->size));
+					rmem->base - (prmem->base + prmem->size));
 		}
 	}
 
@@ -216,10 +276,45 @@ debug_info:
 	return 0;
 }
 
+static void mtk_memcfg_show_layout_region(struct seq_file *m, const char *name,
+		unsigned long long end, unsigned long long size, int nomap, int is_end)
+{
+	int i = 0;
+	int name_length = strlen(name);
+	int padding = (40 - name_length - 2) / 2;
+	int odd = (40 - name_length - 2) % 2;
+
+	seq_printf(m, "----------------------------------------  0x%08llx\n", end);
+	seq_puts(m, "-");
+	for (i = 0; i < padding; i++)
+		seq_puts(m, " ");
+	if (nomap) {
+		seq_puts(m, "*");
+		padding -= 1;
+	}
+	seq_printf(m, "%s", name);
+	for (i = 0; i < padding + odd; i++)
+		seq_puts(m, " ");
+	seq_printf(m, "-  size : (0x%0llx)\n", size);
+
+	if (is_end)
+		seq_printf(m, "----------------------------------------  0x%0llx\n"
+				, end - size);
+}
+
+static void mtk_memcfg_show_layout_region_kernel(struct seq_file *m,
+		unsigned long long end, unsigned long long size)
+{
+	seq_printf(m, "----------------------------------------  0x%08llx\n", end);
+	seq_printf(m, "-               kernel                 -  size : (0x%0llx)\n", size);
+}
+
 static int mtk_memcfg_memory_layout_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, mtk_memcfg_memory_layout_show, NULL);
 }
+
+/* end of kenerl memory information */
 
 #ifdef CONFIG_MTK_ENG_BUILD
 /* memblock reserve information */
@@ -241,8 +336,8 @@ static int mtk_memcfg_memblock_reserved_show(struct seq_file *m, void *v)
 		start = region->base;
 		end = region->base + region->size;
 		total_size += region->size;
-		seq_printf(m, "region: %lx %lx-%lx\n",
-			(unsigned long)region->size, start, end);
+		seq_printf(m, "region: %lx %lx-%lx\n", (unsigned long)region->size,
+				start, end);
 		for (j = 0; j < record_count; j++) {
 			record = &memblock_record[j];
 			trace = &memblock_stack_trace[j];
@@ -264,8 +359,7 @@ static int mtk_memcfg_memblock_reserved_show(struct seq_file *m, void *v)
 		seq_puts(m, "\n");
 	}
 
-	seq_printf(m, "Total memblock reserve count: %d\n",
-		memblock_reserve_count);
+	seq_printf(m, "Total memblock reserve count: %d\n", memblock_reserve_count);
 	if (memblock_reserve_count >= MAX_MEMBLOCK_RECORD)
 		seq_puts(m, "Total count > MAX_MEMBLOCK_RECORD\n");
 	seq_printf(m, "Memblock reserve total size: 0x%lx\n", total_size);
@@ -273,28 +367,19 @@ static int mtk_memcfg_memblock_reserved_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-static int mtk_memcfg_memblock_reserved_open(struct inode *inode,
-	struct file *file)
+static int mtk_memcfg_memblock_reserved_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, mtk_memcfg_memblock_reserved_show, NULL);
 }
-
-static const struct file_operations mtk_memcfg_memblock_reserved_operations = {
-	.open = mtk_memcfg_memblock_reserved_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-#endif
 /* end of memblock reserve information */
 
-static const struct file_operations mtk_memcfg_memory_layout_operations = {
-	.open = mtk_memcfg_memory_layout_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-/* end of kernel memory layout */
+/* kenerl memory fragmentation trigger */
+
+static LIST_HEAD(frag_page_list);
+static DEFINE_SPINLOCK(frag_page_list_lock);
+static DEFINE_MUTEX(frag_task_lock);
+static unsigned long mtk_memcfg_frag_round;
+static struct kmem_cache *frag_page_cache;
 
 struct frag_page {
 	struct list_head list;
@@ -360,7 +445,7 @@ static int do_fragmentation(void *n)
 				cnt--;
 			}
 			spin_unlock(&frag_page_list_lock);
-			pr_info("round: %lu, fragmentation-trigger free pages %d left\n",
+			pr_alert("round: %lu, fragmentation-trigger free pages %d left\n",
 				 mtk_memcfg_frag_round, cnt);
 		}
 #endif
@@ -384,7 +469,7 @@ static int do_fragmentation(void *n)
 			cnt++;
 		}
 		mtk_memcfg_frag_round++;
-		pr_info("round: %lu, fragmentation-trigger allocate %d pages %d MB\n",
+		pr_alert("round: %lu, fragmentation-trigger allocate %d pages %d MB\n",
 			 mtk_memcfg_frag_round, cnt, (cnt << PAGE_SHIFT) >> 20);
 		msleep(500);
 	}
@@ -403,11 +488,11 @@ mtk_memcfg_frag_write(struct file *file, const char __user *buffer,
 		if (get_user(state, buffer))
 			return -EFAULT;
 		state -= '0';
-		pr_info("%s state = %d\n", __func__, state);
+		pr_alert("%s state = %d\n", __func__, state);
 
 		mutex_lock(&frag_task_lock);
 		if (state && !p) {
-			pr_info("activate do_fragmentation kthread\n");
+			pr_alert("activate do_fragmentation kthread\n");
 			p = kthread_create(do_fragmentation, NULL,
 					   "fragmentationd");
 			if (!IS_ERR(p))
@@ -420,17 +505,7 @@ mtk_memcfg_frag_write(struct file *file, const char __user *buffer,
 	return count;
 }
 
-static const struct file_operations mtk_memcfg_frag_operations = {
-	.open = mtk_memcfg_frag_open,
-	.write = mtk_memcfg_frag_write,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
 /* end of kenerl memory fragmentation trigger */
-
-/* kenerl out-of-memory(oom) trigger */
 
 static int mtk_memcfg_oom_show(struct seq_file *m, void *v)
 {
@@ -466,9 +541,9 @@ mtk_memcfg_oom_write(struct file *file, const char __user *buffer,
 		if (get_user(state, buffer))
 			return -EFAULT;
 		state -= '0';
-		pr_info("%s state = %d\n", __func__, state);
+		pr_alert("%s state = %d\n", __func__, state);
 		if (state) {
-			pr_info("oom test, trying to kill system under oom scenario\n");
+			pr_alert("oom test, trying to kill system under oom scenario\n");
 			/* exhaust all memory */
 			for (;;)
 				alloc_pages(GFP_HIGHUSER_MOVABLE, 0);
@@ -477,15 +552,8 @@ mtk_memcfg_oom_write(struct file *file, const char __user *buffer,
 	return count;
 }
 
-static const struct file_operations mtk_memcfg_oom_operations = {
-	.open = mtk_memcfg_oom_open,
-	.write = mtk_memcfg_oom_write,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
 /* end of kenerl out-of-memory(oom) trigger */
+#endif /* end of CONFIG_MTK_ENG_BUILD */
 
 #ifndef CONFIG_MTK_GMO_RAM_OPTIMIZE
 static bool vmpressure_no_trigger_warning(void) { return true; }
@@ -496,11 +564,11 @@ static bool vmpressure_no_trigger_warning(void)
 
 	unsigned long memory, memsw;
 
-	memory = global_node_page_state(NR_INACTIVE_ANON) +
-		 global_node_page_state(NR_ACTIVE_ANON) +
-		 global_node_page_state(NR_INACTIVE_FILE) +
-		 global_node_page_state(NR_ACTIVE_FILE) +
-		 global_node_page_state(NR_UNEVICTABLE);
+	memory = global_page_state(NR_INACTIVE_ANON) +
+		 global_page_state(NR_ACTIVE_ANON) +
+		 global_page_state(NR_INACTIVE_FILE) +
+		 global_page_state(NR_ACTIVE_FILE) +
+		 global_page_state(NR_UNEVICTABLE);
 
 	memsw = memory + total_swap_pages -
 		get_nr_swap_pages() -
@@ -521,37 +589,44 @@ static bool vmpressure_no_trigger_warning(void)
 
 static unsigned long vmpressure_warn_timeout;
 /* Inform system about vmpressure level */
-void mtk_memcfg_inform_vmpressure(void)
+void mtk_memcfg_inform_vmpressure(bool to_trigger)
 {
 #define OOM_SCORE_ADJ_NO_TRIGGER	(0)
 
 	bool all_native = true;
 	struct task_struct *p;
+	struct task_struct *task;
+
+	if (!to_trigger)
+		return;
 
 	if (vmpressure_no_trigger_warning())
 		return;
 
 	rcu_read_lock();
 	for_each_process(p) {
-		long adj;
-
 		if (p->flags & PF_KTHREAD)
 			continue;
 
-		if (p->state & TASK_UNINTERRUPTIBLE)
+		task = find_lock_task_mm(p);
+		if (!task)
 			continue;
 
-		get_task_struct(p);
-		adj = (long)p->signal->oom_score_adj;
-		put_task_struct(p);
+		if (task->state & TASK_UNINTERRUPTIBLE) {
+			task_unlock(task);
+			continue;
+		}
 
-		if (adj > OOM_SCORE_ADJ_NO_TRIGGER) {
+		if (task->signal->oom_score_adj > OOM_SCORE_ADJ_NO_TRIGGER) {
+			task_unlock(task);
 			rcu_read_unlock();
 			return;
 		}
 
-		if (adj == OOM_SCORE_ADJ_NO_TRIGGER)
+		if (task->signal->oom_score_adj == OOM_SCORE_ADJ_NO_TRIGGER)
 			all_native = false;
+
+		task_unlock(task);
 	}
 	rcu_read_unlock();
 
@@ -563,34 +638,70 @@ void mtk_memcfg_inform_vmpressure(void)
 
 	/* Trigger AEE warning */
 	pr_info("%s: vmpressure trigger kernel warning\n", __func__);
-
-#ifdef CONFIG_MTK_AEE_FEATURE
 	aee_kernel_warning_api("LMK", 0,
 			DB_OPT_DEFAULT | DB_OPT_DUMPSYS_ACTIVITY |
 			DB_OPT_LOW_MEMORY_KILLER | DB_OPT_PID_MEMORY_INFO |
-			DB_OPT_PROCESS_COREDUMP |
-			DB_OPT_DUMPSYS_SURFACEFLINGER |
+			DB_OPT_PROCESS_COREDUMP | DB_OPT_DUMPSYS_SURFACEFLINGER |
 			DB_OPT_DUMPSYS_GFXINFO | DB_OPT_DUMPSYS_PROCSTATS,
 			"Framework low memory\nCRDISPATCH_KEY:FLM_APAF",
 			"please contact AP/AF memory module owner\n");
-#endif
 
 	vmpressure_warn_timeout = jiffies + 10 * HZ;
 
 #undef OOM_SCORE_ADJ_NO_TRIGGER
 }
 
+static int __init mtk_memcfg_init(void)
+{
+	vmpressure_warn_timeout = jiffies;
+	return 0;
+}
+
+static void __exit mtk_memcfg_exit(void)
+{
+}
+
+static const struct file_operations mtk_memcfg_memory_layout_operations = {
+	.open = mtk_memcfg_memory_layout_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+#ifdef CONFIG_MTK_ENG_BUILD
+static const struct file_operations mtk_memcfg_memblock_reserved_operations = {
+	.open = mtk_memcfg_memblock_reserved_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static const struct file_operations mtk_memcfg_frag_operations = {
+	.open = mtk_memcfg_frag_open,
+	.write = mtk_memcfg_frag_write,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static const struct file_operations mtk_memcfg_oom_operations = {
+	.open = mtk_memcfg_oom_open,
+	.write = mtk_memcfg_oom_write,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 #ifdef CONFIG_SLUB_DEBUG
-/* kenerl slabtrace  */
 static const struct file_operations proc_slabtrace_operations = {
 	.open = slabtrace_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
 };
-
-/* end of kernel slabtrace */
 #endif
+#endif /* end of CONFIG_MTK_ENG_BUILD */
+
 static int __init mtk_memcfg_late_init(void)
 {
 	struct proc_dir_entry *entry = NULL;
@@ -599,51 +710,221 @@ static int __init mtk_memcfg_late_init(void)
 	mtk_memcfg_dir = proc_mkdir("mtk_memcfg", NULL);
 
 	if (!mtk_memcfg_dir) {
-		pr_info("[%s]: mkdir /proc/mtk_memcfg failed\n", __func__);
+		pr_err("[%s]: mkdir /proc/mtk_memcfg failed\n", __func__);
 	} else {
 		/* display kernel memory layout */
 		entry = proc_create("memory_layout",
-				    0644, mtk_memcfg_dir,
+				    S_IRUGO | S_IWUSR, mtk_memcfg_dir,
 				    &mtk_memcfg_memory_layout_operations);
 
 		if (!entry)
-			pr_info("create memory_layout proc entry failed\n");
-
-		mtk_memcfg_reserve_info_init(mtk_memcfg_dir);
+			pr_err("create memory_layout proc entry failed\n");
 
 #ifdef CONFIG_MTK_ENG_BUILD
 		/* memblock reserved */
-		entry = proc_create("memblock_reserved", 0644,
+		entry = proc_create("memblock_reserved", S_IRUGO | S_IWUSR,
 				mtk_memcfg_dir,
 				&mtk_memcfg_memblock_reserved_operations);
 		if (!entry)
-			pr_info("create memblock_reserved proc entry failed\n");
+			pr_err("create memblock_reserved proc entry failed\n");
 		pr_info("create memblock_reserved proc entry success!!!!!\n");
 
+		/* fragmentation test */
+		entry = proc_create("frag-trigger",
+				    S_IRUGO | S_IWUSR, mtk_memcfg_dir,
+				    &mtk_memcfg_frag_operations);
+
+		if (!entry)
+			pr_err("create frag-trigger proc entry failed\n");
+
+		frag_page_cache = kmem_cache_create("frag_page_cache",
+						    sizeof(struct frag_page),
+						    0, SLAB_PANIC, NULL);
+
+		if (!frag_page_cache)
+			pr_err("create frag_page_cache failed\n");
+
+		/* oom test */
+		entry = proc_create("oom-trigger",
+				    S_IRUGO | S_IWUSR, mtk_memcfg_dir,
+				    &mtk_memcfg_oom_operations);
+
+		if (!entry)
+			pr_err("create oom entry failed\n");
 
 #ifdef CONFIG_SLUB_DEBUG
 		/* slabtrace - full slub object backtrace */
 		entry = proc_create("slabtrace",
-				    0400, mtk_memcfg_dir,
+				    S_IRUSR, mtk_memcfg_dir,
 				    &proc_slabtrace_operations);
 
 		if (!entry)
-			pr_info("create slabtrace proc entry failed\n");
+			pr_err("create slabtrace proc entry failed\n");
 #endif
 #endif /* end of CONFIG_MTK_ENG_BUILD */
 	}
+	mtk_memcfg_reserve_info_init(mtk_memcfg_dir);
 
 	return 0;
 }
 
-static int __init mtk_memcfg_init(void)
-{
-	return 0;
-}
-
-static void __exit mtk_memcfg_exit(void)
-{
-}
 module_init(mtk_memcfg_init);
 module_exit(mtk_memcfg_exit);
+
+static int __init mtk_memcfg_late_sanity_test(void)
+{
+#ifdef MTK_AEE_FEATURE
+#if 0
+	/* trigger kernel warning if warning flag is set */
+	if (mtk_memcfg_late_warning_flag & WARN_MEMBLOCK_CONFLICT) {
+		aee_kernel_warning("[memory layout conflict]",
+					mtk_memcfg_layout_buf.buf);
+	}
+
+	if (mtk_memcfg_late_warning_flag & WARN_MEMSIZE_CONFLICT) {
+		aee_kernel_warning("[memory size conflict]",
+					mtk_memcfg_layout_buf.buf);
+	}
+
+	if (mtk_memcfg_late_warning_flag & WARN_API_NOT_INIT) {
+		aee_kernel_warning("[API is not initialized]",
+					mtk_memcfg_layout_buf.buf);
+	}
+
+#ifdef CONFIG_HIGHMEM
+	/* check highmem zone size */
+	if (unlikely
+		(totalhigh_pages && (totalhigh_pages << PAGE_SHIFT) < SZ_8M)) {
+		aee_kernel_warning("[high zone lt 8MB]", __func__);
+	}
+#endif /* end of CONFIG_HIGHMEM */
+
+#endif /* MTK_AEE_FEATURE */
+#endif
+	return 0;
+}
+
+/* scan memory layout */
+#ifdef CONFIG_OF
+static int __init dt_scan_memory(unsigned long node, const char *uname,
+		int depth, void *data)
+{
+	const char *type = of_get_flat_dt_prop(node, "device_type", NULL);
+	int i;
+	int l;
+	u64 kernel_mem_sz = 0;
+	u64 phone_dram_sz = 0x0;	/* original phone DRAM size */
+	u64 dram_sz = 0;	/* total DRAM size of all modules */
+	struct dram_info *dram_info;
+	struct mem_desc *mem_desc;
+	struct mblock_info *mblock_info;
+	const __be32 *reg, *endp;
+	u64 fb_base = 0x12345678, fb_size = 0;
+
+	/* We are scanning "memory" nodes only */
+	if (type == NULL) {
+		/*
+		 * The longtrail doesn't have a device_type on the
+		 * /memory node, so look for the node called /memory@0.
+		 */
+		if (depth != 1 || strcmp(uname, "memory@0") != 0)
+			return 0;
+	} else if (strcmp(type, "memory") != 0) {
+		return 0;
+	}
+
+		reg = of_get_flat_dt_prop(node, "reg", &l);
+	if (reg == NULL)
+		return 0;
+
+	endp = reg + (l / sizeof(__be32));
+
+	while ((endp - reg) >= (dt_root_addr_cells + dt_root_size_cells)) {
+		u64 base, size;
+
+		base = dt_mem_next_cell(dt_root_addr_cells, &reg);
+		size = dt_mem_next_cell(dt_root_size_cells, &reg);
+
+		if (size == 0)
+			continue;
+
+		kernel_mem_sz += size;
+	}
+
+	/* orig_dram_info */
+	dram_info = (struct dram_info *)of_get_flat_dt_prop(node,
+			"orig_dram_info", NULL);
+	if (dram_info) {
+		for (i = 0; i < dram_info->rank_num; i++)
+			phone_dram_sz += dram_info->rank_info[i].size;
+	}
+
+	/* mblock_info */
+	mblock_info = (struct mblock_info *)of_get_flat_dt_prop(node,
+			"mblock_info", NULL);
+	if (mblock_info) {
+		for (i = 0; i < mblock_info->mblock_num; i++)
+			dram_sz += mblock_info->mblock[i].size;
+	}
+
+	/* lca reserved memory */
+	mem_desc = (struct mem_desc *)of_get_flat_dt_prop(node,
+			"lca_reserved_mem", NULL);
+	if (mem_desc && mem_desc->size) {
+		MTK_MEMCFG_LOG_AND_PRINTK(
+			"[PHY layout]lca_reserved_mem   :   0x%08llx - 0x%08llx (0x%llx)\n",
+			mem_desc->start,
+			mem_desc->start +
+			mem_desc->size - 1,
+			mem_desc->size
+			);
+		dram_sz += mem_desc->size;
+	}
+
+	/* tee reserved memory */
+	mem_desc = (struct mem_desc *)of_get_flat_dt_prop(node,
+			"tee_reserved_mem", NULL);
+	if (mem_desc && mem_desc->size) {
+		MTK_MEMCFG_LOG_AND_PRINTK(
+			"[PHY layout]tee_reserved_mem   :   0x%08llx - 0x%08llx (0x%llx)\n",
+			mem_desc->start,
+			mem_desc->start +
+			mem_desc->size - 1,
+			mem_desc->size
+			);
+		dram_sz += mem_desc->size;
+	}
+
+	/* frame buffer */
+	fb_size = (u64)mtkfb_get_fb_size();
+	fb_base = (u64)mtkfb_get_fb_base();
+
+	dram_sz += fb_size;
+
+	/* print memory information */
+	MTK_MEMCFG_LOG_AND_PRINTK(
+		"[debug]available DRAM size = 0x%llx\n[PHY layout]FB (dt) :  0x%llx - 0x%llx  (0x%llx)\n",
+			(unsigned long long)kernel_mem_sz,
+			(unsigned long long)fb_base,
+			(unsigned long long)fb_base + fb_size - 1,
+			(unsigned long long)fb_size);
+
+	return node;
+}
+
+static int __init display_early_memory_info(void)
+{
+	int node;
+	/* system memory */
+	node = of_scan_flat_dt(dt_scan_memory, NULL);
+	return 0;
+}
+
+
+#endif /* end of CONFIG_OF */
+
 late_initcall(mtk_memcfg_late_init);
+late_initcall(mtk_memcfg_late_sanity_test);
+#ifdef CONFIG_OF
+pure_initcall(display_early_memory_info);
+#endif /* end of CONFIG_OF */

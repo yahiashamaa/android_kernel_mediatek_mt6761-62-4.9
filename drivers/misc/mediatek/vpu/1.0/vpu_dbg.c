@@ -22,14 +22,11 @@
 #include <linux/kthread.h>
 #include <linux/uaccess.h>
 
+#include <m4u.h>
+
 #include "vpu_dbg.h"
 #include "vpu_drv.h"
 #include "vpu_cmn.h"
-#ifdef CONFIG_MTK_M4U
-#include <m4u.h>
-#else
-#include "mach/mt_iommu.h"
-#endif
 
 #define ALGO_OF_MAX_POWER  (3)
 
@@ -232,13 +229,10 @@ static void vpu_test_be_true(void)
 	vpu_push_request_to_queue(user, req);
 	vpu_pop_request_from_queue(user, &req);
 
-	/* set source buffer to the expected result,
-	 * and compare with destination buffer
-	 */
+	/* set source buffer to the expected result, and compare with destination buffer */
 	memset(buf_va, 0x2, width * height);
 	ret = memcmp(buf_va, buf_va + width * height, width * height);
-	LOG_INF("vpu test: comparison result=%d and param5=%d", ret,
-		sett->param5);
+	LOG_INF("vpu test: comparison result=%d and param5=%d", ret, sett->param5);
 
 	vpu_free_request(req);
 	vpu_delete_user(user);
@@ -268,8 +262,8 @@ static int vpu_user_test_case1(void *arg)
 			LOG_ERR("deque failed. i=%d\n", i);
 		} else {
 			if (req->priv != i) {
-				LOG_ERR("deque: out of order!i=%d, priv=%d\n",
-					i, (int)req->priv);
+				LOG_ERR("out of order of request deque. i=%d, priv=%d\n",
+						i, (int) req->priv);
 			}
 			i++;
 			vpu_free_request(req);
@@ -339,8 +333,8 @@ static int vpu_user_test_case3(void *arg)
 		}
 
 		if (req->priv != i) {
-			LOG_ERR("Dequeue: out of order! i=%d, priv=%d\n",
-				i, (int) req->priv);
+			LOG_ERR("out of order of request deque. i=%d, priv=%d\n",
+					i, (int) req->priv);
 		}
 		vpu_free_request(req);
 	}
@@ -397,9 +391,6 @@ static int vpu_test_set_power(void)
  * 102: run test case2
  * 103: run test case3
  */
-static bool is_case1_thread_create;
-static bool is_case2_thread_create;
-static bool is_case3_thread_create;
 static int vpu_test_set(void *data, u64 val)
 {
 	struct vpu_algo *algo;
@@ -486,36 +477,24 @@ static int vpu_test_set(void *data, u64 val)
 	{
 		struct task_struct *task;
 
-		if (!is_case1_thread_create) {
-			is_case1_thread_create = true;
-			task = kthread_create(vpu_user_test_case1, NULL,
-					      "vpu-test1-thread");
-			wake_up_process(task);
-		}
+		task = kthread_create(vpu_user_test_case1, NULL, "vpu-test1-thread");
+		wake_up_process(task);
 		break;
 	}
 	case 102:
 	{
 		struct task_struct *task;
 
-		if (!is_case2_thread_create) {
-			is_case2_thread_create = true;
-			task = kthread_create(vpu_user_test_case2, NULL,
-				      "vpu-test2-thread");
-			wake_up_process(task);
-		}
+		task = kthread_create(vpu_user_test_case2, NULL, "vpu-test2-thread");
+		wake_up_process(task);
 		break;
 	}
 	case 103:
 	{
 		struct task_struct *task;
 
-		if (!is_case3_thread_create) {
-			is_case3_thread_create = true;
-			task = kthread_create(vpu_user_test_case3, NULL,
-				      "vpu-test3-thread");
-			wake_up_process(task);
-		}
+		task = kthread_create(vpu_user_test_case3, NULL, "vpu-test3-thread");
+		wake_up_process(task);
 		break;
 	}
 	case 111:
@@ -541,8 +520,7 @@ static int vpu_test_get(void *data, u64 *val)
 	return 0;
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(vpu_debug_test_fops, vpu_test_get, vpu_test_set,
-			"%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(vpu_debug_test_fops, vpu_test_get, vpu_test_set, "%llu\n");
 #endif
 
 static int vpu_log_level_set(void *data, u64 val)
@@ -560,27 +538,24 @@ static int vpu_log_level_get(void *data, u64 *val)
 	return 0;
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(vpu_debug_log_level_fops, vpu_log_level_get,
-			vpu_log_level_set, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(vpu_debug_log_level_fops, vpu_log_level_get, vpu_log_level_set, "%llu\n");
 
-#define IMPLEMENT_VPU_DEBUGFS(name)                                \
-	static int vpu_debug_##name##_show(struct seq_file *s, void *unused) \
-	{                                                              \
-		vpu_dump_##name(s);                                        \
-		return 0;                                                  \
-	}                                                              \
-	static int vpu_debug_##name##_open(struct inode *inode,        \
-					   struct file *file)                  \
-	{                                                              \
-		return single_open(file, vpu_debug_##name##_show,          \
-				   inode->i_private);                          \
-	}                                                              \
-	static const struct file_operations vpu_debug_##name##_fops = {  \
-		.open = vpu_debug_##name##_open,                           \
-		.read = seq_read,                                          \
-		.llseek = seq_lseek,                                       \
-		.release = seq_release,                                    \
-	}
+#define IMPLEMENT_VPU_DEBUGFS(name)                                             \
+static int vpu_debug_## name ##_show(struct seq_file *s, void *unused)          \
+{                                                                               \
+	vpu_dump_## name(s);                                                        \
+	return 0;                                                                   \
+}                                                                               \
+static int vpu_debug_## name ##_open(struct inode *inode, struct file *file)    \
+{                                                                               \
+	return single_open(file, vpu_debug_ ## name ## _show, inode->i_private);    \
+}                                                                               \
+static const struct file_operations vpu_debug_ ## name ## _fops = {             \
+	.open = vpu_debug_ ## name ## _open,                                        \
+	.read = seq_read,                                                           \
+	.llseek = seq_lseek,                                                        \
+	.release = seq_release,                                                     \
+}
 
 IMPLEMENT_VPU_DEBUGFS(algo);
 IMPLEMENT_VPU_DEBUGFS(register);
@@ -602,9 +577,8 @@ static int vpu_debug_power_open(struct inode *inode, struct file *file)
 	return single_open(file, vpu_debug_power_show, inode->i_private);
 }
 
-static ssize_t vpu_debug_power_write(struct file *flip,
-				     const char __user *buffer, size_t count,
-				     loff_t *f_pos)
+static ssize_t vpu_debug_power_write(struct file *flip, const char __user *buffer,
+		size_t count, loff_t *f_pos)
 {
 	char *tmp, *token, *cursor;
 	int ret, i, param;
@@ -672,13 +646,12 @@ int vpu_init_debug(struct vpu_device *vpu_dev)
 	ret = IS_ERR_OR_NULL(vpu_dev->debug_root);
 	CHECK_RET("failed to create debug dir.\n");
 
-#define CREATE_VPU_DEBUGFS(name)                                   \
-	{                                                              \
-		debug_file =                                               \
-			debugfs_create_file(#name, 0644, vpu_dev->debug_root,  \
-					    NULL, &vpu_debug_##name##_fops);   \
-		if (IS_ERR_OR_NULL(debug_file))                            \
-			LOG_ERR("failed to create debug file[" #name "].\n");  \
+#define CREATE_VPU_DEBUGFS(name)                                            \
+	{                                                                       \
+		debug_file = debugfs_create_file(#name, 0644, vpu_dev->debug_root,  \
+				NULL, &vpu_debug_ ## name ## _fops);                        \
+		if (IS_ERR_OR_NULL(debug_file))                                     \
+			LOG_ERR("failed to create debug file[" #name "].\n");           \
 	}
 
 	CREATE_VPU_DEBUGFS(algo);

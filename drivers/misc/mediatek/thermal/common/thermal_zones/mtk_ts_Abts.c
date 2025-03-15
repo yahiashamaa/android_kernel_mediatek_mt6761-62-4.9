@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2015 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -38,9 +38,7 @@ static kgid_t gid = KGIDT_INIT(1000);
 static DEFINE_SEMAPHORE(sem_mutex);
 
 static unsigned int interval;	/* seconds, 0 : no auto polling */
-static int trip_temp[10] = { 200000, 110000, 100000, 90000, 80000,
-				70000, 65000, 60000, 55000, 50000 };
-
+static int trip_temp[10] = { 200000, 110000, 100000, 90000, 80000, 70000, 65000, 60000, 55000, 50000 };
 static struct thermal_zone_device *thz_dev;
 static unsigned int cl_dev_sysrst_state;
 static struct thermal_cooling_device *cl_dev_sysrst;
@@ -100,8 +98,7 @@ static int mtkts_Abts_get_temp(struct thermal_zone_device *thermal, int *t)
 	return 0;
 }
 
-static int mtkts_Abts_bind(
-struct thermal_zone_device *thermal, struct thermal_cooling_device *cdev)
+static int mtkts_Abts_bind(struct thermal_zone_device *thermal, struct thermal_cooling_device *cdev)
 {
 	int table_val = 0;
 
@@ -140,9 +137,7 @@ struct thermal_zone_device *thermal, struct thermal_cooling_device *cdev)
 	}
 
 	if (mtk_thermal_zone_bind_cooling_device(thermal, table_val, cdev)) {
-		mtkts_Abts_dprintk(
-			"[mtkts_Abts_bind] error binding cooling dev\n");
-
+		mtkts_Abts_dprintk("[mtkts_Abts_bind] error binding cooling dev\n");
 		return -EINVAL;
 	}
 
@@ -189,9 +184,7 @@ static int mtkts_Abts_unbind(struct thermal_zone_device *thermal,
 		return 0;
 
 	if (thermal_zone_unbind_cooling_device(thermal, table_val, cdev)) {
-		mtkts_Abts_dprintk(
-			"[mtkts_Abts_unbind] error unbinding cooling dev\n");
-
+		mtkts_Abts_dprintk("[mtkts_Abts_unbind] error unbinding cooling dev\n");
 		return -EINVAL;
 	}
 
@@ -199,37 +192,33 @@ static int mtkts_Abts_unbind(struct thermal_zone_device *thermal,
 	return 0;
 }
 
-static int mtkts_Abts_get_mode(
-struct thermal_zone_device *thermal, enum thermal_device_mode *mode)
+static int mtkts_Abts_get_mode(struct thermal_zone_device *thermal, enum thermal_device_mode *mode)
 {
 	*mode = (kernelmode) ? THERMAL_DEVICE_ENABLED : THERMAL_DEVICE_DISABLED;
 	return 0;
 }
 
-static int mtkts_Abts_set_mode(
-struct thermal_zone_device *thermal, enum thermal_device_mode mode)
+static int mtkts_Abts_set_mode(struct thermal_zone_device *thermal, enum thermal_device_mode mode)
 {
 	kernelmode = mode;
 	return 0;
 }
 
-static int mtkts_Abts_get_trip_type(
-struct thermal_zone_device *thermal, int trip, enum thermal_trip_type *type)
+static int mtkts_Abts_get_trip_type(struct thermal_zone_device *thermal, int trip,
+				   enum thermal_trip_type *type)
 {
 	*type = g_THERMAL_TRIP[trip];
 	return 0;
 }
 
-static int mtkts_Abts_get_trip_temp(
-struct thermal_zone_device *thermal, int trip,
+static int mtkts_Abts_get_trip_temp(struct thermal_zone_device *thermal, int trip,
 				   int *temp)
 {
 	*temp = trip_temp[trip];
 	return 0;
 }
 
-static int mtkts_Abts_get_crit_temp(
-struct thermal_zone_device *thermal, int *temperature)
+static int mtkts_Abts_get_crit_temp(struct thermal_zone_device *thermal, int *temperature)
 {
 	*temperature = MTKTS_Abts_TEMP_CRIT;
 	return 0;
@@ -252,36 +241,18 @@ static struct thermal_zone_device_ops mtkts_Abts_dev_ops = {
 static int mtkts_Abts_read(struct seq_file *m, void *v)
 {
 
-	seq_printf(m,
-		"[mtkts_Abts_read] trip_0_temp=%d,trip_1_temp=%d,trip_2_temp=%d,trip_3_temp=%d,trip_4_temp=%d\n",
-		trip_temp[0], trip_temp[1], trip_temp[2],
-		trip_temp[3], trip_temp[4]);
-
-	seq_printf(m,
-		"trip_5_temp=%d,trip_6_temp=%d,trip_7_temp=%d,trip_8_temp=%d,trip_9_temp=%d,\n",
-		trip_temp[5], trip_temp[6], trip_temp[7],
-		trip_temp[8], trip_temp[9]);
-
-	seq_printf(m,
-		"g_THERMAL_TRIP_0=%d,g_THERMAL_TRIP_1=%d,g_THERMAL_TRIP_2=%d,g_THERMAL_TRIP_3=%d,\n",
-		g_THERMAL_TRIP[0], g_THERMAL_TRIP[1],
-		g_THERMAL_TRIP[2], g_THERMAL_TRIP[3]);
-
-	seq_printf(m,
-		"g_THERMAL_TRIP_4=%d,g_THERMAL_TRIP_5=%d,g_THERMAL_TRIP_6=%d,g_THERMAL_TRIP_7=%d,\n",
-		g_THERMAL_TRIP[4], g_THERMAL_TRIP[5],
-		g_THERMAL_TRIP[6], g_THERMAL_TRIP[7]);
-
-	seq_printf(m,
-		"g_THERMAL_TRIP_8=%d,g_THERMAL_TRIP_9=%d,\n",
-		g_THERMAL_TRIP[8], g_THERMAL_TRIP[9]);
-
-	seq_printf(m,
-		"cooldev0=%s,cooldev1=%s,cooldev2=%s,cooldev3=%s,cooldev4=%s,\n",
+	seq_printf(m, "[mtkts_Abts_read] trip_0_temp=%d,trip_1_temp=%d,trip_2_temp=%d,trip_3_temp=%d,trip_4_temp=%d\n",
+		trip_temp[0], trip_temp[1], trip_temp[2], trip_temp[3], trip_temp[4]);
+	seq_printf(m, "trip_5_temp=%d,trip_6_temp=%d,trip_7_temp=%d,trip_8_temp=%d,trip_9_temp=%d,\n",
+		trip_temp[5], trip_temp[6], trip_temp[7], trip_temp[8], trip_temp[9]);
+	seq_printf(m, "g_THERMAL_TRIP_0=%d,g_THERMAL_TRIP_1=%d,g_THERMAL_TRIP_2=%d,g_THERMAL_TRIP_3=%d,\n",
+		g_THERMAL_TRIP[0], g_THERMAL_TRIP[1], g_THERMAL_TRIP[2], g_THERMAL_TRIP[3]);
+	seq_printf(m, "g_THERMAL_TRIP_4=%d,g_THERMAL_TRIP_5=%d,g_THERMAL_TRIP_6=%d,g_THERMAL_TRIP_7=%d,\n",
+		g_THERMAL_TRIP[4], g_THERMAL_TRIP[5], g_THERMAL_TRIP[6], g_THERMAL_TRIP[7]);
+	seq_printf(m, "g_THERMAL_TRIP_8=%d,g_THERMAL_TRIP_9=%d,\n", g_THERMAL_TRIP[8], g_THERMAL_TRIP[9]);
+	seq_printf(m, "cooldev0=%s,cooldev1=%s,cooldev2=%s,cooldev3=%s,cooldev4=%s,\n",
 		g_bind0, g_bind1, g_bind2, g_bind3, g_bind4);
-
-	seq_printf(m,
-		"cooldev5=%s,cooldev6=%s,cooldev7=%s,cooldev8=%s,cooldev9=%s,time_ms=%d\n",
+	seq_printf(m, "cooldev5=%s,cooldev6=%s,cooldev7=%s,cooldev8=%s,cooldev9=%s,time_ms=%d\n",
 		g_bind5, g_bind6, g_bind7, g_bind8, g_bind9, interval * 1000);
 
 	return 0;
@@ -290,8 +261,8 @@ static int mtkts_Abts_read(struct seq_file *m, void *v)
 static int mtkts_Abts_register_thermal(void);
 static void mtkts_Abts_unregister_thermal(void);
 
-static ssize_t mtkts_Abts_write(
-struct file *file, const char __user *buffer, size_t count, loff_t *data)
+static ssize_t mtkts_Abts_write(struct file *file, const char __user *buffer, size_t count,
+			       loff_t *data)
 {
 	int len = 0, i;
 
@@ -304,15 +275,12 @@ struct file *file, const char __user *buffer, size_t count, loff_t *data)
 		char desc[512];
 	};
 
-	struct mtktsAbts_data *ptr_mtktsAbts_data = kmalloc(
-				sizeof(*ptr_mtktsAbts_data), GFP_KERNEL);
+	struct mtktsAbts_data *ptr_mtktsAbts_data = kmalloc(sizeof(*ptr_mtktsAbts_data), GFP_KERNEL);
 
 	if (ptr_mtktsAbts_data == NULL)
 		return -ENOMEM;
 
-	len = (count < (sizeof(ptr_mtktsAbts_data->desc) - 1)) ?
-				count : (sizeof(ptr_mtktsAbts_data->desc) - 1);
-
+	len = (count < (sizeof(ptr_mtktsAbts_data->desc) - 1)) ? count : (sizeof(ptr_mtktsAbts_data->desc) - 1);
 	if (copy_from_user(ptr_mtktsAbts_data->desc, buffer, len)) {
 		kfree(ptr_mtktsAbts_data);
 		return 0;
@@ -324,37 +292,24 @@ struct file *file, const char __user *buffer, size_t count, loff_t *data)
 	    (ptr_mtktsAbts_data->desc,
 	     "%d %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d",
 		&num_trip,
-		&ptr_mtktsAbts_data->trip[0], &ptr_mtktsAbts_data->t_type[0],
-		ptr_mtktsAbts_data->bind0,
-		&ptr_mtktsAbts_data->trip[1], &ptr_mtktsAbts_data->t_type[1],
-		ptr_mtktsAbts_data->bind1,
-		&ptr_mtktsAbts_data->trip[2], &ptr_mtktsAbts_data->t_type[2],
-		ptr_mtktsAbts_data->bind2,
-		&ptr_mtktsAbts_data->trip[3], &ptr_mtktsAbts_data->t_type[3],
-		ptr_mtktsAbts_data->bind3,
-		&ptr_mtktsAbts_data->trip[4], &ptr_mtktsAbts_data->t_type[4],
-		ptr_mtktsAbts_data->bind4,
-		&ptr_mtktsAbts_data->trip[5], &ptr_mtktsAbts_data->t_type[5],
-		ptr_mtktsAbts_data->bind5,
-		&ptr_mtktsAbts_data->trip[6], &ptr_mtktsAbts_data->t_type[6],
-		ptr_mtktsAbts_data->bind6,
-		&ptr_mtktsAbts_data->trip[7], &ptr_mtktsAbts_data->t_type[7],
-		ptr_mtktsAbts_data->bind7,
-		&ptr_mtktsAbts_data->trip[8], &ptr_mtktsAbts_data->t_type[8],
-		ptr_mtktsAbts_data->bind8,
-		&ptr_mtktsAbts_data->trip[9], &ptr_mtktsAbts_data->t_type[9],
-		ptr_mtktsAbts_data->bind9,
+		&ptr_mtktsAbts_data->trip[0], &ptr_mtktsAbts_data->t_type[0], ptr_mtktsAbts_data->bind0,
+		&ptr_mtktsAbts_data->trip[1], &ptr_mtktsAbts_data->t_type[1], ptr_mtktsAbts_data->bind1,
+		&ptr_mtktsAbts_data->trip[2], &ptr_mtktsAbts_data->t_type[2], ptr_mtktsAbts_data->bind2,
+		&ptr_mtktsAbts_data->trip[3], &ptr_mtktsAbts_data->t_type[3], ptr_mtktsAbts_data->bind3,
+		&ptr_mtktsAbts_data->trip[4], &ptr_mtktsAbts_data->t_type[4], ptr_mtktsAbts_data->bind4,
+		&ptr_mtktsAbts_data->trip[5], &ptr_mtktsAbts_data->t_type[5], ptr_mtktsAbts_data->bind5,
+		&ptr_mtktsAbts_data->trip[6], &ptr_mtktsAbts_data->t_type[6], ptr_mtktsAbts_data->bind6,
+		&ptr_mtktsAbts_data->trip[7], &ptr_mtktsAbts_data->t_type[7], ptr_mtktsAbts_data->bind7,
+		&ptr_mtktsAbts_data->trip[8], &ptr_mtktsAbts_data->t_type[8], ptr_mtktsAbts_data->bind8,
+		&ptr_mtktsAbts_data->trip[9], &ptr_mtktsAbts_data->t_type[9], ptr_mtktsAbts_data->bind9,
 		&ptr_mtktsAbts_data->time_msec) == 32) {
 		down(&sem_mutex);
-		mtkts_Abts_dprintk(
-			"[mtkts_Abts_write] mtkts_Abts_unregister_thermal\n");
+		mtkts_Abts_dprintk("[mtkts_Abts_write] mtkts_Abts_unregister_thermal\n");
 		mtkts_Abts_unregister_thermal();
 
 		if (num_trip < 0 || num_trip > 10) {
-			aee_kernel_warning_api(__FILE__, __LINE__,
-					DB_OPT_DEFAULT, "mtkts_Abts_write",
+			aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT, "mtkts_Abts_write",
 					"Bad argument");
-
 			mtkts_Abts_dprintk("[mtkts_Abts_write] bad argument\n");
 			kfree(ptr_mtktsAbts_data);
 			up(&sem_mutex);
@@ -364,9 +319,8 @@ struct file *file, const char __user *buffer, size_t count, loff_t *data)
 		for (i = 0; i < num_trip; i++)
 			g_THERMAL_TRIP[i] = ptr_mtktsAbts_data->t_type[i];
 
-		g_bind0[0] = g_bind1[0] = g_bind2[0] = g_bind3[0]
-			= g_bind4[0] = g_bind5[0] = g_bind6[0] = g_bind7[0]
-			= g_bind8[0] = g_bind9[0] = '\0';
+		g_bind0[0] = g_bind1[0] = g_bind2[0] = g_bind3[0] = g_bind4[0] = g_bind5[0] =
+		    g_bind6[0] = g_bind7[0] = g_bind8[0] = g_bind9[0] = '\0';
 
 		for (i = 0; i < 20; i++) {
 			g_bind0[i] = ptr_mtktsAbts_data->bind0[i];
@@ -381,27 +335,16 @@ struct file *file, const char __user *buffer, size_t count, loff_t *data)
 			g_bind9[i] = ptr_mtktsAbts_data->bind9[i];
 		}
 
-		mtkts_Abts_dprintk(
-			"[mtkts_Abts_write] g_THERMAL_TRIP_0=%d,g_THERMAL_TRIP_1=%d,g_THERMAL_TRIP_2=%d,",
-			g_THERMAL_TRIP[0], g_THERMAL_TRIP[1],
-			g_THERMAL_TRIP[2]);
+		mtkts_Abts_dprintk("[mtkts_Abts_write] g_THERMAL_TRIP_0=%d,g_THERMAL_TRIP_1=%d,g_THERMAL_TRIP_2=%d,",
+			g_THERMAL_TRIP[0], g_THERMAL_TRIP[1], g_THERMAL_TRIP[2]);
+		mtkts_Abts_dprintk("g_THERMAL_TRIP_3=%d,g_THERMAL_TRIP_4=%d,g_THERMAL_TRIP_5=%d,g_THERMAL_TRIP_6=%d,",
+			g_THERMAL_TRIP[3], g_THERMAL_TRIP[4], g_THERMAL_TRIP[5], g_THERMAL_TRIP[6]);
+		mtkts_Abts_dprintk("g_THERMAL_TRIP_7=%d,g_THERMAL_TRIP_8=%d,g_THERMAL_TRIP_9=%d,\n",
+			g_THERMAL_TRIP[7], g_THERMAL_TRIP[8], g_THERMAL_TRIP[9]);
 
-		mtkts_Abts_dprintk(
-			"g_THERMAL_TRIP_3=%d,g_THERMAL_TRIP_4=%d,g_THERMAL_TRIP_5=%d,g_THERMAL_TRIP_6=%d,",
-			g_THERMAL_TRIP[3], g_THERMAL_TRIP[4],
-			g_THERMAL_TRIP[5], g_THERMAL_TRIP[6]);
-
-		mtkts_Abts_dprintk(
-			"g_THERMAL_TRIP_7=%d,g_THERMAL_TRIP_8=%d,g_THERMAL_TRIP_9=%d,\n",
-			g_THERMAL_TRIP[7], g_THERMAL_TRIP[8],
-			g_THERMAL_TRIP[9]);
-
-		mtkts_Abts_dprintk(
-			"[mtkts_Abts_write] cooldev0=%s,cooldev1=%s,cooldev2=%s,cooldev3=%s,cooldev4=%s,",
+		mtkts_Abts_dprintk("[mtkts_Abts_write] cooldev0=%s,cooldev1=%s,cooldev2=%s,cooldev3=%s,cooldev4=%s,",
 			g_bind0, g_bind1, g_bind2, g_bind3, g_bind4);
-
-		mtkts_Abts_dprintk(
-			"cooldev5=%s,cooldev6=%s,cooldev7=%s,cooldev8=%s,cooldev9=%s\n",
+		mtkts_Abts_dprintk("cooldev5=%s,cooldev6=%s,cooldev7=%s,cooldev8=%s,cooldev9=%s\n",
 			g_bind5, g_bind6, g_bind7, g_bind8, g_bind9);
 
 		for (i = 0; i < num_trip; i++)
@@ -409,20 +352,14 @@ struct file *file, const char __user *buffer, size_t count, loff_t *data)
 
 		interval = ptr_mtktsAbts_data->time_msec / 1000;
 
-		mtkts_Abts_dprintk(
-			"[mtkts_Abts_write] trip_0_temp=%d,trip_1_temp=%d,trip_2_temp=%d,trip_3_temp=%d,",
+		mtkts_Abts_dprintk("[mtkts_Abts_write] trip_0_temp=%d,trip_1_temp=%d,trip_2_temp=%d,trip_3_temp=%d,",
 			trip_temp[0], trip_temp[1], trip_temp[2], trip_temp[3]);
-
-		mtkts_Abts_dprintk(
-			"trip_4_temp=%d,trip_5_temp=%d,trip_6_temp=%d,trip_7_temp=%d,trip_8_temp=%d,",
-			trip_temp[4], trip_temp[5], trip_temp[6],
-			trip_temp[7], trip_temp[8]);
-
+		mtkts_Abts_dprintk("trip_4_temp=%d,trip_5_temp=%d,trip_6_temp=%d,trip_7_temp=%d,trip_8_temp=%d,",
+			trip_temp[4], trip_temp[5], trip_temp[6], trip_temp[7], trip_temp[8]);
 		mtkts_Abts_dprintk("trip_9_temp=%d,time_ms=%d\n",
 			trip_temp[9], interval * 1000);
 
-		mtkts_Abts_dprintk(
-			"[mtkts_Abts_write] mtkts_Abts_register_thermal\n");
+		mtkts_Abts_dprintk("[mtkts_Abts_write] mtkts_Abts_register_thermal\n");
 
 		mtkts_Abts_register_thermal();
 		up(&sem_mutex);
@@ -432,9 +369,8 @@ struct file *file, const char __user *buffer, size_t count, loff_t *data)
 	}
 
 	mtkts_Abts_dprintk("[mtkts_Abts_write] bad argument\n");
-	aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
-					"mtkts_Abts_write", "Bad argument");
-
+	aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT, "mtkts_Abts_write",
+			"Bad argument");
 	kfree(ptr_mtktsAbts_data);
 	return -EINVAL;
 }
@@ -445,7 +381,7 @@ static int mtkts_Abts_register_thermal(void)
 
 	/* trips : trip 0~1 */
 	thz_dev = mtk_thermal_zone_device_register("mtktsAbts", num_trip, NULL,
-				&mtkts_Abts_dev_ops, 0, 0, 0, interval * 1000);
+						   &mtkts_Abts_dev_ops, 0, 0, 0, interval * 1000);
 
 	return 0;
 }
@@ -474,30 +410,23 @@ static const struct file_operations mtkts_AP_fops = {
 	.release = single_release,
 };
 
-static int tsAbts_sysrst_get_max_state(
-struct thermal_cooling_device *cdev, unsigned long *state)
+static int tsAbts_sysrst_get_max_state(struct thermal_cooling_device *cdev, unsigned long *state)
 {
 	mtkts_Abts_dprintk("tsAbts_sysrst_get_max_state!!!\n");
 	*state = 1;
 	return 0;
 }
 
-static int tsAbts_sysrst_get_cur_state(
-struct thermal_cooling_device *cdev, unsigned long *state)
+static int tsAbts_sysrst_get_cur_state(struct thermal_cooling_device *cdev, unsigned long *state)
 {
-	mtkts_Abts_dprintk("tsAbts_sysrst_get_cur_state = %d\n",
-						cl_dev_sysrst_state);
-
+	mtkts_Abts_dprintk("tsAbts_sysrst_get_cur_state = %d\n", cl_dev_sysrst_state);
 	*state = cl_dev_sysrst_state;
 	return 0;
 }
 
-static int tsAbts_sysrst_set_cur_state(
-struct thermal_cooling_device *cdev, unsigned long state)
+static int tsAbts_sysrst_set_cur_state(struct thermal_cooling_device *cdev, unsigned long state)
 {
-	mtkts_Abts_dprintk("tsAbts_sysrst_set_cur_state = %d\n",
-							cl_dev_sysrst_state);
-
+	mtkts_Abts_dprintk("tsAbts_sysrst_set_cur_state = %d\n", cl_dev_sysrst_state);
 	cl_dev_sysrst_state = state;
 	if (cl_dev_sysrst_state == 1) {
 		pr_debug("Power/tsAbts_Thermal: reset, reset, reset!!!");
@@ -506,9 +435,6 @@ struct thermal_cooling_device *cdev, unsigned long state)
 		pr_debug("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
 
 
-		/* To trigger data abort to reset the system
-		 * for thermal protection.
-		 */
 		BUG();
 
 	}
@@ -523,9 +449,8 @@ static struct thermal_cooling_device_ops tsAbts_cooling_sysrst_ops = {
 
 int tsAbts_register_cooler(void)
 {
-	cl_dev_sysrst = mtk_thermal_cooling_device_register(
-						"mtktsAbts-sysrst", NULL,
-						&tsAbts_cooling_sysrst_ops);
+	cl_dev_sysrst = mtk_thermal_cooling_device_register("mtktsAbts-sysrst", NULL,
+							    &tsAbts_cooling_sysrst_ops);
 	return 0;
 }
 
@@ -555,11 +480,10 @@ static int __init mtkts_Abts_init(void)
 
 	mtkts_AP_dir = mtk_thermal_get_proc_drv_therm_dir_entry();
 	if (!mtkts_AP_dir) {
-		mtkts_Abts_dprintk(
-			"[%s]: mkdir /proc/driver/thermal failed\n", __func__);
+		mtkts_Abts_dprintk("[%s]: mkdir /proc/driver/thermal failed\n", __func__);
 	} else {
-		entry = proc_create("tzAbts", 0664,
-						mtkts_AP_dir, &mtkts_AP_fops);
+		entry =
+		    proc_create("tzAbts", S_IRUGO | S_IWUSR | S_IWGRP, mtkts_AP_dir, &mtkts_AP_fops);
 		if (entry)
 			proc_set_user(entry, uid, gid);
 	}

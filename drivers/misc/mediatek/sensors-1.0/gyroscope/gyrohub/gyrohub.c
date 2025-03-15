@@ -1,28 +1,28 @@
 /* GYRO_HUB motion sensor driver
  *
- * Copyright (C) 2016 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
  */
-
-
-#define pr_fmt(fmt) "[GYRO] " fmt
-
 #include <hwmsensor.h>
 #include "gyrohub.h"
 #include <gyroscope.h>
 #include <SCP_sensorHub.h>
 #include "SCP_power_monitor.h"
 
-/* name must different with gsensor gyrohub */
-#define GYROHUB_DEV_NAME    "gyro_hub"
+#define GYROHUB_DEV_NAME        "gyro_hub"	/* name must different with gsensor gyrohub */
+
+#define GYROS_TAG					"[GYRO] "
+#define GYROS_FUN(f)				pr_debug(GYROS_TAG"%s\n", __func__)
+#define GYROS_PR_ERR(fmt, args...)		pr_err(GYROS_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
+#define GYROS_LOG(fmt, args...)		pr_debug(GYROS_TAG fmt, ##args)
+
 
 static struct gyro_init_info gyrohub_init_info;
 struct platform_device *gyroPltFmDev;
@@ -41,7 +41,6 @@ struct gyrohub_ipi_data {
 	int direction;
 	atomic_t trace;
 	atomic_t suspend;
-	atomic_t selftest_status;
 	int32_t static_cali[GYROHUB_AXES_NUM];
 	uint8_t static_cali_status;
 	int32_t dynamic_cali[GYROHUB_AXES_NUM];
@@ -53,15 +52,13 @@ struct gyrohub_ipi_data {
 	bool factory_enable;
 	bool android_enable;
 	struct completion calibration_done;
-	struct completion selftest_done;
 };
 static struct gyrohub_ipi_data *obj_ipi_data;
 
 static int gyrohub_get_data(int *x, int *y, int *z, int *status);
 
 #ifdef MTK_OLD_FACTORY_CALIBRATION
-static int gyrohub_write_rel_calibration(struct gyrohub_ipi_data *obj,
-	int dat[GYROHUB_AXES_NUM])
+static int gyrohub_write_rel_calibration(struct gyrohub_ipi_data *obj, int dat[GYROHUB_AXES_NUM])
 {
 	obj->static_cali[GYROHUB_AXIS_X] = dat[GYROHUB_AXIS_X];
 	obj->static_cali[GYROHUB_AXIS_Y] = dat[GYROHUB_AXIS_Y];
@@ -69,9 +66,8 @@ static int gyrohub_write_rel_calibration(struct gyrohub_ipi_data *obj,
 
 
 	if (atomic_read(&obj->trace) & GYRO_TRC_CALI) {
-		pr_debug("write gyro calibration data  (%5d, %5d, %5d)\n",
-			 obj->static_cali[GYROHUB_AXIS_X],
-			 obj->static_cali[GYROHUB_AXIS_Y],
+		GYROS_LOG("write gyro calibration data  (%5d, %5d, %5d)\n",
+			 obj->static_cali[GYROHUB_AXIS_X], obj->static_cali[GYROHUB_AXIS_Y],
 			 obj->static_cali[GYROHUB_AXIS_Z]);
 	}
 
@@ -86,11 +82,11 @@ static int gyrohub_ResetCalibration(void)
 
 	err = sensor_set_cmd_to_hub(ID_GYROSCOPE, CUST_ACTION_RESET_CALI, buf);
 	if (err < 0)
-		pr_err("sensor_set_cmd_to_hub fail,(ID:%d),(action:%d)\n",
+		GYROS_PR_ERR("sensor_set_cmd_to_hub fail, (ID: %d),(action: %d)\n",
 			ID_GYROSCOPE, CUST_ACTION_RESET_CALI);
 
 	memset(obj->static_cali, 0x00, sizeof(obj->static_cali));
-	pr_debug("gyro clear cali\n");
+	GYROS_LOG("gyro clear cali\n");
 	return err;
 }
 
@@ -102,7 +98,7 @@ static int gyrohub_ReadCalibration(int dat[GYROHUB_AXES_NUM])
 	dat[GYROHUB_AXIS_Y] = obj->static_cali[GYROHUB_AXIS_Y];
 	dat[GYROHUB_AXIS_Z] = obj->static_cali[GYROHUB_AXIS_Z];
 
-	pr_debug("Read gyro calibration data  (%5d, %5d, %5d)\n",
+	GYROS_LOG("Read gyro calibration data  (%5d, %5d, %5d)\n",
 		 dat[GYROHUB_AXIS_X], dat[GYROHUB_AXIS_Y], dat[GYROHUB_AXIS_Z]);
 	return 0;
 }
@@ -113,7 +109,7 @@ static int gyrohub_WriteCalibration_scp(int dat[GYROHUB_AXES_NUM])
 
 	err = sensor_set_cmd_to_hub(ID_GYROSCOPE, CUST_ACTION_SET_CALI, dat);
 	if (err < 0)
-		pr_err("sensor_set_cmd_to_hub fail,(ID:%d),(action:%d)\n",
+		GYROS_PR_ERR("sensor_set_cmd_to_hub fail, (ID: %d),(action: %d)\n",
 			ID_GYROSCOPE, CUST_ACTION_SET_CALI);
 	return err;
 }
@@ -124,16 +120,16 @@ static int gyrohub_WriteCalibration(int dat[GYROHUB_AXES_NUM])
 	int err = 0;
 	int cali[GYROHUB_AXES_NUM];
 
-	pr_debug("%s\n", __func__);
+	GYROS_FUN();
 
 	if (!obj || !dat) {
-		pr_err("null ptr!!\n");
+		GYROS_PR_ERR("null ptr!!\n");
 		return -EINVAL;
 	}
 
 	err = gyrohub_WriteCalibration_scp(dat);
 	if (err < 0) {
-		pr_err("gyrohub_WriteCalibration_scp fail\n");
+		GYROS_PR_ERR("gyrohub_WriteCalibration_scp fail\n");
 		return -1;
 	}
 
@@ -145,10 +141,9 @@ static int gyrohub_WriteCalibration(int dat[GYROHUB_AXES_NUM])
 	cali[GYROHUB_AXIS_Y] += dat[GYROHUB_AXIS_Y];
 	cali[GYROHUB_AXIS_Z] += dat[GYROHUB_AXIS_Z];
 
-	pr_debug("write gyro calibration data (%5d,%5d,%5d)-->(%5d,%5d,%5d)\n",
+	GYROS_LOG("write gyro calibration data  (%5d, %5d, %5d)-->(%5d, %5d, %5d)\n",
 		 dat[GYROHUB_AXIS_X], dat[GYROHUB_AXIS_Y], dat[GYROHUB_AXIS_Z],
-		 cali[GYROHUB_AXIS_X], cali[GYROHUB_AXIS_Y],
-		 cali[GYROHUB_AXIS_Z]);
+		 cali[GYROHUB_AXIS_X], cali[GYROHUB_AXIS_Y], cali[GYROHUB_AXIS_Z]);
 
 	return gyrohub_write_rel_calibration(obj, cali);
 }
@@ -160,7 +155,7 @@ static int gyrohub_SetPowerMode(bool enable)
 
 	err = sensor_enable_to_hub(ID_GYROSCOPE, enable);
 	if (err < 0)
-		pr_err("sensor_enable_to_hub fail!\n");
+		GYROS_PR_ERR("sensor_enable_to_hub fail!\n");
 
 	return err;
 }
@@ -181,7 +176,7 @@ static int gyrohub_ReadGyroData(char *buf, int bufsize)
 		return -1;
 	err = sensor_get_data_from_hub(ID_GYROSCOPE, &data);
 	if (err < 0) {
-		pr_err("sensor_get_data_from_hub fail!\n");
+		GYROS_PR_ERR("sensor_get_data_from_hub fail!\n");
 		return err;
 	}
 
@@ -190,14 +185,14 @@ static int gyrohub_ReadGyroData(char *buf, int bufsize)
 	gyro[GYROHUB_AXIS_Y]	= data.gyroscope_t.y;
 	gyro[GYROHUB_AXIS_Z]	= data.gyroscope_t.z;
 	status					= data.gyroscope_t.status;
-	sprintf(buf, "%04x %04x %04x %04x",
-		gyro[GYROHUB_AXIS_X],
-		gyro[GYROHUB_AXIS_Y],
-		gyro[GYROHUB_AXIS_Z],
-		status);
+	GYROS_LOG("recv ipi: timestamp: %lld, x: %d, y: %d, z: %d!\n", time_stamp,
+		gyro[GYROHUB_AXIS_X], gyro[GYROHUB_AXIS_Y], gyro[GYROHUB_AXIS_Z]);
+
+
+	sprintf(buf, "%04x %04x %04x %04x", gyro[GYROHUB_AXIS_X], gyro[GYROHUB_AXIS_Y], gyro[GYROHUB_AXIS_Z], status);
 
 	if (atomic_read(&obj->trace) & GYRO_TRC_DATA)
-		pr_debug("gsensor data: %s!\n", buf);
+		GYROS_LOG("gsensor data: %s!\n", buf);
 
 	return 0;
 
@@ -222,12 +217,11 @@ static int gyrohub_ReadAllReg(char *buf, int bufsize)
 
 	err = gyrohub_SetPowerMode(true);
 	if (err)
-		pr_err("Power on mpu6050 error %d!\n", err);
+		GYROS_PR_ERR("Power on mpu6050 error %d!\n", err);
 	msleep(50);
 	err = sensor_set_cmd_to_hub(ID_GYROSCOPE, CUST_ACTION_SHOW_REG, buf);
 	if (err < 0) {
-		pr_err("sensor_set_cmd_to_hub fail,(ID:%d),(action:%d)\n",
-			ID_GYROSCOPE, CUST_ACTION_SHOW_REG);
+		GYROS_PR_ERR("sensor_set_cmd_to_hub fail, (ID: %d),(action: %d)\n", ID_GYROSCOPE, CUST_ACTION_SHOW_REG);
 		return 0;
 	}
 	return 0;
@@ -240,37 +234,36 @@ static ssize_t show_chipinfo_value(struct device_driver *ddri, char *buf)
 	int err = 0;
 
 	if (obj == NULL) {
-		pr_err("obj is null!!\n");
+		GYROS_PR_ERR("obj is null!!\n");
 		return 0;
 	}
 	err = gyrohub_ReadAllReg(strbuf, GYROHUB_BUFSIZE);
 	if (err < 0) {
-		pr_debug("gyrohub_ReadAllReg fail!!\n");
+		GYROS_LOG("gyrohub_ReadAllReg fail!!\n");
 		return 0;
 	}
 	err = gyrohub_ReadChipInfo(strbuf, GYROHUB_BUFSIZE);
 	if (err < 0) {
-		pr_debug("gyrohub_ReadChipInfo fail!!\n");
+		GYROS_LOG("gyrohub_ReadChipInfo fail!!\n");
 		return 0;
 	}
 	return snprintf(buf, PAGE_SIZE, "%s\n", strbuf);
 }
 
-static ssize_t show_sensordata_value(struct device_driver *ddri,
-	char *buf)
+static ssize_t show_sensordata_value(struct device_driver *ddri, char *buf)
 {
 	struct gyrohub_ipi_data *obj = obj_ipi_data;
 	char strbuf[GYROHUB_BUFSIZE];
 	int err = 0;
 
 	if (obj == NULL) {
-		pr_err("obj is null!!\n");
+		GYROS_PR_ERR("obj is null!!\n");
 		return 0;
 	}
 
 	err = gyrohub_ReadGyroData(strbuf, GYROHUB_BUFSIZE);
 	if (err < 0) {
-		pr_debug("gyrohub_ReadGyroData fail!!\n");
+		GYROS_LOG("gyrohub_ReadGyroData fail!!\n");
 		return 0;
 	}
 	return snprintf(buf, PAGE_SIZE, "%s\n", strbuf);
@@ -282,7 +275,7 @@ static ssize_t show_trace_value(struct device_driver *ddri, char *buf)
 	struct gyrohub_ipi_data *obj = obj_ipi_data;
 
 	if (obj == NULL) {
-		pr_err(" obj is null!!\n");
+		GYROS_PR_ERR(" obj is null!!\n");
 		return 0;
 	}
 
@@ -290,32 +283,27 @@ static ssize_t show_trace_value(struct device_driver *ddri, char *buf)
 	return res;
 }
 
-static ssize_t store_trace_value(struct device_driver *ddri,
-	const char *buf, size_t count)
+static ssize_t store_trace_value(struct device_driver *ddri, const char *buf, size_t count)
 {
 	struct gyrohub_ipi_data *obj = obj_ipi_data;
 	int trace = 0;
 	int res = 0;
 
 	if (obj == NULL) {
-		pr_err("obj is null!!\n");
+		GYROS_PR_ERR("obj is null!!\n");
 		return 0;
 	}
-
-	if (sscanf(buf, "0x%x", &trace) != 1) {
-		pr_err("invalid content:'%s', length =%zu\n", buf, count);
-		return count;
+	if (sscanf(buf, "0x%x", &trace) == 1) {
+		atomic_set(&obj->trace, trace);
+		res = sensor_set_cmd_to_hub(ID_GYROSCOPE, CUST_ACTION_SET_TRACE, &trace);
+		if (res < 0) {
+			GYROS_PR_ERR("sensor_set_cmd_to_hub fail, (ID: %d),(action: %d)\n",
+				ID_GYROSCOPE, CUST_ACTION_SET_TRACE);
+			return 0;
+		}
+	} else {
+		GYROS_PR_ERR("invalid content: '%s', length = %zu\n", buf, count);
 	}
-
-	atomic_set(&obj->trace, trace);
-	res = sensor_set_cmd_to_hub(ID_GYROSCOPE,
-		CUST_ACTION_SET_TRACE, &trace);
-	if (res < 0) {
-		pr_err("sensor_set_cmd_to_hub fail,(ID:%d),(action:%d)\n",
-			ID_GYROSCOPE, CUST_ACTION_SET_TRACE);
-		return 0;
-	}
-
 	return count;
 }
 
@@ -325,7 +313,7 @@ static ssize_t show_status_value(struct device_driver *ddri, char *buf)
 	struct gyrohub_ipi_data *obj = obj_ipi_data;
 
 	if (obj == NULL) {
-		pr_err(" obj is null!!\n");
+		GYROS_PR_ERR(" obj is null!!\n");
 		return 0;
 	}
 
@@ -337,14 +325,12 @@ static ssize_t show_chip_orientation(struct device_driver *ddri, char *buf)
 	ssize_t _tLength = 0;
 	struct gyrohub_ipi_data *obj = obj_ipi_data;
 
-	_tLength = snprintf(buf, PAGE_SIZE, "default direction = %d\n",
-								obj->direction);
+	_tLength = snprintf(buf, PAGE_SIZE, "default direction = %d\n", obj->direction);
 
 	return _tLength;
 }
 
-static ssize_t store_chip_orientation(struct device_driver *ddri,
-	const char *buf, size_t tCount)
+static ssize_t store_chip_orientation(struct device_driver *ddri, const char *buf, size_t tCount)
 {
 	int _nDirection = 0, ret = 0;
 	struct gyrohub_ipi_data *obj = obj_ipi_data;
@@ -352,35 +338,29 @@ static ssize_t store_chip_orientation(struct device_driver *ddri,
 	if (obj == NULL)
 		return 0;
 	ret = kstrtoint(buf, 10, &_nDirection);
-
-	if (ret != 0) {
-		pr_debug("[%s] set direction: %d\n", __func__, _nDirection);
-		return tCount;
+	if (ret == 0) {
+		obj->direction = _nDirection;
+		ret = sensor_set_cmd_to_hub(ID_GYROSCOPE, CUST_ACTION_SET_DIRECTION, &_nDirection);
+		if (ret < 0) {
+			GYROS_PR_ERR("sensor_set_cmd_to_hub fail, (ID: %d),(action: %d)\n",
+				ID_GYROSCOPE, CUST_ACTION_SET_DIRECTION);
+			return 0;
+		}
 	}
 
-	obj->direction = _nDirection;
-	ret = sensor_set_cmd_to_hub(ID_GYROSCOPE,
-		CUST_ACTION_SET_DIRECTION, &_nDirection);
-	if (ret < 0) {
-		pr_err("sensor_set_cmd_to_hub fail,(ID:%d),(action:%d)\n",
-			ID_GYROSCOPE, CUST_ACTION_SET_DIRECTION);
-		return 0;
-	}
-
-	pr_debug("[%s] set direction: %d\n", __func__, _nDirection);
+	GYROS_LOG("[%s] set direction: %d\n", __func__, _nDirection);
 
 	return tCount;
 }
 
 static int gyrohub_factory_enable_calibration(void);
-static ssize_t store_test_cali(struct device_driver *ddri,
-	const char *buf, size_t tCount)
+static ssize_t store_test_cali(struct device_driver *ddri, const char *buf, size_t tCount)
 {
 	int enable = 0, ret = 0;
 
 	ret = kstrtoint(buf, 10, &enable);
 	if (ret != 0) {
-		pr_debug("kstrtoint fail\n");
+		GYROS_LOG("kstrtoint fail\n");
 		return 0;
 	}
 	if (enable == 1)
@@ -388,13 +368,12 @@ static ssize_t store_test_cali(struct device_driver *ddri,
 	return tCount;
 }
 
-static DRIVER_ATTR(chipinfo, 0444, show_chipinfo_value, NULL);
-static DRIVER_ATTR(sensordata, 0444, show_sensordata_value, NULL);
-static DRIVER_ATTR(trace, 0644, show_trace_value, store_trace_value);
-static DRIVER_ATTR(status, 0444, show_status_value, NULL);
-static DRIVER_ATTR(orientation, 0644,
-	show_chip_orientation, store_chip_orientation);
-static DRIVER_ATTR(test_cali, 0644, NULL, store_test_cali);
+static DRIVER_ATTR(chipinfo, S_IRUGO, show_chipinfo_value, NULL);
+static DRIVER_ATTR(sensordata, S_IRUGO, show_sensordata_value, NULL);
+static DRIVER_ATTR(trace, S_IWUSR | S_IRUGO, show_trace_value, store_trace_value);
+static DRIVER_ATTR(status, S_IRUGO, show_status_value, NULL);
+static DRIVER_ATTR(orientation, S_IWUSR | S_IRUGO, show_chip_orientation, store_chip_orientation);
+static DRIVER_ATTR(test_cali, S_IWUSR | S_IRUGO, NULL, store_test_cali);
 
 static struct driver_attribute *gyrohub_attr_list[] = {
 	&driver_attr_chipinfo,	/*chip information */
@@ -416,8 +395,7 @@ static int gyrohub_create_attr(struct device_driver *driver)
 	for (idx = 0; idx < num; idx++) {
 		err = driver_create_file(driver, gyrohub_attr_list[idx]);
 		if (err != 0) {
-			pr_err("driver_create_file (%s) = %d\n",
-				gyrohub_attr_list[idx]->attr.name, err);
+			GYROS_PR_ERR("driver_create_file (%s) = %d\n", gyrohub_attr_list[idx]->attr.name, err);
 			break;
 		}
 	}
@@ -447,7 +425,7 @@ static void scp_init_work_done(struct work_struct *work)
 #endif
 
 	if (atomic_read(&obj->scp_init_done) == 0) {
-		pr_err("scp is not ready to send cmd\n");
+		GYROS_PR_ERR("scp is not ready to send cmd\n");
 		return;
 	}
 	if (atomic_xchg(&obj->first_ready_after_boot, 1) == 0)
@@ -455,7 +433,7 @@ static void scp_init_work_done(struct work_struct *work)
 #ifdef MTK_OLD_FACTORY_CALIBRATION
 	err = gyrohub_WriteCalibration_scp(obj->static_cali);
 	if (err < 0)
-		pr_err("gyrohub_WriteCalibration_scp fail\n");
+		GYROS_PR_ERR("gyrohub_WriteCalibration_scp fail\n");
 #else
 	spin_lock(&calibration_lock);
 	cfg_data[0] = obj->dynamic_cali[0];
@@ -473,10 +451,9 @@ static void scp_init_work_done(struct work_struct *work)
 	cfg_data[10] = obj->temperature_cali[4];
 	cfg_data[11] = obj->temperature_cali[5];
 	spin_unlock(&calibration_lock);
-	err = sensor_cfg_to_hub(ID_GYROSCOPE,
-		(uint8_t *)cfg_data, sizeof(cfg_data));
+	err = sensor_cfg_to_hub(ID_GYROSCOPE, (uint8_t *)cfg_data, sizeof(cfg_data));
 	if (err < 0)
-		pr_err("sensor_cfg_to_hub fail\n");
+		GYROS_PR_ERR("sensor_cfg_to_hub fail\n");
 #endif
 }
 
@@ -487,8 +464,8 @@ static int gyro_recv_data(struct data_unit_t *event, void *reserved)
 	struct gyro_data data;
 
 	memset(&data, 0, sizeof(struct gyro_data));
-	if (event->flush_action == DATA_ACTION &&
-		READ_ONCE(obj->android_enable) == true) {
+
+	if (event->flush_action == DATA_ACTION) {
 		if (READ_ONCE(obj->android_enable) == false)
 			return 0;
 		data.x = event->gyroscope_t.x;
@@ -499,6 +476,8 @@ static int gyro_recv_data(struct data_unit_t *event, void *reserved)
 		data.reserved[0] = event->reserve[0];
 		err = gyro_data_report(&data);
 	} else if (event->flush_action == FLUSH_ACTION) {
+		if (READ_ONCE(obj->android_enable) == false)
+			return 0;
 		err = gyro_flush_report();
 	} else if (event->flush_action == BIAS_ACTION) {
 		data.x = event->gyroscope_t.x_bias;
@@ -524,9 +503,7 @@ static int gyro_recv_data(struct data_unit_t *event, void *reserved)
 		spin_unlock(&calibration_lock);
 		complete(&obj->calibration_done);
 	} else if (event->flush_action == TEMP_ACTION) {
-		/* temp action occur when gyro disable,
-		 *so we always should send data to userspace
-		 */
+		/* temp action occur when gyro disable, so we always should send data to userspace */
 		err = gyro_temp_report(event->data);
 		spin_lock(&calibration_lock);
 		obj->temperature_cali[0] = event->data[0];
@@ -536,14 +513,10 @@ static int gyro_recv_data(struct data_unit_t *event, void *reserved)
 		obj->temperature_cali[4] = event->data[4];
 		obj->temperature_cali[5] = event->data[5];
 		spin_unlock(&calibration_lock);
-	} else if (event->flush_action == TEST_ACTION) {
-		atomic_set(&obj->selftest_status, event->gyroscope_t.status);
-		complete(&obj->selftest_done);
 	}
 	return err;
 }
-static int gyrohub_factory_enable_sensor(bool enabledisable,
-	int64_t sample_periods_ms)
+static int gyrohub_factory_enable_sensor(bool enabledisable, int64_t sample_periods_ms)
 {
 	int err = 0;
 	struct gyrohub_ipi_data *obj = obj_ipi_data;
@@ -556,13 +529,13 @@ static int gyrohub_factory_enable_sensor(bool enabledisable,
 	if (enabledisable == true) {
 		err = sensor_set_delay_to_hub(ID_GYROSCOPE, sample_periods_ms);
 		if (err) {
-			pr_err("sensor_set_delay_to_hub failed!\n");
+			GYROS_PR_ERR("sensor_set_delay_to_hub failed!\n");
 			return -1;
 		}
 	}
 	err = sensor_enable_to_hub(ID_GYROSCOPE, enabledisable);
 	if (err) {
-		pr_err("sensor_enable_to_hub failed!\n");
+		GYROS_PR_ERR("sensor_enable_to_hub failed!\n");
 		return -1;
 	}
 	return 0;
@@ -580,7 +553,7 @@ static int gyrohub_factory_get_data(int32_t data[3], int *status)
 }
 static int gyrohub_factory_get_raw_data(int32_t data[3])
 {
-	pr_debug("don't support gyrohub_factory_get_raw_data!\n");
+	GYROS_LOG("don't support gyrohub_factory_get_raw_data!\n");
 	return 0;
 }
 static int gyrohub_factory_enable_calibration(void)
@@ -594,7 +567,7 @@ static int gyrohub_factory_clear_cali(void)
 
 	err = gyrohub_ResetCalibration();
 	if (err) {
-		pr_err("gyrohub_ResetCalibration failed!\n");
+		GYROS_PR_ERR("gyrohub_ResetCalibration failed!\n");
 		return -1;
 	}
 #endif
@@ -607,7 +580,7 @@ static int gyrohub_factory_set_cali(int32_t data[3])
 
 	err = gyrohub_WriteCalibration(data);
 	if (err) {
-		pr_err("gyrohub_WriteCalibration failed!\n");
+		GYROS_PR_ERR("gyrohub_WriteCalibration failed!\n");
 		return -1;
 	}
 #endif
@@ -624,15 +597,14 @@ static int gyrohub_factory_get_cali(int32_t data[3])
 #ifdef MTK_OLD_FACTORY_CALIBRATION
 	err = gyrohub_ReadCalibration(data);
 	if (err) {
-		pr_err("gyrohub_ReadCalibration failed!\n");
+		GYROS_PR_ERR("gyrohub_ReadCalibration failed!\n");
 		return -1;
 	}
 #else
 	init_completion(&obj->calibration_done);
-	err = wait_for_completion_timeout(&obj->calibration_done,
-		msecs_to_jiffies(3000));
+	err = wait_for_completion_timeout(&obj->calibration_done, msecs_to_jiffies(3000));
 	if (!err) {
-		pr_err("gyrohub_factory_get_cali fail!\n");
+		GYROS_PR_ERR("gyrohub_factory_get_cali fail!\n");
 		return -1;
 	}
 	spin_lock(&calibration_lock);
@@ -642,7 +614,7 @@ static int gyrohub_factory_get_cali(int32_t data[3])
 	status = obj->static_cali_status;
 	spin_unlock(&calibration_lock);
 	if (status != 0) {
-		pr_debug("gyrohub static cali detect shake!\n");
+		GYROS_LOG("gyrohub static cali detect shake!\n");
 		return -2;
 	}
 #endif
@@ -650,19 +622,7 @@ static int gyrohub_factory_get_cali(int32_t data[3])
 }
 static int gyrohub_factory_do_self_test(void)
 {
-	int ret = 0;
-	struct gyrohub_ipi_data *obj = obj_ipi_data;
-
-	ret = sensor_selftest_to_hub(ID_GYROSCOPE);
-	if (ret < 0)
-		return -1;
-
-	init_completion(&obj->selftest_done);
-	ret = wait_for_completion_timeout(&obj->selftest_done,
-					  msecs_to_jiffies(3000));
-	if (!ret)
-		return -1;
-	return atomic_read(&obj->selftest_status);
+	return 0;
 }
 
 static struct gyro_factory_fops gyrohub_factory_fops = {
@@ -704,10 +664,10 @@ static int gyrohub_enable_nodata(int en)
 
 	res = gyrohub_SetPowerMode(power);
 	if (res < 0) {
-		pr_err("GYROHUB_SetPowerMode fail\n");
+		GYROS_PR_ERR("GYROHUB_SetPowerMode fail\n");
 		return res;
 	}
-	pr_debug("gyrohub_enable_nodata OK!\n");
+	GYROS_LOG("gyrohub_enable_nodata OK!\n");
 	return 0;
 
 }
@@ -722,11 +682,11 @@ static int gyrohub_set_delay(u64 ns)
 	value = (int)ns / 1000 / 1000;
 	err = sensor_set_delay_to_hub(ID_GYROSCOPE, value);
 	if (err < 0) {
-		pr_err("sensor_set_delay_to_hub fail!\n");
+		GYROS_PR_ERR("sensor_set_delay_to_hub fail!\n");
 		return err;
 	}
 
-	pr_debug("gyro_set_delay (%d)\n", value);
+	GYROS_LOG("gyro_set_delay (%d)\n", value);
 	return err;
 #elif defined CONFIG_NANOHUB
 	return 0;
@@ -734,14 +694,12 @@ static int gyrohub_set_delay(u64 ns)
 	return 0;
 #endif
 }
-static int gyrohub_batch(int flag, int64_t samplingPeriodNs,
-	int64_t maxBatchReportLatencyNs)
+static int gyrohub_batch(int flag, int64_t samplingPeriodNs, int64_t maxBatchReportLatencyNs)
 {
 #if defined CONFIG_MTK_SCP_SENSORHUB_V1
 	gyrohub_set_delay(samplingPeriodNs);
 #endif
-	return sensor_batch_to_hub(ID_GYROSCOPE,
-		flag, samplingPeriodNs, maxBatchReportLatencyNs);
+	return sensor_batch_to_hub(ID_GYROSCOPE, flag, samplingPeriodNs, maxBatchReportLatencyNs);
 }
 
 static int gyrohub_flush(void)
@@ -781,26 +739,26 @@ static int gpio_config(void)
 	struct pinctrl_state *pins_cfg;
 
 	if (gyroPltFmDev == NULL) {
-		pr_err("Cannot find gyro device!\n");
+		GYRO_PR_ERR("Cannot find gyro device!\n");
 		return 0;
 	}
 
 	pinctrl = devm_pinctrl_get(&gyroPltFmDev->dev);
 	if (IS_ERR(pinctrl)) {
 		ret = PTR_ERR(pinctrl);
-		pr_err("Cannot find gyro pinctrl!\n");
+		GYRO_PR_ERR("Cannot find gyro pinctrl!\n");
 		return ret;
 	}
 	pins_default = pinctrl_lookup_state(pinctrl, "pin_default");
 	if (IS_ERR(pins_default)) {
 		ret = PTR_ERR(pins_default);
-		pr_err("Cannot find gyro pinctrl default!\n");
+		GYRO_PR_ERR("Cannot find gyro pinctrl default!\n");
 	}
 
 	pins_cfg = pinctrl_lookup_state(pinctrl, "pin_cfg");
 	if (IS_ERR(pins_cfg)) {
 		ret = PTR_ERR(pins_cfg);
-		pr_err("Cannot find gyro pinctrl pin_cfg!\n");
+		GYRO_PR_ERR("Cannot find gyro pinctrl pin_cfg!\n");
 		return ret;
 	}
 	pinctrl_select_state(pinctrl, pins_cfg);
@@ -815,12 +773,12 @@ static int gyrohub_get_data(int *x, int *y, int *z, int *status)
 
 	err = gyrohub_ReadGyroData(buff, GYROHUB_BUFSIZE);
 	if (err < 0) {
-		pr_err("gyrohub_ReadGyroData fail!!\n");
+		GYROS_PR_ERR("gyrohub_ReadGyroData fail!!\n");
 		return -1;
 	}
 	err = sscanf(buff, "%x %x %x %x", x, y, z, status);
 	if (err != 4) {
-		pr_err("sscanf fail!!\n");
+		GYROS_PR_ERR("sscanf fail!!\n");
 		return -1;
 	}
 	return 0;
@@ -833,10 +791,10 @@ static int scp_ready_event(uint8_t event, void *ptr)
 	case SENSOR_POWER_UP:
 	    atomic_set(&obj->scp_init_done, 1);
 		schedule_work(&obj->init_done_work);
-		break;
+	    break;
 	case SENSOR_POWER_DOWN:
 	    atomic_set(&obj->scp_init_done, 0);
-		break;
+	    break;
 	}
 	return 0;
 }
@@ -851,10 +809,7 @@ static int gyrohub_probe(struct platform_device *pdev)
 	struct gyro_control_path ctl = { 0 };
 	struct gyro_data_path data = { 0 };
 
-	struct platform_driver *paddr =
-					gyrohub_init_info.platform_diver_addr;
-
-	pr_debug("%s\n", __func__);
+	GYROS_FUN();
 	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
 	if (!obj) {
 		err = -ENOMEM;
@@ -870,35 +825,32 @@ static int gyrohub_probe(struct platform_device *pdev)
 	atomic_set(&obj->suspend, 0);
 	atomic_set(&obj->first_ready_after_boot, 0);
 	atomic_set(&obj->scp_init_done, 0);
-	atomic_set(&obj->selftest_status, 0);
 	WRITE_ONCE(obj->factory_enable, false);
 	WRITE_ONCE(obj->android_enable, false);
 	INIT_WORK(&obj->init_done_work, scp_init_work_done);
 	init_completion(&obj->calibration_done);
-	init_completion(&obj->selftest_done);
 
 	err = gpio_config();
 	if (err < 0) {
-		pr_err("gpio_config failed\n");
+		GYROS_PR_ERR("gpio_config failed\n");
 		goto exit_kfree;
 	}
 	scp_power_monitor_register(&scp_ready_notifier);
 	err = scp_sensorHub_data_registration(ID_GYROSCOPE, gyro_recv_data);
 	if (err < 0) {
-		pr_err("scp_sensorHub_data_registration failed\n");
+		GYROS_PR_ERR("scp_sensorHub_data_registration failed\n");
 		goto exit_kfree;
 	}
 	err = gyro_factory_device_register(&gyrohub_factory_device);
 	if (err) {
-		pr_err("gyro_factory_device_register fail err = %d\n",
-			err);
+		GYROS_PR_ERR("gyro_factory_device_register fail err = %d\n", err);
 		goto exit_kfree;
 	}
 	ctl.is_use_common_factory = true;
 
-	err = gyrohub_create_attr(&paddr->driver);
+	err = gyrohub_create_attr(&(gyrohub_init_info.platform_diver_addr->driver));
 	if (err) {
-		pr_err("gyrohub create attribute err = %d\n", err);
+		GYROS_PR_ERR("gyrohub create attribute err = %d\n", err);
 		goto exit_create_attr_failed;
 	}
 
@@ -919,7 +871,7 @@ static int gyrohub_probe(struct platform_device *pdev)
 
 	err = gyro_register_control_path(&ctl);
 	if (err) {
-		pr_err("register gyro control path err\n");
+		GYROS_PR_ERR("register gyro control path err\n");
 		goto exit_create_attr_failed;
 	}
 
@@ -927,12 +879,12 @@ static int gyrohub_probe(struct platform_device *pdev)
 	data.vender_div = DEGREE_TO_RAD;
 	err = gyro_register_data_path(&data);
 	if (err) {
-		pr_err("gyro_register_data_path fail = %d\n", err);
+		GYROS_PR_ERR("gyro_register_data_path fail = %d\n", err);
 		goto exit_create_attr_failed;
 	}
 	gyrohub_init_flag = 0;
 
-	pr_debug("%s: OK\n", __func__);
+	GYROS_LOG("%s: OK\n", __func__);
 	return 0;
 exit_create_attr_failed:
 	gyrohub_delete_attr(&(gyrohub_init_info.platform_diver_addr->driver));
@@ -941,19 +893,17 @@ exit_kfree:
 	obj_ipi_data = NULL;
 exit:
 	gyrohub_init_flag = -1;
-	pr_err("%s: err = %d\n", __func__, err);
+	GYROS_PR_ERR("%s: err = %d\n", __func__, err);
 	return err;
 }
 
 static int gyrohub_remove(struct platform_device *pdev)
 {
 	int err = 0;
-	struct platform_driver *paddr =
-				gyrohub_init_info.platform_diver_addr;
 
-	err = gyrohub_delete_attr(&paddr->driver);
+	err = gyrohub_delete_attr(&(gyrohub_init_info.platform_diver_addr->driver));
 	if (err)
-		pr_err("gyrohub_delete_attr fail: %d\n", err);
+		GYROS_PR_ERR("gyrohub_delete_attr fail: %d\n", err);
 
 	gyro_factory_device_deregister(&gyrohub_factory_device);
 
@@ -995,7 +945,7 @@ static int gyrohub_local_init(struct platform_device *pdev)
 	gyroPltFmDev = pdev;
 
 	if (platform_driver_register(&gyrohub_driver)) {
-		pr_err("add driver error\n");
+		GYROS_PR_ERR("add driver error\n");
 		return -1;
 	}
 	if (-1 == gyrohub_init_flag)
@@ -1012,7 +962,7 @@ static int __init gyrohub_init(void)
 {
 
 	if (platform_device_register(&gyrohub_device)) {
-		pr_err("platform device error\n");
+		GYROS_PR_ERR("platform device error\n");
 		return -1;
 	}
 	gyro_driver_add(&gyrohub_init_info);
@@ -1022,7 +972,7 @@ static int __init gyrohub_init(void)
 
 static void __exit gyrohub_exit(void)
 {
-	pr_debug("%s\n", __func__);
+	GYROS_FUN();
 }
 
 module_init(gyrohub_init);

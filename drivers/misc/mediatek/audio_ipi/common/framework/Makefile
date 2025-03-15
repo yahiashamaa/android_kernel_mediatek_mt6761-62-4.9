@@ -16,8 +16,6 @@
 ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/base/power/include \
 	-I$(srctree)/drivers/misc/mediatek/scp/$(MTK_PLATFORM) \
-	-I$(srctree)/drivers/misc/mediatek/adsp/common \
-	-I$(srctree)/drivers/misc/mediatek/adsp/$(MTK_PLATFORM) \
 	-I$(srctree)/drivers/misc/mediatek/audio_ipi/$(CONFIG_MTK_PLATFORM) \
 	-I$(srctree)/drivers/misc/mediatek/audio_ipi/common/utility
 
@@ -39,7 +37,7 @@ endif
 
 ### spkprotect for headfile include path
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/tasks/spkprotect
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/tasks/audplayback
+
 
 ### c files
 obj-y += audio_ringbuf.o

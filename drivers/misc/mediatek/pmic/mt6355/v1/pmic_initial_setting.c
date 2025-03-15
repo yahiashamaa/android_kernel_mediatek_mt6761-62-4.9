@@ -29,8 +29,13 @@
 #define PMIC_32K_LESS_DETECT_V1      0
 #define PMIC_CO_TSX_V1               1
 
-#define PMIC_DRV_Reg32(addr)             readl(addr)
-#define PMIC_DRV_WriteReg32(addr, data)  writel(data, addr)
+#define PMIC_READ_REGISTER_UINT32(reg)	(*(volatile uint32_t *const)(reg))
+#define PMIC_INREG32(x)	PMIC_READ_REGISTER_UINT32((uint32_t *)((void *)(x)))
+#define PMIC_WRITE_REGISTER_UINT32(reg, val)	((*(volatile uint32_t *const)(reg)) = (val))
+#define PMIC_OUTREG32(x, y)	PMIC_WRITE_REGISTER_UINT32((uint32_t *)((void *)(x)), (uint32_t)(y))
+
+#define PMIC_DRV_Reg32(addr)             PMIC_INREG32(addr)
+#define PMIC_DRV_WriteReg32(addr, data)  PMIC_OUTREG32(addr, data)
 
 int PMIC_MD_INIT_SETTING_V1(void)
 {
@@ -53,8 +58,7 @@ int PMIC_MD_INIT_SETTING_V1(void)
 	ret |= pmic_config_interface(0x701E, 0x0, 0x1, 0);
 	ret = pmic_config_interface(0xA04, 0x1, 0x1, 3);
 	if ((pmic_reg & 0x200) == 0x200) {
-		/* VCTCXO on MT6176, OFF XO on MT6353 */
-		/* HW control, use srclken_0 */
+		/* VCTCXO on MT6176, OFF XO on MT6353, HW control, use srclken_0 */
 		ret = pmic_config_interface(0xA04, 0x0, 0x7, 11);
 		pr_info("[PMIC] VCTCXO on MT6176 , OFF XO on MT6353\n");
 	} else {
@@ -66,8 +70,7 @@ int PMIC_MD_INIT_SETTING_V1(void)
 #endif
 
 #if PMIC_CO_TSX_V1
-	modem_temp_node = of_find_compatible_node(NULL
-				, NULL, "mediatek,MODEM_TEMP_SHARE");
+	modem_temp_node = of_find_compatible_node(NULL, NULL, "mediatek,MODEM_TEMP_SHARE");
 
 	if (modem_temp_node == NULL) {
 		pr_info("PMIC get modem_temp_node failed\n");
@@ -79,43 +82,37 @@ int PMIC_MD_INIT_SETTING_V1(void)
 #if defined(CONFIG_MACH_MT6757)
 	/* modem temp */
 	PMIC_DRV_WriteReg32(modem_temp_base, 0x033f);
-	pr_info("[PMIC] TEMP_SHARE_CTRL:0x%x\n"
-		, PMIC_DRV_Reg32(modem_temp_base));
+	pr_info("[PMIC] TEMP_SHARE_CTRL:0x%x\n", PMIC_DRV_Reg32(modem_temp_base));
 	/* modem temp */
 	PMIC_DRV_WriteReg32(modem_temp_base + 0x04, 0x013f);
 	/* modem temp */
 	PMIC_DRV_WriteReg32(modem_temp_base, 0x0);
-	pr_info("[PMIC] TEMP_SHARE_CTRL:0x%x _RATIO:0x%x\n"
-		, PMIC_DRV_Reg32(modem_temp_base)
-		, PMIC_DRV_Reg32(modem_temp_base + 0x04));
+	pr_info("[PMIC] TEMP_SHARE_CTRL:0x%x _RATIO:0x%x\n", PMIC_DRV_Reg32(modem_temp_base),
+	       PMIC_DRV_Reg32(modem_temp_base + 0x04));
 #endif
 
 #if defined(CONFIG_MACH_MT6759)
 	/* modem temp */
 	PMIC_DRV_WriteReg32(modem_temp_base, 0x033f);
-	pr_info("[PMIC] TEMP_SHARE_CTRL:0x%x\n"
-		, PMIC_DRV_Reg32(modem_temp_base));
+	pr_info("[PMIC] TEMP_SHARE_CTRL:0x%x\n", PMIC_DRV_Reg32(modem_temp_base));
 	/* modem temp */
 	PMIC_DRV_WriteReg32(modem_temp_base + 0x04, 0x013f);
 	/* modem temp */
 	PMIC_DRV_WriteReg32(modem_temp_base, 0x0);
-	pr_info("[PMIC] TEMP_SHARE_CTRL:0x%x _RATIO:0x%x\n"
-		, PMIC_DRV_Reg32(modem_temp_base)
-		, PMIC_DRV_Reg32(modem_temp_base + 0x04));
+	pr_info("[PMIC] TEMP_SHARE_CTRL:0x%x _RATIO:0x%x\n", PMIC_DRV_Reg32(modem_temp_base),
+	       PMIC_DRV_Reg32(modem_temp_base + 0x04));
 #endif
 
 #if defined(CONFIG_MACH_MT6758)
 	/* modem temp */
 	PMIC_DRV_WriteReg32(modem_temp_base, 0x033f);
-	pr_info("[PMIC] TEMP_SHARE_CTRL:0x%x\n"
-		, PMIC_DRV_Reg32(modem_temp_base));
+	pr_info("[PMIC] TEMP_SHARE_CTRL:0x%x\n", PMIC_DRV_Reg32(modem_temp_base));
 	/* modem temp */
 	PMIC_DRV_WriteReg32(modem_temp_base + 0x04, 0x013f);
 	/* modem temp */
 	PMIC_DRV_WriteReg32(modem_temp_base, 0x0);
-	pr_info("[PMIC] TEMP_SHARE_CTRL:0x%x _RATIO:0x%x\n"
-		, PMIC_DRV_Reg32(modem_temp_base)
-		, PMIC_DRV_Reg32(modem_temp_base + 0x04));
+	pr_info("[PMIC] TEMP_SHARE_CTRL:0x%x _RATIO:0x%x\n", PMIC_DRV_Reg32(modem_temp_base),
+	       PMIC_DRV_Reg32(modem_temp_base + 0x04));
 #endif
 #endif
 	return ret;
@@ -164,22 +161,19 @@ int PMIC_check_battery(void)
 int PMIC_POWER_HOLD(unsigned int hold)
 {
 	if (hold > 1) {
-		pr_info("[PMIC_KERNEL] %s hold = %d only 0 or 1\n"
-			, __func__
-			, hold);
+		pr_err("[PMIC_KERNEL] PMIC_POWER_HOLD hold = %d only 0 or 1\n", hold);
 		return -1;
 	}
 
 	if (hold)
-		PMICLOG("[PMIC_KERNEL] %s ON\n", __func__);
+		PMICLOG("[PMIC_KERNEL] PMIC_POWER_HOLD ON\n");
 	else
-		PMICLOG("[PMIC_KERNEL] %s OFF\n", __func__);
+		PMICLOG("[PMIC_KERNEL] PMIC_POWER_HOLD OFF\n");
 
 	/* MT6355 must keep power hold */
-	pmic_config_interface_nolock(PMIC_RG_PWRHOLD_ADDR, hold
-		, PMIC_RG_PWRHOLD_MASK, PMIC_RG_PWRHOLD_SHIFT);
-	PMICLOG("[PMIC_KERNEL] MT6355 PowerHold = 0x%x\n"
-		, upmu_get_reg_value(MT6355_PPCCTL0));
+	pmic_config_interface_nolock(PMIC_RG_PWRHOLD_ADDR, hold, PMIC_RG_PWRHOLD_MASK,
+			      PMIC_RG_PWRHOLD_SHIFT);
+	PMICLOG("[PMIC_KERNEL] MT6355 PowerHold = 0x%x\n", upmu_get_reg_value(MT6355_PPCCTL0));
 
 	return 0;
 }
@@ -360,7 +354,7 @@ void PMIC_LP_INIT_SETTING(void)
 		ret = pmic_ldo_vxo22_lp(SRCLKEN0, 1, HW_OFF);
 	else
 #endif
-		ret = pmic_ldo_vxo22_lp(SRCLKEN0, 1, HW_LP);
+	ret = pmic_ldo_vxo22_lp(SRCLKEN0, 1, HW_LP);
 
 	ret = pmic_ldo_vxo18_lp(SRCLKEN0, 1, HW_OFF);
 	ret = pmic_ldo_vrf18_1_lp(SRCLKEN1, 1, HW_OFF);
@@ -469,7 +463,7 @@ void PMIC_LP_INIT_SETTING(void)
 		ret = pmic_ldo_vxo22_lp(SRCLKEN0, 1, HW_OFF);
 	else
 #endif
-		ret = pmic_ldo_vxo22_lp(SRCLKEN0, 1, HW_LP);
+	ret = pmic_ldo_vxo22_lp(SRCLKEN0, 1, HW_LP);
 
 	ret = pmic_ldo_vxo18_lp(SRCLKEN0, 1, HW_OFF);
 	ret = pmic_ldo_vrf18_1_lp(SRCLKEN1, 1, HW_OFF);
@@ -548,6 +542,128 @@ void PMIC_LP_INIT_SETTING(void)
 	ret = pmic_ldo_vio18_lp(SRCLKEN2, 1, HW_LP);
 	ret = pmic_ldo_vgp_lp(SW, 1, SW_OFF);
 	ret = pmic_ldo_vgp2_lp(SW, 1, SW_OFF);
+
+	/* MT6355 REG special setting */
+	/* Set RG_REG_CK_PDN_HWEN = 0 */
+	pmic_set_register_value(PMIC_TOP_CKHWEN_CON0_CLR, 0x80);
+	pr_notice("RG_REG_CK_PDN_HWEN = %d(0), RG_REG_CK_PDN = %d(0)\n",
+		pmic_get_register_value(PMIC_RG_REG_CK_PDN_HWEN),
+		pmic_get_register_value(PMIC_RG_REG_CK_PDN));
+}
+#elif defined(CONFIG_MACH_MT6775)
+void PMIC_LP_INIT_SETTING(void)
+{
+	int ret = 0;
+
+	/*--Suspend--*/
+	pmic_buck_vproc11_lp(SW, 1, SW_OFF);
+	pmic_buck_vproc12_lp(SW, 1, SW_OFF);
+	pmic_buck_vcore_lp(SRCLKEN0, 1, HW_LP);
+	pmic_buck_vgpu_lp(SRCLKEN0, 1, HW_LP);
+	pmic_buck_vdram1_lp(SRCLKEN0, 1, HW_LP);
+	pmic_buck_vdram2_lp(SRCLKEN0, 1, HW_LP);
+	pmic_buck_vmodem_lp(SW, 1, SW_OFF);
+	pmic_buck_vs1_lp(SRCLKEN0, 1, HW_LP);
+	pmic_buck_vs2_lp(SRCLKEN0, 1, HW_LP);
+	pmic_buck_vpa_lp(SW, 1, SW_OFF);
+	pmic_ldo_vsram_proc_lp(SW, 1, SW_OFF);
+	pmic_ldo_vsram_gpu_lp(SW, 1, SW_OFF);
+	pmic_ldo_vsram_md_lp(SW, 1, SW_OFF);
+	pmic_ldo_vsram_core_lp(SRCLKEN0, 1, HW_LP);
+	pmic_ldo_vfe28_lp(SRCLKEN1, 1, HW_OFF);
+	pmic_ldo_vtcxo24_lp(SRCLKEN1, 1, HW_OFF);
+
+	/* if co-clock, cannot turn off VXO22 */
+#if defined(CONFIG_MTK_RTC)
+	if ((crystal_exist_status()) == true)
+		ret = pmic_ldo_vxo22_lp(SRCLKEN0, 1, HW_OFF);
+	else
+#endif
+	pmic_ldo_vxo22_lp(SRCLKEN0, 1, HW_LP);
+	pmic_ldo_vxo18_lp(SRCLKEN0, 1, HW_OFF);
+	pmic_ldo_vrf18_1_lp(SRCLKEN1, 1, HW_OFF);
+	pmic_ldo_vrf18_2_lp(SRCLKEN1, 1, HW_OFF);
+	pmic_ldo_vrf12_lp(SRCLKEN1, 1, HW_OFF);
+	pmic_ldo_vcn33_lp(SW, 1, SW_OFF);
+	pmic_ldo_vcn28_lp(SW, 1, SW_OFF);
+	pmic_ldo_vcn18_lp(SW, 1, SW_OFF);
+	pmic_ldo_vcama1_lp(SW, 1, SW_OFF);
+	pmic_ldo_vcama2_lp(SW, 1, SW_OFF);
+	pmic_ldo_vcamio_lp(SW, 1, SW_OFF);
+	pmic_ldo_vcamd1_lp(SW, 1, SW_OFF);
+	pmic_ldo_vcamd2_lp(SW, 1, SW_OFF);
+	pmic_ldo_va10_lp(SRCLKEN0, 1, HW_LP);
+	pmic_ldo_va12_lp(SRCLKEN0, 1, HW_LP);
+	pmic_ldo_va18_lp(SRCLKEN0, 1, HW_LP);
+	pmic_ldo_vsim1_lp(SW, 1, SW_OFF);
+	pmic_ldo_vsim2_lp(SW, 1, SW_OFF);
+	pmic_ldo_vldo28_lp(SRCLKEN0, 1, HW_LP);
+	pmic_ldo_vmipi_lp(SRCLKEN1, 1, HW_OFF);
+	pmic_ldo_vio28_lp(SRCLKEN0, 1, HW_LP);
+	pmic_ldo_vmc_lp(SW, 1, SW_OFF);
+	pmic_ldo_vmch_lp(SW, 1, SW_OFF);
+	pmic_ldo_vemc_lp(SW, 1, SW_OFF);
+	pmic_ldo_vufs18_lp(SRCLKEN0, 1, HW_LP);
+	pmic_ldo_vusb33_lp(SRCLKEN0, 1, HW_LP);
+	pmic_ldo_vbif28_lp(SRCLKEN0, 1, HW_OFF);
+	pmic_ldo_vio18_lp(SRCLKEN0, 1, HW_LP);
+	pmic_ldo_vgp_lp(SW, 1, SW_OFF);
+	pmic_ldo_vgp2_lp(SW, 1, SW_OFF);
+
+	/*--Deepidle--*/
+	pmic_buck_vproc11_lp(SRCLKEN2, 1, HW_LP);
+	pmic_buck_vproc12_lp(SW, 1, SW_OFF);
+	pmic_buck_vcore_lp(SRCLKEN2, 1, HW_LP);
+	pmic_buck_vgpu_lp(SRCLKEN2, 1, HW_LP);
+	pmic_buck_vdram1_lp(SRCLKEN2, 1, HW_LP);
+	pmic_buck_vdram2_lp(SRCLKEN2, 1, HW_LP);
+	pmic_buck_vmodem_lp(SW, 1, SW_OFF);
+	pmic_buck_vs1_lp(SRCLKEN2, 1, HW_LP);
+	pmic_buck_vs2_lp(SRCLKEN2, 1, HW_LP);
+	pmic_buck_vpa_lp(SW, 1, SW_OFF);
+	pmic_ldo_vsram_proc_lp(SRCLKEN2, 1, HW_LP);
+	pmic_ldo_vsram_gpu_lp(SRCLKEN2, 1, HW_LP);
+	pmic_ldo_vsram_md_lp(SW, 1, SW_OFF);
+	pmic_ldo_vsram_core_lp(SRCLKEN2, 1, HW_LP);
+	pmic_ldo_vfe28_lp(SRCLKEN1, 1, HW_OFF);
+	pmic_ldo_vtcxo24_lp(SRCLKEN1, 1, HW_OFF);
+	pmic_ldo_vxo22_lp(SRCLKEN2, 1, HW_LP);
+	pmic_ldo_vxo18_lp(SRCLKEN2, 1, HW_LP);
+	pmic_ldo_vrf18_1_lp(SRCLKEN1, 1, HW_OFF);
+	pmic_ldo_vrf18_2_lp(SRCLKEN1, 1, HW_OFF);
+	pmic_ldo_vrf12_lp(SRCLKEN1, 1, HW_OFF);
+	pmic_ldo_vcn33_lp(SW, 1, SW_OFF);
+	pmic_ldo_vcn28_lp(SW, 1, SW_OFF);
+	pmic_ldo_vcn18_lp(SW, 1, SW_OFF);
+	pmic_ldo_vcama1_lp(SW, 1, SW_OFF);
+	pmic_ldo_vcama2_lp(SW, 1, SW_OFF);
+	pmic_ldo_vcamio_lp(SW, 1, SW_OFF);
+	pmic_ldo_vcamd1_lp(SW, 1, SW_OFF);
+	pmic_ldo_vcamd2_lp(SW, 1, SW_OFF);
+	pmic_ldo_va10_lp(SRCLKEN2, 1, HW_LP);
+	pmic_ldo_va12_lp(SRCLKEN2, 1, HW_LP);
+	pmic_ldo_va18_lp(SRCLKEN2, 1, HW_LP);
+	pmic_ldo_vsim1_lp(SW, 1, SW_OFF);
+	pmic_ldo_vsim2_lp(SW, 1, SW_OFF);
+	pmic_ldo_vldo28_lp(SRCLKEN2, 1, HW_LP);
+	pmic_ldo_vmipi_lp(SRCLKEN1, 1, HW_OFF);
+	pmic_ldo_vio28_lp(SRCLKEN2, 1, HW_LP);
+	pmic_ldo_vmc_lp(SW, 1, SW_OFF);
+	pmic_ldo_vmch_lp(SW, 1, SW_OFF);
+	pmic_ldo_vemc_lp(SW, 1, SW_OFF);
+	pmic_ldo_vufs18_lp(SRCLKEN2, 1, HW_LP);
+	pmic_ldo_vusb33_lp(SRCLKEN2, 1, HW_LP);
+	pmic_ldo_vbif28_lp(SRCLKEN2, 1, HW_OFF);
+	pmic_ldo_vio18_lp(SRCLKEN2, 1, HW_LP);
+	pmic_ldo_vgp_lp(SW, 1, SW_OFF);
+	pmic_ldo_vgp2_lp(SW, 1, SW_OFF);
+
+	/* MT6355 REG special setting */
+	/* Set RG_REG_CK_PDN_HWEN = 0 */
+	pmic_set_register_value(PMIC_TOP_CKHWEN_CON0_CLR, 0x80);
+	pr_notice("RG_REG_CK_PDN_HWEN = %d(0), RG_REG_CK_PDN = %d(0)\n",
+		pmic_get_register_value(PMIC_RG_REG_CK_PDN_HWEN),
+		pmic_get_register_value(PMIC_RG_REG_CK_PDN));
 }
 #else
 void PMIC_LP_INIT_SETTING(void)

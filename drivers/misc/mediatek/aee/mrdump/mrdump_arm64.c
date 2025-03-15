@@ -35,8 +35,7 @@ void mrdump_save_current_backtrace(struct pt_regs *regs)
 		      "stp x24, x25, [%0, #192]\n\t"
 		      "stp x26, x27, [%0, #208]\n\t"
 		      "stp x28, x29, [%0, #224]\n\t"
-		      "str x30, [%0, #240]\n\t" : :
-		      "r" (&regs->user_regs) : "memory");
+		      "str x30, [%0, #240]\n\t" : : "r" (&regs->user_regs) : "memory");
 	asm volatile ("mrs x8, currentel\n\t"
 		      "mrs x9, daif\n\t"
 		      "orr x8, x8, x9\n\t"

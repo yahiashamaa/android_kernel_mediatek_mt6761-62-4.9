@@ -53,10 +53,18 @@ static long user_sysenv_pid = -1;
 #define ENV_NAME  "para"
 #define MODULE_NAME "KL_ENV"
 #define TAG_SET_ENV "SYSENV_SET_ENV"
+#define CFG_ENV_DATA_SIZE	\
+	(CFG_ENV_SIZE-sizeof(g_env.checksum)-sizeof(g_env.sig_head)	\
+	-sizeof(g_env.sig_tail))
+#define CFG_ENV_DATA_OFFSET	\
+	(sizeof(g_env.sig_head))
+#define CFG_ENV_SIG_1_OFFSET	\
+	(CFG_ENV_SIZE - sizeof(g_env.checksum)-sizeof(g_env.sig_tail))
+#define CFG_ENV_CHECKSUM_OFFSET		\
+	(CFG_ENV_SIZE - sizeof(g_env.checksum))
 
 static int send_sysenv_msg(int pid, int seq, void *payload, int payload_len);
-static ssize_t env_proc_read(struct file *file,
-				char __user *buf, size_t size, loff_t *ppos)
+static ssize_t env_proc_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 {
 	char p[32];
 	char *page = (char *)p;
@@ -65,7 +73,7 @@ static ssize_t env_proc_read(struct file *file,
 	int env_valid_length = 0;
 
 	if (env_init_state != ENV_READY) {
-		pr_notice("[%s] data not ready yet\n", MODULE_NAME);
+		pr_err("[%s] data not ready yet\n", MODULE_NAME);
 		return 0;
 	}
 	if (!env_valid) {
@@ -94,21 +102,20 @@ static ssize_t env_proc_read(struct file *file,
 }
 
 static ssize_t
-env_proc_write(struct file *file,
-		const char __user *buf, size_t size, loff_t *ppos)
+env_proc_write(struct file *file, const char __user *buf, size_t size, loff_t *ppos)
 {
 	u8 *buffer = NULL;
 	int ret = 0, i, v_index = 0;
 	if (size > CFG_ENV_DATA_SIZE) {
 		ret = -ERANGE;
-		pr_notice("[%s]break for size too large\n", MODULE_NAME);
+		pr_err("[%s]break for size too large\n", MODULE_NAME);
 		goto fail_malloc;
 	}
 
 	buffer = kzalloc(size+1, GFP_KERNEL);
 	if (!buffer) {
 		ret = -ENOMEM;
-		pr_notice("[%s]alloc buffer fail\n", MODULE_NAME);
+		pr_err("[%s]alloc buffer fail\n", MODULE_NAME);
 		goto fail_malloc;
 	}
 
@@ -128,11 +135,10 @@ env_proc_write(struct file *file,
 	}
 	if (i == size) {
 		ret = -EFAULT;
-		pr_notice("[%s]write fail\n", MODULE_NAME);
+		pr_err("[%s]write fail\n", MODULE_NAME);
 		goto end;
 	} else {
-		pr_debug("[%s]name :%s,value: %s\n",
-			MODULE_NAME, buffer, buffer + v_index);
+		pr_debug("[%s]name :%s,value: %s\n", MODULE_NAME, buffer, buffer + v_index);
 	}
 	ret = set_env(buffer, buffer + v_index);
 end:
@@ -144,8 +150,7 @@ fail_malloc:
 		return size;
 }
 
-static long env_proc_ioctl(struct file *filp,
-				unsigned int cmd, unsigned long arg)
+static long env_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct env_ioctl en_ctl;
 	int ret = 0;
@@ -155,8 +160,7 @@ static long env_proc_ioctl(struct file *filp,
 
 	memset(&en_ctl, 0x00, sizeof(struct env_ioctl));
 
-	if (copy_from_user((void *)&en_ctl,
-				(void *)arg, sizeof(struct env_ioctl))) {
+	if (copy_from_user((void *)&en_ctl, (void *)arg, sizeof(struct env_ioctl))) {
 		ret = -EFAULT;
 		goto fail;
 	}
@@ -164,8 +168,7 @@ static long env_proc_ioctl(struct file *filp,
 		ret = -EPERM;
 		goto end;
 	}
-	if (en_ctl.name_len >= CFG_ENV_DATA_SIZE ||
-		en_ctl.value_len >= CFG_ENV_DATA_SIZE) {
+	if (en_ctl.name_len >= CFG_ENV_DATA_SIZE || en_ctl.value_len >= CFG_ENV_DATA_SIZE) {
 		ret = -EFAULT;
 		goto end;
 	}
@@ -180,8 +183,7 @@ static long env_proc_ioctl(struct file *filp,
 		ret = -ENOMEM;
 		goto fail_malloc;
 	}
-	if (copy_from_user((void *)name_buf,
-			   (void *)en_ctl.name, en_ctl.name_len)) {
+	if (copy_from_user((void *)name_buf, (void *)en_ctl.name, en_ctl.name_len)) {
 		ret = -EFAULT;
 		goto end;
 	}
@@ -195,27 +197,24 @@ static long env_proc_ioctl(struct file *filp,
 		value_r = get_env(name_buf);
 		if (value_r == NULL) {
 			ret = -EPERM;
-			pr_notice("[%s]cann't find name=%s\n",
-					MODULE_NAME, name_buf);
+			pr_warn("[%s]cann't find name=%s\n", MODULE_NAME, name_buf);
 			goto end;
 		}
 		if ((strlen(value_r) + 1) > en_ctl.value_len) {
 			ret = -EFAULT;
 			goto end;
 		}
-		if (copy_to_user((void *)en_ctl.value,
-				 (void *)value_r, strlen(value_r) + 1)) {
+		if (copy_to_user((void *)en_ctl.value, (void *)value_r, strlen(value_r) + 1)) {
 			ret = -EFAULT;
 			goto end;
 		}
 		break;
 	case ENV_USER_INIT:
 		env_init_state = ENV_INIT;
-		pr_notice("ENV_USER_INIT!\n");
-	/* do not break, ENV_INIT taking the same process as ENV_WRITE */
+		pr_err("ENV_USER_INIT!\n");
+		/* do not break, ENV_INIT taking the same process as ENV_WRITE */
 	case ENV_WRITE:
-		if (copy_from_user((void *)value_buf,
-				   (void *)en_ctl.value, en_ctl.value_len)) {
+		if (copy_from_user((void *)value_buf, (void *)en_ctl.value, en_ctl.value_len)) {
 			ret = -EFAULT;
 			goto end;
 		}
@@ -223,17 +222,14 @@ static long env_proc_ioctl(struct file *filp,
 		ret = set_env(name_buf, value_buf);
 		break;
 	case ENV_SET_PID:
-		if (copy_from_user((void *)value_buf,
-				   (void *)en_ctl.value, en_ctl.value_len)) {
+		if (copy_from_user((void *)value_buf, (void *)en_ctl.value, en_ctl.value_len)) {
 			ret = -EFAULT;
 			goto end;
 		}
 		value_buf[en_ctl.value_len - 1] = '\0';
 		ret = kstrtol(value_buf, 10, &user_sysenv_pid);
-		pr_debug("[%s] user_sysenv_pid = %ld\n",
-				MODULE_NAME, user_sysenv_pid);
-		pr_debug("[%s] user space sysenv init done\n",
-				MODULE_NAME);
+		pr_debug("[%s] user_sysenv_pid = %ld\n", MODULE_NAME, user_sysenv_pid);
+		pr_debug("[%s] user space sysenv init done\n", MODULE_NAME);
 		env_init_state = ENV_READY;
 		ret = 0;
 		break;
@@ -257,8 +253,7 @@ struct env_compat_ioctl {
 	compat_int_t value_len;
 };
 
-static int compat_get_env_ioctl(struct env_compat_ioctl __user *arg32,
-				struct env_ioctl __user *arg64)
+static int compat_get_env_ioctl(struct env_compat_ioctl __user *arg32, struct env_ioctl __user *arg64)
 {
 	compat_int_t i;
 	compat_uptr_t p;
@@ -275,15 +270,14 @@ static int compat_get_env_ioctl(struct env_compat_ioctl __user *arg32,
 	return err;
 }
 
-static long env_proc_compat_ioctl(struct file *filp,
-					unsigned int cmd, unsigned long arg)
+static long env_proc_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct env_compat_ioctl *arg32;
 	struct env_ioctl *arg64;
 	int err;
 
 	if (!filp->f_op || !filp->f_op->unlocked_ioctl) {
-		pr_notice("f_op or unlocked ioctl is NULL.\n");
+		pr_err("f_op or unlocked ioctl is NULL.\n");
 		return -ENOTTY;
 	}
 	arg32 = compat_ptr(arg);
@@ -311,8 +305,7 @@ static int get_env_valid_length(void)
 	if (!env_valid)
 		return 0;
 	for (len = 0; len < CFG_ENV_DATA_SIZE; len++) {
-		if (g_env.env_data[len] == '\0' &&
-			g_env.env_data[len + 1] == '\0')
+		if (g_env.env_data[len] == '\0' && g_env.env_data[len + 1] == '\0')
 			break;
 	}
 	return len;
@@ -385,16 +378,14 @@ int set_user_env(char *name, char *value)
 	int ret = 0;
 	int data_len;
 	char *data;
-	/* 3 : 2 space and 1 \0 */
-	data_len = strlen(name) + strlen(value) + strlen(TAG_SET_ENV) + 3;
+
+	data_len = strlen(name) + strlen(value) + strlen(TAG_SET_ENV) + 3; /* 3 : 2 space and 1 \0 */
 	data = kmalloc(data_len, GFP_KERNEL); /* 3 : 2 space and 1 \0 */
 	if (data == NULL) {
-		pr_notice("[%s] %s allocate %d buffer fail!\n",
-				MODULE_NAME, __func__, data_len);
+		pr_err("[%s] %s allocate %d buffer fail!\n", MODULE_NAME, __func__, data_len);
 		return -1;
 	}
-	pr_debug("[%s]set user_env, name=%s,value=%s\n",
-				MODULE_NAME, name, value);
+	pr_debug("[%s]set user_env, name=%s,value=%s\n", MODULE_NAME, name, value);
 	snprintf(data, data_len, "%s %s=%s", TAG_SET_ENV, name, value);
 	ret = send_sysenv_msg(user_sysenv_pid, 0, data, data_len);
 	kfree(data);
@@ -412,7 +403,7 @@ int set_env(char *name, char *value)
 	pr_debug("[%s]set env, name=%s,value=%s\n", MODULE_NAME, name, value);
 
 	if (env_init_state == ENV_UNINIT) {
-		pr_notice("[%s] data not ready yet\n", MODULE_NAME);
+		pr_err("[%s] data not ready yet\n", MODULE_NAME);
 		return 0;
 	}
 
@@ -437,7 +428,7 @@ int set_env(char *name, char *value)
 		if (*++nxt == '\0') {
 			if (env > env_data)
 				env--;
-			else
+			 else
 				*env = '\0';
 		} else {
 			for (;;) {
@@ -463,8 +454,7 @@ add:
 	len = strlen(name) + 2;
 	len += strlen(value) + 1;
 	if (len > (&env_data[CFG_ENV_DATA_SIZE] - env)) {
-		pr_notice("[%s]env data overflow, %s deleted\n",
-				MODULE_NAME, name);
+		pr_err("[%s]env data overflow, %s deleted\n", MODULE_NAME, name);
 		return -1;
 	}
 	while ((*env = *name++) != '\0')
@@ -478,8 +468,7 @@ write_env:
 	memset(env, 0x00, CFG_ENV_DATA_SIZE - (env - env_data));
 	if (env_init_state == ENV_READY) {
 		if (set_user_env(name_base, value_base) < 0)
-			pr_notice("[%s]set user env fail: %s=%s\n",
-					MODULE_NAME, name, value);
+			pr_err("[%s]set user env fail: %s=%s\n", MODULE_NAME, name, value);
 	}
 	env_valid = 1;
 	return 0;
@@ -499,8 +488,7 @@ static int send_sysenv_msg(int pid, int seq, void *payload, int payload_len)
 	if (!skb)
 		return -1;
 	if (len < payload_len) {
-		pr_notice("[%s] payload is %d larger than skb len %d\n",
-				MODULE_NAME, payload_len, len);
+		pr_err("[%s] payload is %d larger than skb len %d\n", MODULE_NAME, payload_len, len);
 		kfree_skb(skb);
 		return -1;
 	}
@@ -510,10 +498,9 @@ static int send_sysenv_msg(int pid, int seq, void *payload, int payload_len)
 	NETLINK_CB(skb).portid = 0; /* from kernel */
 	NETLINK_CB(skb).dst_group = 0; /* unicast */
 	ret = netlink_unicast(netlink_sock, skb, pid, MSG_DONTWAIT);
-	pr_debug("[%s] send %d data to user process(%d), ret = %d\n",
-				MODULE_NAME, len, pid, ret);
+	pr_debug("[%s] send %d data to user process(%d), ret = %d\n", MODULE_NAME, len, pid, ret);
 	if (ret < 0) {
-		pr_notice("[%s] send failed\n", MODULE_NAME);
+		pr_err("[%s] send failed\n", MODULE_NAME);
 		return -1;
 	}
 	return 0;
@@ -525,14 +512,13 @@ static int __init sysenv_init(void)
 
 	sysenv_proc = proc_create("lk_env", 0600, NULL, &env_proc_fops);
 	if (!sysenv_proc)
-		pr_notice("[%s]fail to create /proc/lk_env\n", MODULE_NAME);
+		pr_err("[%s]fail to create /proc/lk_env\n", MODULE_NAME);
 
 	env_init();
 
-	netlink_sock = netlink_kernel_create(&init_net,
-						NETLINK_USERSOCK, NULL);
+	netlink_sock = netlink_kernel_create(&init_net, NETLINK_USERSOCK, NULL);
 	if (netlink_sock == NULL)
-		pr_notice("[%s] netlink_kernel_create fail!\n", MODULE_NAME);
+		pr_err("[%s] netlink_kernel_create fail!\n", MODULE_NAME);
 
 	return 0;
 }

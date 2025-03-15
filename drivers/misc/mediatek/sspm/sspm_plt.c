@@ -1,14 +1,15 @@
 /*
  * Copyright (C) 2011-2015 MediaTek Inc.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License version 2 as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program.
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <linux/types.h>
@@ -38,18 +39,15 @@
 #include <linux/atomic.h>
 #include <linux/types.h>
 #include <mt-plat/sync_write.h>
+#include <mt-plat/aee.h>
 #include "sspm_define.h"
 #include "sspm_helper.h"
 #include "sspm_ipi.h"
 #include "sspm_excep.h"
 #include "sspm_reservedmem.h"
 #include "sspm_reservedmem_define.h"
-#if SSPM_LOGGER_SUPPORT
 #include "sspm_logger.h"
-#endif
-#if SSPM_TIMESYNC_SUPPORT
 #include "sspm_timesync.h"
-#endif
 #include "sspm_sysfs.h"
 
 #if SSPM_PLT_SERV_SUPPORT
@@ -105,8 +103,7 @@ static int sspm_recv_thread(void *userdata)
 }
 #endif
 
-static ssize_t sspm_alive_show(struct device *kobj,
-	struct device_attribute *attr, char *buf)
+static ssize_t sspm_alive_show(struct device *kobj, struct device_attribute *attr, char *buf)
 {
 
 	struct plt_ipi_data_s ipi_data;
@@ -119,7 +116,7 @@ static ssize_t sspm_alive_show(struct device *kobj,
 
 	return snprintf(buf, PAGE_SIZE, "%s\n", ackdata ? "Alive" : "Dead");
 }
-DEVICE_ATTR(sspm_alive, 0444, sspm_alive_show, NULL);
+DEVICE_ATTR(sspm_alive, S_IRUGO, sspm_alive_show, NULL);
 
 
 int __init sspm_plt_init(void)
@@ -171,8 +168,7 @@ int __init sspm_plt_init(void)
 
 	mark = (unsigned int *) (uintptr_t)virt_addr;
 	*mark = PLT_INIT;
-	mark = (unsigned int *) ((unsigned char *) (uintptr_t)
-		virt_addr + mem_sz - 4);
+	mark = (unsigned int *) ((unsigned char *) (uintptr_t)virt_addr + mem_sz - 4);
 	*mark = PLT_INIT;
 
 	plt_ctl = (struct plt_ctrl_s *) (uintptr_t)virt_addr;

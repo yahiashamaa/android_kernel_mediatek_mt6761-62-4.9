@@ -71,7 +71,7 @@ void m4u_mvaGraph_dump(void)
 	unsigned short index = 1, nr = 0;
 	int i, max_bit, is_busy;
 	short frag[12] = { 0 };
-	short nr_free = 0, nr_alloc = 0;
+	unsigned short nr_free = 0, nr_alloc = 0;
 	unsigned long irq_flags;
 
 	M4ULOG_HIGH("[M4U_K] mva allocation info dump:====================>\n");
@@ -352,7 +352,7 @@ unsigned int m4u_do_mva_alloc_start_from(unsigned long va, unsigned int mva, uns
 	unsigned int mvaRegionStart;
 	unsigned long startRequire, endRequire, sizeRequire;
 	unsigned long irq_flags;
-	unsigned short startIdx = mva >> MVA_BLOCK_SIZE_ORDER;
+	short startIdx = mva >> MVA_BLOCK_SIZE_ORDER;
 	short region_start, region_end, next_region_start = 0;
 
 	if (size == 0)
@@ -504,7 +504,7 @@ int m4u_do_mva_free(unsigned int mva, unsigned int size)
 	unsigned short nr;
 	unsigned short endIdx;
 	unsigned int startRequire, endRequire, sizeRequire;
-	short nrRequire;
+	unsigned short nrRequire;
 	unsigned long irq_flags;
 
 	spin_lock_irqsave(&gMvaGraph_lock, irq_flags);
@@ -516,7 +516,6 @@ int m4u_do_mva_free(unsigned int mva, unsigned int size)
 	}
 	nr = mvaGraph[startIdx] & MVA_BLOCK_NR_MASK;
 	endIdx = startIdx + nr - 1;
-
 	/* -------------------------------- */
 	/* check the input arguments */
 	/* right condition: startIdx is not NULL && region is busy && right module && right size */

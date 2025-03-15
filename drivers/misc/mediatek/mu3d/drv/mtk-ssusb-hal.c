@@ -23,8 +23,8 @@
 #include <linux/interrupt.h>
 
 #include <linux/phy/mediatek/mtk_usb_phy.h>
-//#include "mtk_spm_resource_req.h"
-//#include "mtk_idle.h"
+#include "mtk_spm_resource_req.h"
+#include "mtk_idle.h"
 #include "mu3d_hal_osal.h"
 #include "musb_core.h"
 #include "mtk-ssusb-hal.h"
@@ -34,16 +34,14 @@ static void __iomem *infra_ao_base;
 
 static void u3phywrite32(u32 reg, int mode, int offset, int mask, int value)
 {
-
 	int cur_value;
 	int new_value;
 
-	cur_value = usb_mtkphy_io_read(mtk_phy, reg);
+	cur_value = usb_mtkphy_io_read(mtk_phy, mode, reg);
 	new_value = (cur_value & (~mask)) | ((value << offset) & mask);
-	usb_mtkphy_io_write(mtk_phy, new_value, reg);
-
+	usb_mtkphy_io_write(mtk_phy, mode, new_value, reg);
 }
-#if 0
+
 static int dpidle_status = USB_DPIDLE_ALLOWED;
 static DEFINE_SPINLOCK(usb_hal_dpidle_lock);
 #define DPIDLE_TIMER_INTERVAL_MS 30
@@ -128,8 +126,9 @@ void usb_hal_dpidle_request(int mode)
 
 	/* update dpidle_status */
 	dpidle_status = mode;
+#if 0
 	usb_audio_req(false);
-
+#endif
 	switch (mode) {
 
 	case USB_DPIDLE_ALLOWED:
@@ -159,6 +158,7 @@ void usb_hal_dpidle_request(int mode)
 				skip_cnt++;
 		}
 		break;
+#if 0
 	case USB_DPIDLE_AUDIO_SRAM:
 		spm_resource_req(SPM_RESOURCE_USER_SSUSB, 0);
 		usb_audio_req(true);
@@ -173,6 +173,7 @@ void usb_hal_dpidle_request(int mode)
 				skip_cnt++;
 		}
 		break;
+#endif
 	case USB_DPIDLE_TIMER:
 		spm_resource_req(SPM_RESOURCE_USER_SSUSB, SPM_RESOURCE_CK_26M);
 		os_printk(K_INFO, "USB_DPIDLE_TIMER\n");
@@ -186,7 +187,7 @@ void usb_hal_dpidle_request(int mode)
 
 	spin_unlock_irqrestore(&usb_hal_dpidle_lock, flags);
 }
-#endif
+
 void usb20_rev6_setting(int value, bool is_update)
 {
 	u3phywrite32(0x18, 0, 30, (0x3 << 30), value);
@@ -376,7 +377,7 @@ bool usb_phy_sib_enable_switch_status(void)
 	u32 value;
 
 	if (mtk_phy) {
-		value = usb_mtkphy_io_read(mtk_phy, 0x300);
+		value = usb_mtkphy_io_read(mtk_phy, 0, 0x300);
 		if (value == 0x62910008)
 			return true;
 		else
@@ -394,20 +395,20 @@ int usb2jtag_usb_init(void)
 
 	if (mtk_phy) {
 		/* rg_usb20_gpio_ctl: bit[9] = 1 */
-		temp = usb_mtkphy_io_read(mtk_phy, 0x20);
-		usb_mtkphy_io_write(mtk_phy, temp | (1 << 9), 0x20);
+		temp = usb_mtkphy_io_read(mtk_phy, 1, 0x20);
+		usb_mtkphy_io_write(mtk_phy, 1, temp | (1 << 9), 0x20);
 
 		/* RG_USB20_BC11_SW_EN: bit[23] = 0 */
-		temp = usb_mtkphy_io_read(mtk_phy, 0x18);
-		usb_mtkphy_io_write(mtk_phy, temp & ~(1 << 23), 0x18);
+		temp = usb_mtkphy_io_read(mtk_phy, 1, 0x18);
+		usb_mtkphy_io_write(mtk_phy, 1, temp & ~(1 << 23), 0x18);
 
 		/* RG_USB20_BGR_EN: bit[0] = 1 */
-		temp = usb_mtkphy_io_read(mtk_phy, 0x0);
-		usb_mtkphy_io_write(mtk_phy, temp | (1 << 0), 0x0);
+		temp = usb_mtkphy_io_read(mtk_phy, 1, 0x0);
+		usb_mtkphy_io_write(mtk_phy, 1, temp | (1 << 0), 0x0);
 
 		/* rg_sifslv_mac_bandgap_en: bit[17] = 0 */
-		temp = usb_mtkphy_io_read(mtk_phy, 0x8);
-		usb_mtkphy_io_write(mtk_phy, temp & ~(1 << 17), 0x8);
+		temp = usb_mtkphy_io_read(mtk_phy, 1, 0x8);
+		usb_mtkphy_io_write(mtk_phy, 1, temp & ~(1 << 17), 0x8);
 
 		/* wait stable */
 		mdelay(1);
@@ -426,7 +427,6 @@ void Charger_Detect_En(bool enable)
 #endif
 
 
-#ifdef NEVER
 /* BC1.2 */
 void Charger_Detect_Init(void)
 {
@@ -476,7 +476,6 @@ void Charger_Detect_Release(void)
 
 	os_printk(K_INFO, "%s-\n", __func__);
 }
-#endif /* NEVER */
 
 void init_phy_hal(struct phy *phy)
 {
@@ -488,13 +487,13 @@ void init_phy_hal(struct phy *phy)
 		node = of_find_compatible_node(NULL, NULL, "mediatek,infracfg_ao");
 		if (node) {
 			infra_ao_base = of_iomap(node, 0);
-			//if (infra_ao_base)
-			//	mtk_idle_notifier_register(&usbaudio_idle_nfb);
+			if (infra_ao_base)
+				mtk_idle_notifier_register(&usbaudio_idle_nfb);
 		}
 	}
 
 #ifdef CONFIG_MTK_SIB_USB_SWITCH
-	wake_lock_init(&sib_wakelock, "SIB.lock");
+	wake_lock_init(&sib_wakelock, WAKE_LOCK_SUSPEND, "SIB.lock");
 #endif
 }
 

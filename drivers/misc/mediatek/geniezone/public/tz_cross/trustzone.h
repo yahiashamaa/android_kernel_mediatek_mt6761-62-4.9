@@ -78,10 +78,8 @@ struct MTEEC_VALUE {
 /**
  * Parameter define
  *
- * @param mem    Parameter for temp memory reference. Parameter types are
- * TZPT_MEM_XXX.
- * @param memref    Parameter for registed shared memory or allocated secure
- * memory.
+ * @param mem    Parameter for temp memory reference. Parameter types are TZPT_MEM_XXX.
+ * @param memref    Parameter for registed shared memory or allocated secure memory.
  * Parameter types are TZPT_MEMREF_XXX.
  * @param value    Parameter for value. Parameter types are TZPT_VALUE_XXX.
  */
@@ -114,10 +112,11 @@ enum TZ_PARAM_TYPES {
 
 /* / Macros to build parameter types for ?REE_TeeServiceCall */
 /* / @see TZ_ParamTypes */
-#define TZ_ParamTypes1(t1) TZ_ParamTypes(t1, TZPT_NONE, TZPT_NONE, TZPT_NONE)
-#define TZ_ParamTypes2(t1, t2) TZ_ParamTypes(t1, t2, TZPT_NONE, TZPT_NONE)
-#define TZ_ParamTypes3(t1, t2, t3) TZ_ParamTypes(t1, t2, t3, TZPT_NONE)
-#define TZ_ParamTypes4(t1, t2, t3, t4) TZ_ParamTypes(t1, t2, t3, t4)
+#define TZ_ParamTypes1(t1) \
+	TZ_ParamTypes(t1, TZPT_NONE, TZPT_NONE, TZPT_NONE)
+#define TZ_ParamTypes2(t1, t2)       TZ_ParamTypes(t1, t2, TZPT_NONE, TZPT_NONE)
+#define TZ_ParamTypes3(t1, t2, t3)    TZ_ParamTypes(t1, t2, t3, TZPT_NONE)
+#define TZ_ParamTypes4(t1, t2, t3, t4)    TZ_ParamTypes(t1, t2, t3, t4)
 
 /**
  * Macros to build parameter types for ?REE_TeeServiceCall
@@ -130,10 +129,8 @@ enum TZ_PARAM_TYPES {
  * @param t4 types for param[3]
  * @return value for paramTypes.
  */
-static inline uint32_t TZ_ParamTypes(enum TZ_PARAM_TYPES t1,
-				     enum TZ_PARAM_TYPES t2,
-				     enum TZ_PARAM_TYPES t3,
-				     enum TZ_PARAM_TYPES t4)
+static inline uint32_t TZ_ParamTypes(enum TZ_PARAM_TYPES t1, enum TZ_PARAM_TYPES t2,
+				     enum TZ_PARAM_TYPES t3, enum TZ_PARAM_TYPES t4)
 {
 	return (t1 | (t2 << 8) | (t3 << 16) | (t4 << 24));
 }
@@ -146,7 +143,7 @@ static inline uint32_t TZ_ParamTypes(enum TZ_PARAM_TYPES t1,
  */
 static inline enum TZ_PARAM_TYPES TZ_GetParamTypes(uint32_t paramTypes, int num)
 {
-	return (enum TZ_PARAM_TYPES)((paramTypes >> (8 * num)) & 0xff);
+	return (enum TZ_PARAM_TYPES) ((paramTypes >> (8 * num)) & 0xff);
 }
 
 /**
@@ -208,4 +205,4 @@ const char *TZ_GetErrorString(TZ_RESULT res);
 }
 #endif
 
-#endif /* __REE_TRUSTZONE_H__ */
+#endif				/* __REE_TRUSTZONE_H__ */

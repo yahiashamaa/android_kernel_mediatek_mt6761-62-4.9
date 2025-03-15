@@ -1,15 +1,15 @@
 /*
- * Copyright (C) 2016 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
- */
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 
 #ifndef __CCCI_MODEM_H__
 #define __CCCI_MODEM_H__
@@ -28,8 +28,7 @@ typedef enum {
 
 typedef enum {
 	DUMP_FLAG_CCIF = (1 << 0),
-	/* tricky part, use argument length as queue index */
-	DUMP_FLAG_CLDMA = (1 << 1),
+	DUMP_FLAG_CLDMA = (1 << 1),	/* tricky part, use argument length as queue index */
 	DUMP_FLAG_REG = (1 << 2),
 	DUMP_FLAG_SMEM_EXP = (1 << 3),
 	DUMP_FLAG_IMAGE = (1 << 4),
@@ -170,8 +169,7 @@ typedef enum{
 	CCISM_SHARE_MEMORY_EXP = 28,
 	MD_PHY_CAPTURE = 29,
 	MD_CONSYS_SHARE_MEMORY = 30,
-	MD_USIP_SHARE_MEMORY = 31,
-	MD_MTEE_SHARE_MEMORY_ENABLE = 32,
+	MD_MTEE_SMEM_ENABLE = 32,
 	MD_RUNTIME_FEATURE_ID_MAX,
 } MD_CCCI_RUNTIME_FEATURE_ID;
 
@@ -278,12 +276,10 @@ struct modem_runtime {
 	u32 Platform_H;
 	u32 DriverVersion;	  /* 0x00000923 since W09.23 */
 	u32 BootChannel;		/* Channel to ACK AP with boot ready */
-	/* MD is booting. NORMAL_BOOT_ID or META_BOOT_ID */
-	u32 BootingStartID;
+	u32 BootingStartID;	 /* MD is booting. NORMAL_BOOT_ID or META_BOOT_ID */
 #if 1 /* not using in EEMCS */
 	u32 BootAttributes;	 /* Attributes passing from AP to MD Booting */
-	/* MD response ID if boot successful and ready */
-	u32 BootReadyID;
+	u32 BootReadyID;		/* MD response ID if boot successful and ready */
 	u32 FileShareMemBase;
 	u32 FileShareMemSize;
 	u32 ExceShareMemBase;
@@ -356,22 +352,18 @@ typedef enum {
 } FLIGHT_STAGE;
 
 struct ccci_mem_layout *ccci_md_get_mem(int md_id);
-struct ccci_smem_region *ccci_md_get_smem_by_user_id(int md_id,
-	enum SMEM_USER_ID user_id);
+struct ccci_smem_region *ccci_md_get_smem_by_user_id(int md_id, enum SMEM_USER_ID user_id);
 void ccci_md_clear_smem(int md_id, int first_boot);
 int ccci_md_start(unsigned char md_id);
 int ccci_md_soft_start(unsigned char md_id, unsigned int sim_mode);
 int ccci_md_send_runtime_data(unsigned char md_id);
 int ccci_md_reset_pccif(unsigned char md_id);
-void ccci_md_dump_info(unsigned char md_id, MODEM_DUMP_FLAG flag, void *buff,
-	int length);
+void ccci_md_dump_info(unsigned char md_id, MODEM_DUMP_FLAG flag, void *buff, int length);
 int ccci_md_pre_stop(unsigned char md_id, unsigned int stop_type);
 int ccci_md_stop(unsigned char md_id, unsigned int stop_type);
 int ccci_md_soft_stop(unsigned char md_id, unsigned int sim_mode);
-int ccci_md_force_assert(unsigned char md_id, MD_FORCE_ASSERT_TYPE type,
-	char *param, int len);
-int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
-	int length);
+int ccci_md_force_assert(unsigned char md_id, MD_FORCE_ASSERT_TYPE type, char *param, int len);
+int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data, int length);
 void ccci_md_exception_handshake(unsigned char md_id, int timeout);
 int ccci_md_send_ccb_tx_notify(unsigned char md_id, int core_id);
 int ccci_md_set_boot_data(unsigned char md_id, unsigned int data[], int len);
@@ -425,10 +417,8 @@ static inline int ccci_md_get_cap_by_id(int md_id)
 	return per_md_data->md_capability;
 }
 
-struct ccci_runtime_feature *ccci_md_get_rt_feature_by_id(unsigned char md_id,
-	u8 feature_id, u8 ap_query_md);
+struct ccci_runtime_feature *ccci_md_get_rt_feature_by_id(unsigned char md_id, u8 feature_id, u8 ap_query_md);
 
-int ccci_md_parse_rt_feature(unsigned char md_id,
-	struct ccci_runtime_feature *rt_feature, void *data, u32 data_len);
+int ccci_md_parse_rt_feature(unsigned char md_id, struct ccci_runtime_feature *rt_feature, void *data, u32 data_len);
 
 #endif

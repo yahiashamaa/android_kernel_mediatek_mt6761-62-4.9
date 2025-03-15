@@ -113,7 +113,7 @@ static struct tee_shm *tee_shm_alloc_static(struct tee *tee, size_t size,
 	ret = sg_alloc_table_from_pages(&shm->resv.sgt, &page,
 					nr_pages, 0,
 					nr_pages * PAGE_SIZE, GFP_KERNEL);
-	if (ret) {
+	if (IS_ERR_VALUE(ret)) {
 		pr_err("sg_alloc_table_from_pages() failed\n");
 		tee->ops->free(shm);
 		shm = ERR_PTR(ret);

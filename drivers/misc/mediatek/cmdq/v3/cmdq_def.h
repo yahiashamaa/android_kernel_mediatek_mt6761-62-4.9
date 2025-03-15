@@ -15,10 +15,9 @@
 #define __CMDQ_DEF_H__
 
 #include <linux/kernel.h>
-#include <linux/soc/mediatek/mtk-cmdq.h>
 
-#include "cmdq_subsys_common.h"
 #include "cmdq_event_common.h"
+#include "cmdq_subsys_common.h"
 
 #define CMDQ_DRIVER_DEVICE_NAME         "mtk_cmdq"
 
@@ -37,21 +36,20 @@
 
 #define CMDQ_INVALID_THREAD		(-1)
 
-#define CMDQ_MAX_THREAD_COUNT		(24)
+#define CMDQ_MAX_THREAD_COUNT		(16)
 #define CMDQ_MAX_TASK_IN_THREAD		(16)
 #define CMDQ_MAX_READ_SLOT_COUNT	(4)
 #define CMDQ_INIT_FREE_TASK_COUNT	(8)
 
-/* Thread that are high-priority (display threads) */
-#define CMDQ_MAX_HIGH_PRIORITY_THREAD_COUNT (8)
-#define CMDQ_MIN_SECURE_THREAD_ID	(CMDQ_MAX_HIGH_PRIORITY_THREAD_COUNT)
+#define CMDQ_MAX_HIGH_PRIORITY_THREAD_COUNT (7)	/* Thread that are high-priority (display threads) */
+#define CMDQ_DELAY_THREAD_ID		CMDQ_MAX_HIGH_PRIORITY_THREAD_COUNT
+#define CMDQ_MIN_SECURE_THREAD_ID	(CMDQ_DELAY_THREAD_ID + 1)
 #define CMDQ_MAX_SECURE_THREAD_COUNT	(3)
 
 #ifdef CMDQ_SECURE_PATH_SUPPORT
-#define CMDQ_DYNAMIC_THREAD_ID_START	(CMDQ_MIN_SECURE_THREAD_ID + \
-	CMDQ_MAX_SECURE_THREAD_COUNT)
+#define CMDQ_DYNAMIC_THREAD_ID_START	(CMDQ_MIN_SECURE_THREAD_ID + CMDQ_MAX_SECURE_THREAD_COUNT)
 #else
-#define CMDQ_DYNAMIC_THREAD_ID_START	(CMDQ_MAX_HIGH_PRIORITY_THREAD_COUNT)
+#define CMDQ_DYNAMIC_THREAD_ID_START	(CMDQ_DELAY_THREAD_ID + 1)
 #endif
 
 #define CMDQ_MAX_ERROR_COUNT            (2)
@@ -64,8 +62,9 @@
 #endif
 
 #define CMDQ_INITIAL_CMD_BLOCK_SIZE     (PAGE_SIZE)
-/* instruction is 64-bit */
-#define CMDQ_DMA_POOL_COUNT		32
+#define CMDQ_INST_SIZE                  (2 * sizeof(uint32_t))	/* instruction is 64-bit */
+#define CMDQ_CMD_BUFFER_SIZE		(PAGE_SIZE - 32 * CMDQ_INST_SIZE)
+#define CMDQ_DMA_POOL_COUNT		64
 
 #define CMDQ_MAX_LOOP_COUNT             (1000000)
 #define CMDQ_MAX_INST_CYCLE             (27)
@@ -98,7 +97,6 @@
 #endif
 
 typedef u64 CMDQ_VARIABLE;
-
 /*
  * SPR / CPR / VAR naming rule and number
  **********************************************
@@ -108,20 +106,21 @@ typedef u64 CMDQ_VARIABLE;
  * CPR#			       0    1	 2    3
  */
 
+#define CMDQ_SPR_FOR_TEMP			(0)
 #define CMDQ_SPR_FOR_LOOP_DEBUG		(1)
-#define CMDQ_THR_SPR_START		(2)
+#define CMDQ_THR_SPR_START			(2)
+#define CMDQ_THR_SPR_MAX			(4)
 #define CMDQ_THR_FREE_CPR_MAX		(4)
-#define CMDQ_THR_FREE_USR_VAR_MAX	(CMDQ_THR_SPR_MAX + \
-	CMDQ_THR_FREE_CPR_MAX)
-#define CMDQ_THR_CPR_MAX		(CMDQ_THR_FREE_CPR_MAX + 0)
-#define CMDQ_THR_VAR_MAX		(CMDQ_THR_SPR_MAX + CMDQ_THR_CPR_MAX)
+#define CMDQ_THR_FREE_USR_VAR_MAX	(CMDQ_THR_SPR_MAX+CMDQ_THR_FREE_CPR_MAX)
+#define CMDQ_THR_CPR_MAX			(CMDQ_THR_FREE_CPR_MAX + 0)
+#define CMDQ_THR_VAR_MAX			(CMDQ_THR_SPR_MAX+CMDQ_THR_CPR_MAX)
+#define CMDQ_TPR_ID					(56)
+#define CMDQ_CPR_STRAT_ID			(0x8000)
 #define CMDQ_SRAM_STRAT_ADDR		(0x0)
 #define CMDQ_GPR_V3_OFFSET			(0x20)
 #define CMDQ_POLLING_TPR_MASK_BIT	(10)
-#define CMDQ_SRAM_ADDR(CPR_OFFSRT)	\
-	(((CMDQ_SRAM_STRAT_ADDR + CPR_OFFSRT / 2) << 3) + 0x001)
-#define CMDQ_CPR_OFFSET(SRAM_ADDR)	\
-	(((SRAM_ADDR >> 3) - CMDQ_SRAM_STRAT_ADDR) * 2)
+#define CMDQ_SRAM_ADDR(CPR_OFFSRT)	(((CMDQ_SRAM_STRAT_ADDR + CPR_OFFSRT / 2) << 3) + 0x001)
+#define CMDQ_CPR_OFFSET(SRAM_ADDR)	(((SRAM_ADDR >> 3) - CMDQ_SRAM_STRAT_ADDR) * 2)
 #define CMDQ_INVALID_CPR_OFFSET		(0xFFFFFFFF)
 
 #define CMDQ_MAX_SRAM_OWNER_NAME	(32)
@@ -134,8 +133,9 @@ typedef u64 CMDQ_VARIABLE;
 #define CMDQ_DELAY_SET_DURATION_CPR	(1)
 #define CMDQ_DELAY_SET_RESULT_CPR	(2)
 #define CMDQ_DELAY_SET_MAX_CPR		(3)
-#define CMDQ_DELAY_THD_SIZE		(64 * 64) /* delay inst in bytes */
+#define CMDQ_DELAY_THD_SIZE		(64)	/* delay inst in bytes */
 
+#define CMDQ_MAX_USER_PROP_SIZE		(1024)
 /* #define CMDQ_DUMP_GIC (0) */
 /* #define CMDQ_PROFILE_MMP (0) */
 
@@ -146,8 +146,7 @@ enum CMDQ_HW_THREAD_PRIORITY_ENUM {
 	CMDQ_THR_PRIO_SUPERLOW = 0,	/* low priority monitor loop */
 
 	CMDQ_THR_PRIO_NORMAL = 1,	/* nomral priority */
-	/* trigger loop (enables display mutex) */
-	CMDQ_THR_PRIO_DISPLAY_TRIGGER = 2,
+	CMDQ_THR_PRIO_DISPLAY_TRIGGER = 2,	/* trigger loop (enables display mutex) */
 
 	/* display ESD check (every 2 secs) */
 #ifdef CMDQ_SPECIAL_ESD_PRIORITY
@@ -156,8 +155,7 @@ enum CMDQ_HW_THREAD_PRIORITY_ENUM {
 	CMDQ_THR_PRIO_DISPLAY_ESD = 4,
 #endif
 
-	/* display config (every frame) */
-	CMDQ_THR_PRIO_DISPLAY_CONFIG = 4,
+	CMDQ_THR_PRIO_DISPLAY_CONFIG = 4,	/* display config (every frame) */
 
 	CMDQ_THR_PRIO_SUPERHIGH = 5,	/* High priority monitor loop */
 
@@ -239,8 +237,7 @@ enum CMDQ_SCENARIO_ENUM {
 	CMDQ_MAX_SCENARIO_COUNT	/* ALWAYS keep at the end */
 };
 
-/* General Purpose Register */
-enum cmdq_gpr_reg {
+enum CMDQ_DATA_REGISTER_ENUM {
 	/* Value Reg, we use 32-bit
 	 * Address Reg, we use 64-bit
 	 * Note that R0-R15 and P0-P7 actullay share same memory
@@ -294,7 +291,7 @@ struct cmdqDTSDataStruct {
  */
 #define cmdqJobHandle_t unsigned long long
 /* Custom "wide" pointer type for 64-bit compatibility.
- * Always cast from uint32_t*.
+ * Always cast from u32*.
  */
 #define cmdqU32Ptr_t unsigned long long
 
@@ -303,7 +300,7 @@ struct cmdqDTSDataStruct {
 struct cmdqReadRegStruct {
 	/* number of entries in regAddresses */
 	uint32_t count;
-	/* an array of 32-bit register addresses (uint32_t) */
+	/* an array of 32-bit register addresses (u32) */
 	cmdqU32Ptr_t regAddresses;
 };
 
@@ -419,10 +416,8 @@ struct cmdqSecDataStruct {
 	uint64_t enginesNeedDAPC;
 	uint64_t enginesNeedPortSecurity;
 
-	/* [Reserved] This is for CMDQ driver usage itself. Not for client.
-	 * task index in thread's tasklist. -1 for not in tasklist.
-	 */
-	int32_t waitCookie;
+	/* [Reserved] This is for CMDQ driver usage itself. Not for client. */
+	int32_t waitCookie;	/* task index in thread's tasklist. -1 for not in tasklist. */
 	/* reset HW thread in SWd */
 	bool resetExecCnt;
 
@@ -477,7 +472,7 @@ struct cmdqCommandStruct {
 	 */
 	cmdqU32Ptr_t privateData;
 	/* task property */
-	uint32_t prop_size;
+	u32 prop_size;
 	cmdqU32Ptr_t prop_addr;
 	struct cmdqProfileMarkerStruct profileMarker;
 	cmdqU32Ptr_t userDebugStr;

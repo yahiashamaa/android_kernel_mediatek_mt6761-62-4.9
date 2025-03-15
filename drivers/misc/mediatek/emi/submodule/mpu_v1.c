@@ -32,10 +32,6 @@
 #include "mpu_v1.h"
 #include <mpu_platform.h>
 
-#ifdef CONFIG_MTK_DEVMPU
-#include <devmpu.h>
-#endif
-
 _Static_assert(EMI_MPU_DOMAIN_NUM <= 2048, "EMI_MPU_DOMAIN_NUM is over 2048");
 _Static_assert(EMI_MPU_REGION_NUM <= 256, "EMI_MPU_REGION_NUM is over 256");
 
@@ -75,9 +71,6 @@ static const char *id2name(unsigned int axi_id, unsigned int port_id)
 static void clear_violation(void)
 {
 	unsigned int mpus, mput, i;
-#ifdef CONFIG_MTK_DEVMPU
-	unsigned int mput_2nd;
-#endif
 
 	/* clear violation status */
 	for (i = 0; i < EMI_MPU_DOMAIN_NUM; i++) {
@@ -94,20 +87,9 @@ static void clear_violation(void)
 	mput = readl(IOMEM(EMI_MPUT));
 
 	if (mpus) {
-		pr_info("[MPU] fail to clear violation\n");
-		pr_info("[MPU] EMI_MPUS: %x, EMI_MPUT: %x\n", mpus, mput);
+		pr_err("[MPU] fail to clear violation\n");
+		pr_err("[MPU] EMI_MPUS: %x, EMI_MPUT: %x\n", mpus, mput);
 	}
-
-#ifdef CONFIG_MTK_DEVMPU
-	/* clear hyp violation status */
-	mt_reg_sync_writel(0x40000000, EMI_MPUT_2ND);
-
-	mput_2nd = readl(IOMEM(EMI_MPUT_2ND));
-	if ((mput_2nd >> 21) & 0x3) {
-		pr_info("[MPU] fail to clear hypervisor violation\n");
-		pr_info("[MPU] EMI_MPT_2ND: %x\n", mput_2nd);
-	}
-#endif
 }
 
 static void check_violation(void)
@@ -119,9 +101,6 @@ static void check_violation(void)
 	unsigned int wr_vio, wr_oo_vio;
 	unsigned long long vio_addr;
 	const char *master_name;
-#ifdef CONFIG_MTK_DEVMPU
-	unsigned int hp_wr_vio;
-#endif
 
 	mpus = readl(IOMEM(EMI_MPUS));
 	mput = readl(IOMEM(EMI_MPUT));
@@ -138,17 +117,6 @@ static void check_violation(void)
 	port_id = master_id & 0x7;
 	axi_id = (master_id >> 3) & 0x1FFF;
 	master_name = id2name(axi_id, port_id);
-
-#ifdef CONFIG_MTK_DEVMPU
-	/* if is hyperviosr MPU violation, deliver to DevMPU */
-	hp_wr_vio = (mput_2nd >> 21) & 0x3;
-	if (hp_wr_vio) {
-		devmpu_print_violation(vio_addr, master_id, domain_id,
-				hp_wr_vio, true);
-		clear_violation();
-		return;
-	}
-#endif
 
 	pr_info("[MPU] EMI MPU violation\n");
 	pr_info("[MPU] MPUS: %x, MPUT: %x, MPUT_2ND: %x.\n",
@@ -216,7 +184,7 @@ int emi_mpu_set_protection(struct emi_region_info_t *region_info)
 	int i;
 
 	if (region_info->region >= EMI_MPU_REGION_NUM) {
-		pr_info("[MPU] can not support region %u\n",
+		pr_err("[MPU] can not support region %u\n",
 			region_info->region);
 		return -1;
 	}
@@ -237,7 +205,7 @@ EXPORT_SYMBOL(emi_mpu_set_protection);
 int emi_mpu_clear_protection(struct emi_region_info_t *region_info)
 {
 	if (region_info->region > EMI_MPU_REGION_NUM) {
-		pr_info("[MPU] can not support region %u\n",
+		pr_err("[MPU] can not support region %u\n",
 			region_info->region);
 		return -1;
 	}
@@ -480,7 +448,7 @@ void mpu_init(struct platform_driver *emi_ctrl, struct platform_device *pdev)
 		ret = request_irq(mpu_irq, (irq_handler_t)violation_irq,
 			IRQF_TRIGGER_NONE, "mpu", emi_ctrl);
 		if (ret != 0) {
-			pr_info("[MPU] fail to request IRQ (%d)\n", ret);
+			pr_err("[MPU] fail to request IRQ (%d)\n", ret);
 			return;
 		}
 	}
@@ -496,14 +464,14 @@ void mpu_init(struct platform_driver *emi_ctrl, struct platform_device *pdev)
 #if !defined(USER_BUILD_KERNEL)
 	ret = driver_create_file(&emi_ctrl->driver, &driver_attr_mpu_config);
 	if (ret)
-		pr_info("[MPU] fail to create mpu_config\n");
+		pr_err("[MPU] fail to create mpu_config\n");
 #endif
 }
 
 int emi_mpu_check_register(void (*cb_func)(void))
 {
 	if (!cb_func) {
-		pr_info("%s%d: cb_func is NULL\n", __func__, __LINE__);
+		pr_err("%s%d: cb_func is NULL\n", __func__, __LINE__);
 		return -EINVAL;
 	}
 
@@ -512,8 +480,3 @@ int emi_mpu_check_register(void (*cb_func)(void))
 }
 EXPORT_SYMBOL(emi_mpu_check_register);
 
-void clear_md_violation(void)
-{
-	mt_reg_sync_writel(0x80000000, EMI_MPUT_2ND);
-}
-EXPORT_SYMBOL(clear_md_violation);

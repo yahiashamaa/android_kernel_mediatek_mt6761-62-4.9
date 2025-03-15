@@ -196,7 +196,7 @@ static inline void mtu3d_u3_ltssm_intr_handler(struct musb *musb, u32 dwLtssmVal
 	}
 
 	if (dwLtssmValue & ENTER_U0_INTR) {
-		//usb_hal_dpidle_request(USB_DPIDLE_FORBIDDEN);
+		usb_hal_dpidle_request(USB_DPIDLE_FORBIDDEN);
 		os_printk(K_INFO, "LTSSM: ENTER_U0_INTR %d, USB_DPIDLE_FORBIDDEN\n", musb->g.speed);
 
 		soft_conn_num = 0;
@@ -220,7 +220,7 @@ static inline void mtu3d_u3_ltssm_intr_handler(struct musb *musb, u32 dwLtssmVal
 	}
 
 	if (dwLtssmValue & ENTER_U3_INTR) {
-		//usb_hal_dpidle_request(USB_DPIDLE_TIMER);
+		usb_hal_dpidle_request(USB_DPIDLE_TIMER);
 		os_printk(K_INFO, "LTSSM: ENTER_U3_INTR, USB_DPIDLE_TIMER\n");
 		mu3d_hal_pdn_ip_port(0, 0, 1, 0);
 		sts_ltssm = ENTER_U3_INTR;
@@ -247,8 +247,8 @@ static inline void mtu3d_u3_ltssm_intr_handler(struct musb *musb, u32 dwLtssmVal
 	 * 5. The port shall maintain its low-impedance receiver termination (RRX-DC) defined in Table 6-13.
 	 */
 	if (dwLtssmValue & HOT_RST_INTR) {
-		DEV_INT32 link_err_cnt;
-		DEV_INT32 timeout_val;
+		int link_err_cnt;
+		int timeout_val;
 
 		os_printk(K_INFO, "LTSSM: HOT_RST_INTR\n");
 		/* Clear link error count */
@@ -287,7 +287,7 @@ static inline void mtu3d_u3_ltssm_intr_handler(struct musb *musb, u32 dwLtssmVal
 	 * 4. The LTSSM of a port shall transition to U0 through RxDetect and Polling.
 	 */
 	if (dwLtssmValue & WARM_RST_INTR) {
-		DEV_INT32 link_err_cnt;
+		int link_err_cnt;
 
 		os_printk(K_INFO, "LTSSM: WARM_RST_INTR\n");
 		/* Clear link error count */
@@ -356,23 +356,24 @@ static inline void mtu3d_u2_common_intr_handler(u32 dwIntrUsbValue)
 	}
 
 	if (dwIntrUsbValue & SUSPEND_INTR) {
-		//usb_hal_dpidle_request(USB_DPIDLE_TIMER);
+		usb_hal_dpidle_request(USB_DPIDLE_TIMER);
 		os_printk(K_NOTICE, "[U2 SUSPEND_INTR], USB_DPIDLE_TIMER\n");
 		mu3d_hal_pdn_ip_port(0, 0, 0, 1);
 #ifdef U3_COMPLIANCE
 		os_writel(U3D_LTSSM_INFO, CLR_DISABLE_CNT);
 		os_printk(K_NOTICE, "w1c, U3D_LTSSM_INFO, CLR_DISABLE_CNT\n");
 #endif
+		trigger_disconnect_check_work();
 	}
 
 	if (dwIntrUsbValue & RESUME_INTR) {
-		//usb_hal_dpidle_request(USB_DPIDLE_FORBIDDEN);
+		usb_hal_dpidle_request(USB_DPIDLE_FORBIDDEN);
 		os_printk(K_NOTICE, "[U2 RESUME_INTR], USB_DPIDLE_FORBIDDEN\n");
 		mu3d_hal_pdn_ip_port(1, 0, 0, 1);
 	}
 
 	if (dwIntrUsbValue & RESET_INTR) {
-		//usb_hal_dpidle_request(USB_DPIDLE_FORBIDDEN);
+		usb_hal_dpidle_request(USB_DPIDLE_FORBIDDEN);
 		os_printk(K_NOTICE, "[U2 RESET_INTR], USB_DPIDLE_FORBIDDEN\n");
 	}
 
@@ -894,8 +895,7 @@ static int mtu3d_probe(struct platform_device *pdev)
 	}
 
 /* run time force on */
-#if defined(CONFIG_FPGA_EARLY_PORTING) || defined(U3_COMPLIANCE) \
-	|| defined(FOR_BRING_UP)
+#if defined(CONFIG_FPGA_EARLY_PORTING) || defined(FOR_BRING_UP)
 	mu3d_force_on = 1;
 #endif
 
@@ -994,18 +994,4 @@ static struct platform_driver mtu3d_driver = {
 MODULE_DESCRIPTION("mtu3d MUSB Glue Layer");
 MODULE_AUTHOR("MediaTek");
 MODULE_LICENSE("GPL v2");
-
-#ifdef CONFIG_FPGA_EARLY_PORTING
-static int __init mtu3d_driver_init(void)
-{
-	int ret;
-
-	ret =  platform_driver_register(&mtu3d_driver);
-
-	return ret;
-}
-
-late_initcall(mtu3d_driver_init);
-#else
 module_platform_driver(mtu3d_driver);
-#endif

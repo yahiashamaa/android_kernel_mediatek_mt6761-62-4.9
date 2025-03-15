@@ -1,9 +1,7 @@
 config MTK_TINYSYS_SCP_SUPPORT
-	bool "Specify Interface Support SCP"
+	bool "Specifiy If Platform Support SCP"
 	default n
 	help
-	  SCP is a MediaTek in-house DSP which can receive
-	  command from IPI interface.
-	  Set Y to enable this feature.
-	  If unsure,
-	  Set N to stay with legancy feature.
+		SCP is a MediaTek in-house DSP which can receive
+		command from IPI interface.
+

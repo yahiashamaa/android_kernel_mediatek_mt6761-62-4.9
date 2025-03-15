@@ -9,7 +9,7 @@ config FAST_CIRQ_CLONE_FLUSH
 	def_bool n
 	depends on MTK_SYS_CIRQ
 	help
-	  Legacy CIRQ driver clone and flush IRQ pol/sen/pending very slow, since
+	  legacy CIRQ driver clone and flush IRQ pol/sen/pending very slow, since
 	  it checks every IRQ to decide if it should clone or not. This config speed up the process
 	  by only clone once when the sysetm first enter low power mode. and only setup
 	  cirq IDs for wakeup source.

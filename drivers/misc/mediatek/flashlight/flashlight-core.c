@@ -353,7 +353,7 @@ int flashlight_dev_register(
 						type_index,
 						ct_index,
 						part_index)) {
-				pr_err("Failed to register device (%s)\n",
+				pr_info("Failed to register device (%s)\n",
 						flashlight_id[i].name);
 				continue;
 			}
@@ -397,7 +397,7 @@ int flashlight_dev_unregister(const char *name)
 						type_index,
 						ct_index,
 						part_index)) {
-				pr_err("Failed to unregister device (%s)\n",
+				pr_info("Failed to unregister device (%s)\n",
 						flashlight_id[i].name);
 				continue;
 			}
@@ -465,6 +465,7 @@ int flashlight_dev_unregister_by_device_id(struct flashlight_device_id *dev_id)
 {
 	struct flashlight_dev *fdev;
 
+	pr_info("%d\n", __LINE__);
 	if (!dev_id)
 		return -EINVAL;
 
@@ -659,7 +660,6 @@ static long _flashlight_ioctl(
 	int type, ct, part;
 	int ret = 0;
 
-	memset(&fl_arg, 0, sizeof(struct flashlight_user_arg));
 	if (copy_from_user(&fl_arg, (void __user *)arg,
 				sizeof(struct flashlight_user_arg))) {
 		pr_err("Failed copy arguments from user\n");
@@ -1171,7 +1171,7 @@ static ssize_t flashlight_charger_store(struct device *dev,
 	}
 	if (charger_status_tmp < FLASHLIGHT_CHARGER_NOT_READY ||
 			charger_status_tmp > FLASHLIGHT_CHARGER_READY) {
-		pr_err("Error arguments charger status(%d)\n",
+		pr_info("Error arguments charger status(%d)\n",
 				charger_status_tmp);
 		ret = -1;
 		goto unlock;
@@ -1595,7 +1595,7 @@ static int flashlight_probe(struct platform_device *dev)
 	/* create class */
 	flashlight_class = class_create(THIS_MODULE, FLASHLIGHT_CORE);
 	if (IS_ERR(flashlight_class)) {
-		pr_err("Failed to create class (%d)\n",
+		pr_info("Failed to create class (%d)\n",
 				(int)PTR_ERR(flashlight_class));
 		goto err_create_class;
 	}

@@ -20,8 +20,7 @@
 #include "lcm_util.h"
 
 
-static enum LCM_STATUS _lcm_util_check_data(char type,
-	const struct LCM_DATA_T1 *t1)
+static LCM_STATUS _lcm_util_check_data(char type, const LCM_DATA_T1 *t1)
 {
 	switch (type) {
 	case LCM_UTIL_RESET:
@@ -50,8 +49,7 @@ static enum LCM_STATUS _lcm_util_check_data(char type,
 }
 
 
-static enum LCM_STATUS _lcm_util_check_write_cmd_v1(
-	const struct LCM_DATA_T5 *t5)
+static LCM_STATUS _lcm_util_check_write_cmd_v1(const LCM_DATA_T5 *t5)
 {
 	if (t5 == NULL)
 		return LCM_STATUS_ERROR;
@@ -62,8 +60,7 @@ static enum LCM_STATUS _lcm_util_check_write_cmd_v1(
 }
 
 
-static enum LCM_STATUS _lcm_util_check_write_cmd_v2(
-	const struct LCM_DATA_T3 *t3)
+static LCM_STATUS _lcm_util_check_write_cmd_v2(const LCM_DATA_T3 *t3)
 {
 	if (t3 == NULL)
 		return LCM_STATUS_ERROR;
@@ -74,8 +71,7 @@ static enum LCM_STATUS _lcm_util_check_write_cmd_v2(
 }
 
 
-static enum LCM_STATUS _lcm_util_check_write_cmd_v23(
-	const struct LCM_DATA_T3 *t3)
+static LCM_STATUS _lcm_util_check_write_cmd_v23(const LCM_DATA_T3 *t3)
 {
 	if (t3 == NULL)
 		return LCM_STATUS_ERROR;
@@ -84,8 +80,7 @@ static enum LCM_STATUS _lcm_util_check_write_cmd_v23(
 }
 
 
-static enum LCM_STATUS _lcm_util_check_read_cmd_v2(
-	const struct LCM_DATA_T4 *t4)
+static LCM_STATUS _lcm_util_check_read_cmd_v2(const LCM_DATA_T4 *t4)
 {
 	if (t4 == NULL)
 		return LCM_STATUS_ERROR;
@@ -94,8 +89,7 @@ static enum LCM_STATUS _lcm_util_check_read_cmd_v2(
 }
 
 
-enum LCM_STATUS lcm_util_set_data(const struct LCM_UTIL_FUNCS *lcm_util,
-	char type, struct LCM_DATA_T1 *t1)
+LCM_STATUS lcm_util_set_data(const LCM_UTIL_FUNCS *lcm_util, char type, LCM_DATA_T1 *t1)
 {
 	/* check parameter is valid */
 	if (_lcm_util_check_data(type, t1) == LCM_STATUS_OK) {
@@ -117,13 +111,11 @@ enum LCM_STATUS lcm_util_set_data(const struct LCM_UTIL_FUNCS *lcm_util,
 			break;
 
 		default:
-			pr_debug("[LCM][ERROR] %s/%d: %d\n",
-				__func__, __LINE__, type);
+			pr_debug("[LCM][ERROR] %s/%d: %d\n", __func__, __LINE__, type);
 			return LCM_STATUS_ERROR;
 		}
 	} else {
-		pr_debug("[LCM][ERROR] %s/%d: 0x%x, 0x%x\n",
-			__func__, __LINE__, type, t1->data);
+		pr_debug("[LCM][ERROR] %s/%d: 0x%x, 0x%x\n", __func__, __LINE__, type, t1->data);
 		return LCM_STATUS_ERROR;
 	}
 
@@ -131,9 +123,8 @@ enum LCM_STATUS lcm_util_set_data(const struct LCM_UTIL_FUNCS *lcm_util,
 }
 
 
-enum LCM_STATUS lcm_util_set_write_cmd_v1(
-	const struct LCM_UTIL_FUNCS *lcm_util, struct LCM_DATA_T5 *t5,
-	unsigned char force_update)
+LCM_STATUS lcm_util_set_write_cmd_v1(const LCM_UTIL_FUNCS *lcm_util, LCM_DATA_T5 *t5,
+				     unsigned char force_update)
 {
 	unsigned int i;
 	unsigned int cmd[32];
@@ -146,20 +137,17 @@ enum LCM_STATUS lcm_util_set_write_cmd_v1(
 				| (t5->cmd[i * 4 + 2] << 16)
 				| (t5->cmd[i * 4 + 1] << 8)
 				| (t5->cmd[i * 4]);
-		lcm_util->dsi_set_cmdq(cmd, (unsigned int)t5->size,
-			force_update);
+		lcm_util->dsi_set_cmdq(cmd, (unsigned int)t5->size, force_update);
 	} else {
-		pr_debug("[LCM][ERROR] %s/%d: 0x%p, %d\n",
-			__func__, __LINE__, t5->cmd, t5->size);
+		pr_debug("[LCM][ERROR] %s/%d: 0x%p, %d\n", __func__, __LINE__, t5->cmd, t5->size);
 		return LCM_STATUS_ERROR;
 	}
 
 	return LCM_STATUS_OK;
 }
 
-enum LCM_STATUS lcm_util_set_write_cmd_v11(
-	const struct LCM_UTIL_FUNCS *lcm_util, struct LCM_DATA_T5 *t5,
-	unsigned char force_update, void *cmdq)
+LCM_STATUS lcm_util_set_write_cmd_v11(const LCM_UTIL_FUNCS *lcm_util, LCM_DATA_T5 *t5,
+					unsigned char force_update, void *cmdq)
 {
 	unsigned int i;
 	unsigned int cmd[32];
@@ -175,11 +163,9 @@ enum LCM_STATUS lcm_util_set_write_cmd_v11(
 				| (t5->cmd[i * 4 + 2] << 16)
 				| (t5->cmd[i * 4 + 1] << 8)
 				| (t5->cmd[i * 4]);
-			lcm_util->dsi_set_cmdq_V11(cmdq, cmd,
-				(unsigned int)t5->size, force_update);
+			lcm_util->dsi_set_cmdq_V11(cmdq, cmd, (unsigned int)t5->size, force_update);
 	} else {
-		pr_debug("[LCM][ERROR] %s/%d: 0x%p, %d\n",
-			__func__, __LINE__, t5->cmd, t5->size);
+		pr_debug("[LCM][ERROR] %s/%d: 0x%p, %d\n", __func__, __LINE__, t5->cmd, t5->size);
 		return LCM_STATUS_ERROR;
 	}
 
@@ -188,24 +174,21 @@ enum LCM_STATUS lcm_util_set_write_cmd_v11(
 
 
 
-enum LCM_STATUS lcm_util_set_write_cmd_v2(
-	const struct LCM_UTIL_FUNCS *lcm_util, struct LCM_DATA_T3 *t3,
-	unsigned char force_update)
+LCM_STATUS lcm_util_set_write_cmd_v2(const LCM_UTIL_FUNCS *lcm_util, LCM_DATA_T3 *t3,
+				     unsigned char force_update)
 {
 	/* check parameter is valid */
 	if (_lcm_util_check_write_cmd_v2(t3) == LCM_STATUS_OK) {
 		if (t3->cmd == LCM_UTIL_WRITE_CMD_V2_NULL) {
-			lcm_util->dsi_set_null((unsigned char)t3->cmd,
-				(unsigned char)t3->size,
-				(unsigned char *)t3->data, force_update);
+			lcm_util->dsi_set_null((unsigned char)t3->cmd, (unsigned char)t3->size,
+					       (unsigned char *)t3->data, force_update);
 		} else {
-			lcm_util->dsi_set_cmdq_V2((unsigned char)t3->cmd,
-				(unsigned char)t3->size,
-				(unsigned char *)t3->data, force_update);
+			lcm_util->dsi_set_cmdq_V2((unsigned char)t3->cmd, (unsigned char)t3->size,
+						  (unsigned char *)t3->data, force_update);
 		}
 	} else {
-		pr_debug("[LCM][ERROR] %s/%d: 0x%x, %d, 0x%p\n",
-			__func__, __LINE__, t3->cmd, t3->size, t3->data);
+		pr_debug("[LCM][ERROR] %s/%d: 0x%x, %d, 0x%p\n", __func__, __LINE__, t3->cmd,
+		       t3->size, t3->data);
 		return LCM_STATUS_ERROR;
 	}
 
@@ -213,18 +196,16 @@ enum LCM_STATUS lcm_util_set_write_cmd_v2(
 }
 
 
-enum LCM_STATUS lcm_util_set_write_cmd_v23(
-	const struct LCM_UTIL_FUNCS *lcm_util, void *handle,
-	struct LCM_DATA_T3 *t3, unsigned char force_update)
+LCM_STATUS lcm_util_set_write_cmd_v23(const LCM_UTIL_FUNCS *lcm_util, void *handle, LCM_DATA_T3 *t3,
+				     unsigned char force_update)
 {
 	/* check parameter is valid */
 	if (_lcm_util_check_write_cmd_v23(t3) == LCM_STATUS_OK)
-		lcm_util->dsi_set_cmdq_V23(handle, (unsigned char)t3->cmd,
-			(unsigned char)t3->size,
-			(unsigned char *)t3->data, force_update);
+		lcm_util->dsi_set_cmdq_V23(handle, (unsigned char)t3->cmd, (unsigned char)t3->size,
+					  (unsigned char *)t3->data, force_update);
 	else {
-		pr_debug("[LCM][ERROR] %s/%d: 0x%x, %d, 0x%p\n",
-			__func__, __LINE__, t3->cmd, t3->size, t3->data);
+		pr_debug("[LCM][ERROR] %s/%d: 0x%x, %d, 0x%p\n", __func__, __LINE__, t3->cmd,
+		       t3->size, t3->data);
 		return LCM_STATUS_ERROR;
 	}
 
@@ -232,13 +213,11 @@ enum LCM_STATUS lcm_util_set_write_cmd_v23(
 }
 
 
-enum LCM_STATUS lcm_util_set_read_cmd_v2(
-	const struct LCM_UTIL_FUNCS *lcm_util, struct LCM_DATA_T4 *t4,
-	unsigned int *compare)
+LCM_STATUS lcm_util_set_read_cmd_v2(const LCM_UTIL_FUNCS *lcm_util, LCM_DATA_T4 *t4,
+				    unsigned int *compare)
 {
 	if (compare == NULL) {
-		pr_debug("[LCM][ERROR] %s/%d: NULL parameter\n",
-			__func__, __LINE__);
+		pr_debug("[LCM][ERROR] %s/%d: NULL parameter\n", __func__, __LINE__);
 		return LCM_STATUS_ERROR;
 	}
 
@@ -248,15 +227,13 @@ enum LCM_STATUS lcm_util_set_read_cmd_v2(
 	if (_lcm_util_check_read_cmd_v2(t4) == LCM_STATUS_OK) {
 		unsigned char buffer[4];
 
-		lcm_util->dsi_dcs_read_lcm_reg_v2(
-			(unsigned char)t4->cmd, buffer, 4);
+		lcm_util->dsi_dcs_read_lcm_reg_v2((unsigned char)t4->cmd, buffer, 4);
 
-		if (buffer[(unsigned int)t4->location] ==
-			((unsigned char)t4->data))
+		if (buffer[(unsigned int)t4->location] == ((unsigned char)t4->data))
 			*compare = 1;
 	} else {
-		pr_debug("[LCM][ERROR] %s/%d: 0x%x, %d, 0x%x\n",
-			__func__, __LINE__, t4->cmd, t4->location, t4->data);
+		pr_debug("[LCM][ERROR] %s/%d: 0x%x, %d, 0x%x\n", __func__, __LINE__, t4->cmd,
+		       t4->location, t4->data);
 		return LCM_STATUS_ERROR;
 	}
 

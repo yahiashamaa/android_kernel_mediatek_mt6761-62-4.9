@@ -869,7 +869,7 @@ static struct UT_Handle *get_ut_handle_removed(void)
 	}
 
 	list_for_each_entry_safe(ut_handle, tmp, &g_stress_handle_list.list,
-				 list) {
+				  list) {
 		list_del(&ut_handle->list);
 		/* get the first entry */
 		break;
@@ -900,7 +900,7 @@ static enum UT_RET_STATE memmgr_ut_deinit(struct ut_params *params)
 	UNUSED(params);
 
 	list_for_each_entry_safe(handle, tmp, &g_stress_handle_list.list,
-							 list) {
+				  list) {
 		list_del(&handle->list);
 		mld_kfree(handle);
 	}

@@ -103,8 +103,7 @@ static int hps_sanitize_var(unsigned int *hpsvar, unsigned int newv)
 
 static ssize_t hps_proc_uint_write(struct file *file, const char __user *buffer,
 				   size_t count, loff_t *pos,
-				   func_void before_write,
-				   func_void after_write)
+				   func_void before_write, func_void after_write)
 {
 	unsigned int var;
 	unsigned int *pv;
@@ -146,18 +145,16 @@ static void reset_unlock_hps_ctxt(void)
 	mutex_unlock(&hps_ctxt.lock);
 }
 
-static ssize_t hps_proc_uint_write_with_lock(struct file *file,
-	const char __user *buffer, size_t count, loff_t *pos)
+static ssize_t hps_proc_uint_write_with_lock(struct file *file, const char __user *buffer,
+					     size_t count, loff_t *pos)
 {
-	return hps_proc_uint_write(file, buffer, count, pos,
-		lock_hps_ctxt, unlock_hps_ctxt);
+	return hps_proc_uint_write(file, buffer, count, pos, lock_hps_ctxt, unlock_hps_ctxt);
 }
 
-static ssize_t hps_proc_uint_write_with_lock_reset(struct file *file,
-	const char __user *buffer, size_t count, loff_t *pos)
+static ssize_t hps_proc_uint_write_with_lock_reset(struct file *file, const char __user *buffer,
+						   size_t count, loff_t *pos)
 {
-	return hps_proc_uint_write(file, buffer, count, pos,
-		lock_hps_ctxt, reset_unlock_hps_ctxt);
+	return hps_proc_uint_write(file, buffer, count, pos, lock_hps_ctxt, reset_unlock_hps_ctxt);
 }
 
 #define RPOC_FOPS_OPEN_WRITE(_name, _open, _write)			\
@@ -213,22 +210,16 @@ PROC_FOPS_RO_UINT(state, hps_ctxt.state);
  *     - big_task_enabled
  *     - idle_det_enabled
  */
-PROC_FOPS_RW_UINT(enabled, hps_ctxt.enabled,
-	hps_proc_uint_write_with_lock_reset);
-PROC_FOPS_RW_UINT(eas_enabled, hps_ctxt.eas_enabled,
-	hps_proc_uint_write_with_lock_reset);
+PROC_FOPS_RW_UINT(enabled, hps_ctxt.enabled, hps_proc_uint_write_with_lock_reset);
+PROC_FOPS_RW_UINT(eas_enabled, hps_ctxt.eas_enabled, hps_proc_uint_write_with_lock_reset);
 PROC_FOPS_RW_UINT(heavy_task_enabled, hps_ctxt.heavy_task_enabled,
 		  hps_proc_uint_write_with_lock_reset);
 PROC_FOPS_RW_UINT(big_task_enabled, hps_ctxt.big_task_enabled,
 		hps_proc_uint_write_with_lock_reset);
-PROC_FOPS_RW_UINT(idle_det_enabled, hps_ctxt.idle_det_enabled,
-	hps_proc_uint_write_with_lock_reset);
-PROC_FOPS_RW_UINT(suspend_enabled, hps_ctxt.suspend_enabled,
-	hps_proc_uint_write_with_lock);
-PROC_FOPS_RW_UINT(cur_dump_enabled, hps_ctxt.cur_dump_enabled,
-	hps_proc_uint_write_with_lock);
-PROC_FOPS_RW_UINT(stats_dump_enabled, hps_ctxt.stats_dump_enabled,
-	hps_proc_uint_write_with_lock);
+PROC_FOPS_RW_UINT(idle_det_enabled, hps_ctxt.idle_det_enabled, hps_proc_uint_write_with_lock_reset);
+PROC_FOPS_RW_UINT(suspend_enabled, hps_ctxt.suspend_enabled, hps_proc_uint_write_with_lock);
+PROC_FOPS_RW_UINT(cur_dump_enabled, hps_ctxt.cur_dump_enabled, hps_proc_uint_write_with_lock);
+PROC_FOPS_RW_UINT(stats_dump_enabled, hps_ctxt.stats_dump_enabled, hps_proc_uint_write_with_lock);
 
 /*
  * procfs callback - algo config series
@@ -244,30 +235,19 @@ PROC_FOPS_RW_UINT(stats_dump_enabled, hps_ctxt.stats_dump_enabled,
  *     - tlp_times
  *     - idle_threshold
  */
-PROC_FOPS_RW_UINT(up_threshold, hps_ctxt.up_threshold,
-	hps_proc_uint_write_with_lock_reset);
-PROC_FOPS_RW_UINT(up_times, hps_ctxt.up_times,
-	hps_proc_uint_write_with_lock_reset);
-PROC_FOPS_RW_UINT(down_threshold, hps_ctxt.down_threshold,
-	hps_proc_uint_write_with_lock_reset);
-PROC_FOPS_RW_UINT(down_times, hps_ctxt.down_times,
-	hps_proc_uint_write_with_lock_reset);
-PROC_FOPS_RW_UINT(input_boost_enabled, hps_ctxt.input_boost_enabled,
-	hps_proc_uint_write_with_lock);
-PROC_FOPS_RW_UINT(input_boost_cpu_num, hps_ctxt.input_boost_cpu_num,
-	hps_proc_uint_write_with_lock);
-PROC_FOPS_RW_UINT(rush_boost_enabled, hps_ctxt.rush_boost_enabled,
-	hps_proc_uint_write_with_lock_reset);
-PROC_FOPS_RW_UINT(rush_boost_threshold, hps_ctxt.rush_boost_threshold,
-	hps_proc_uint_write_with_lock_reset);
-PROC_FOPS_RW_UINT(rush_boost_times, hps_ctxt.rush_boost_times,
-	hps_proc_uint_write_with_lock_reset);
-PROC_FOPS_RW_UINT(tlp_times, hps_ctxt.tlp_times,
-	hps_proc_uint_write_with_lock_reset);
-PROC_FOPS_RW_UINT(power_mode, hps_ctxt.power_mode,
-	hps_proc_uint_write_with_lock_reset);
-PROC_FOPS_RW_UINT(idle_threshold, hps_ctxt.idle_threshold,
-	hps_proc_uint_write_with_lock_reset);
+PROC_FOPS_RW_UINT(up_threshold, hps_ctxt.up_threshold, hps_proc_uint_write_with_lock_reset);
+PROC_FOPS_RW_UINT(up_times, hps_ctxt.up_times, hps_proc_uint_write_with_lock_reset);
+PROC_FOPS_RW_UINT(down_threshold, hps_ctxt.down_threshold, hps_proc_uint_write_with_lock_reset);
+PROC_FOPS_RW_UINT(down_times, hps_ctxt.down_times, hps_proc_uint_write_with_lock_reset);
+PROC_FOPS_RW_UINT(input_boost_enabled, hps_ctxt.input_boost_enabled, hps_proc_uint_write_with_lock);
+PROC_FOPS_RW_UINT(input_boost_cpu_num, hps_ctxt.input_boost_cpu_num, hps_proc_uint_write_with_lock);
+PROC_FOPS_RW_UINT(rush_boost_enabled, hps_ctxt.rush_boost_enabled, hps_proc_uint_write_with_lock_reset);
+PROC_FOPS_RW_UINT(rush_boost_threshold,
+		  hps_ctxt.rush_boost_threshold, hps_proc_uint_write_with_lock_reset);
+PROC_FOPS_RW_UINT(rush_boost_times, hps_ctxt.rush_boost_times, hps_proc_uint_write_with_lock_reset);
+PROC_FOPS_RW_UINT(tlp_times, hps_ctxt.tlp_times, hps_proc_uint_write_with_lock_reset);
+PROC_FOPS_RW_UINT(power_mode, hps_ctxt.power_mode, hps_proc_uint_write_with_lock_reset);
+PROC_FOPS_RW_UINT(idle_threshold, hps_ctxt.idle_threshold, hps_proc_uint_write_with_lock_reset);
 
 /*
  * procfs callback - algo bound series
@@ -280,14 +260,13 @@ static int hps_pwrseq_proc_show(struct seq_file *m, void *v)
 	unsigned int cluster_num = hps_sys.cluster_num;
 
 	for (i = 0; i < cluster_num; i++)
-		seq_printf(m, "cluster %d, power sequence = %d\n",
-			i, hps_sys.cluster_info[i].pwr_seq);
+		seq_printf(m, "cluster %d, power sequence = %d\n", i, hps_sys.cluster_info[i].pwr_seq);
 	return 0;
 }
 
 static ssize_t hps_pwrseq_proc_write(struct file *file,
-				     const char __user *buffer,
-				     size_t count, loff_t *pos)
+						const char __user *buffer,
+						size_t count, loff_t *pos)
 {
 	int i = 0;
 	int j = 0;
@@ -310,8 +289,7 @@ static ssize_t hps_pwrseq_proc_write(struct file *file,
 
 	while ((tok = strsep(&pdesc, " ")) != NULL) {
 		if (i == cluster_num) {
-			hps_warn("@%s: number of arguments > %d!\n",
-				__func__, cluster_num);
+			hps_warn("@%s: number of arguments > %d!\n", __func__, cluster_num);
 			goto out;
 		}
 
@@ -323,23 +301,20 @@ static ssize_t hps_pwrseq_proc_write(struct file *file,
 	}
 
 	if (i < cluster_num) {
-		hps_warn("@%s: number of arguments < %d!\n",
-			__func__, cluster_num);
+		hps_warn("@%s: number of arguments < %d!\n", __func__, cluster_num);
 		goto out;
 	}
 
 	for (i = 0; i < cluster_num; i++) {
 		if (pwrseq[i] > cluster_num) {
-			hps_warn("@%s: Invalid input! pwrseq[%d] = %d\n",
-				__func__, i, pwrseq[i]);
+			hps_warn("@%s: Invalid input! pwrseq[%d] = %d\n", __func__, i, pwrseq[i]);
 			goto out;
 		}
 		for (j = 0; j < cluster_num; j++) {
 			if (i != j) {
 				if (pwrseq[i] == pwrseq[j]) {
 					hps_warn
-			("@%s: Invalid input! pwrseq[%d] = pwrseq[%d] = %d\n",
-			__func__, i, j, pwrseq[i]);
+				("@%s: Invalid input! pwrseq[%d] = pwrseq[%d] = %d\n", __func__, i, j, pwrseq[i]);
 					goto out;
 				}
 			}
@@ -385,20 +360,17 @@ static ssize_t hps_num_base_perf_serv_proc_write(struct file *file,
 	desc[len] = '\0';
 
 	if ((hps_ctxt.is_hmp || hps_ctxt.is_amp)
-	&& (sscanf(desc, "%u %u", &little_num_base_perf_serv,
-	&big_num_base_perf_serv) == 2)) {
+	    && (sscanf(desc, "%u %u", &little_num_base_perf_serv, &big_num_base_perf_serv) == 2)) {
 		if (little_num_base_perf_serv > num_possible_little_cpus()
 		    || little_num_base_perf_serv < 1) {
-			hps_warn
-		("hps_num_base_perf_serv_proc_write, bad argument(%u, %u)\n",
-		little_num_base_perf_serv, big_num_base_perf_serv);
+			hps_warn("hps_num_base_perf_serv_proc_write, bad argument(%u, %u)\n",
+				 little_num_base_perf_serv, big_num_base_perf_serv);
 			return -EINVAL;
 		}
 
 		if (big_num_base_perf_serv > num_possible_big_cpus()) {
-			hps_warn
-		("hps_num_base_perf_serv_proc_write, bad argument(%u, %u)\n",
-		little_num_base_perf_serv, big_num_base_perf_serv);
+			hps_warn("hps_num_base_perf_serv_proc_write, bad argument(%u, %u)\n",
+				 little_num_base_perf_serv, big_num_base_perf_serv);
 			return -EINVAL;
 		}
 
@@ -425,12 +397,11 @@ static ssize_t hps_num_base_perf_serv_proc_write(struct file *file,
 			     min(hps_ctxt.little_num_limit_ultra_power_saving,
 				 hps_ctxt.little_num_limit_power_serv)) &&
 			    (num_online_cpus() <
-			(little_num_base_perf_serv + big_num_base_perf_serv)))
+			     (little_num_base_perf_serv + big_num_base_perf_serv)))
 				hps_task_wakeup_nolock();
 		}
 
-		/* XXX: should we move mutex_unlock(&hps_ctxt.lock) */
-		/*to earlier stage? NO */
+		/* XXX: should we move mutex_unlock(&hps_ctxt.lock) to earlier stage? NO */
 		mutex_unlock(&hps_ctxt.lock);
 
 		return count;
@@ -438,9 +409,8 @@ static ssize_t hps_num_base_perf_serv_proc_write(struct file *file,
 		   && !kstrtouint(desc, 0, &little_num_base_perf_serv)) {
 		if (little_num_base_perf_serv > num_possible_little_cpus()
 		    || little_num_base_perf_serv < 1) {
-			hps_warn
-		("hps_num_base_perf_serv_proc_write, bad argument(%u)\n",
-		little_num_base_perf_serv);
+			hps_warn("hps_num_base_perf_serv_proc_write, bad argument(%u)\n",
+				 little_num_base_perf_serv);
 			return -EINVAL;
 		}
 
@@ -457,8 +427,7 @@ static ssize_t hps_num_base_perf_serv_proc_write(struct file *file,
 			 hps_ctxt.little_num_limit_power_serv)))
 			hps_task_wakeup_nolock();
 
-		/* XXX: should we move mutex_unlock(&hps_ctxt.lock) */
-		/*to earlier stage? NO */
+		/* XXX: should we move mutex_unlock(&hps_ctxt.lock) to earlier stage? NO */
 		mutex_unlock(&hps_ctxt.lock);
 
 		return count;
@@ -500,20 +469,17 @@ static ssize_t hps_num_limit_thermal_proc_write(struct file *file,
 	desc[len] = '\0';
 
 	if ((hps_ctxt.is_hmp || hps_ctxt.is_amp)
-	&& (sscanf(desc, "%u %u", &little_num_limit_thermal,
-	&big_num_limit_thermal) == 2)) {
+	    && (sscanf(desc, "%u %u", &little_num_limit_thermal, &big_num_limit_thermal) == 2)) {
 		if (little_num_limit_thermal > num_possible_little_cpus()
 		    || little_num_limit_thermal < 1) {
-			hps_warn
-		("hps_num_limit_thermal_proc_write, bad argument(%u, %u)\n",
-		little_num_limit_thermal, big_num_limit_thermal);
+			hps_warn("hps_num_limit_thermal_proc_write, bad argument(%u, %u)\n",
+				 little_num_limit_thermal, big_num_limit_thermal);
 			return -EINVAL;
 		}
 
 		if (big_num_limit_thermal > num_possible_big_cpus()) {
-			hps_warn
-		("hps_num_limit_thermal_proc_write, bad argument(%u, %u)\n",
-		little_num_limit_thermal, big_num_limit_thermal);
+			hps_warn("hps_num_limit_thermal_proc_write, bad argument(%u, %u)\n",
+				 little_num_limit_thermal, big_num_limit_thermal);
 			return -EINVAL;
 		}
 
@@ -533,9 +499,8 @@ static ssize_t hps_num_limit_thermal_proc_write(struct file *file,
 		   && !kstrtouint(desc, 0, &little_num_limit_thermal)) {
 		if (little_num_limit_thermal > num_possible_little_cpus()
 		    || little_num_limit_thermal < 1) {
-			hps_warn
-		("hps_num_limit_thermal_proc_write, bad argument(%u)\n",
-		little_num_limit_thermal);
+			hps_warn("hps_num_limit_thermal_proc_write, bad argument(%u)\n",
+				 little_num_limit_thermal);
 			return -EINVAL;
 		}
 
@@ -591,28 +556,24 @@ static ssize_t hps_num_limit_low_battery_proc_write(struct file *file,
 		       &big_num_limit_low_battery) == 2)) {
 		if (little_num_limit_low_battery > num_possible_little_cpus()
 		    || little_num_limit_low_battery < 1) {
-			hps_warn
-	("hps_num_limit_low_battery_proc_write, bad argument(%u, %u)\n",
-	little_num_limit_low_battery, big_num_limit_low_battery);
+			hps_warn("hps_num_limit_low_battery_proc_write, bad argument(%u, %u)\n",
+				 little_num_limit_low_battery, big_num_limit_low_battery);
 			return -EINVAL;
 		}
 
 		if (big_num_limit_low_battery > num_possible_big_cpus()) {
-			hps_warn
-	("hps_num_limit_low_battery_proc_write, bad argument(%u, %u)\n",
-	little_num_limit_low_battery, big_num_limit_low_battery);
+			hps_warn("hps_num_limit_low_battery_proc_write, bad argument(%u, %u)\n",
+				 little_num_limit_low_battery, big_num_limit_low_battery);
 			return -EINVAL;
 		}
 
 		mutex_lock(&hps_ctxt.lock);
 
-		hps_ctxt.little_num_limit_low_battery =
-			little_num_limit_low_battery;
+		hps_ctxt.little_num_limit_low_battery = little_num_limit_low_battery;
 		hps_ctxt.big_num_limit_low_battery = big_num_limit_low_battery;
 		if (num_online_big_cpus() > big_num_limit_low_battery)
 			hps_task_wakeup_nolock();
-		else if (num_online_little_cpus() >
-		little_num_limit_low_battery)
+		else if (num_online_little_cpus() > little_num_limit_low_battery)
 			hps_task_wakeup_nolock();
 
 		mutex_unlock(&hps_ctxt.lock);
@@ -622,16 +583,14 @@ static ssize_t hps_num_limit_low_battery_proc_write(struct file *file,
 		   && !kstrtouint(desc, 0, &little_num_limit_low_battery)) {
 		if (little_num_limit_low_battery > num_possible_little_cpus()
 		    || little_num_limit_low_battery < 1) {
-			hps_warn
-		("hps_num_limit_low_battery_proc_write, bad argument(%u)\n",
-		little_num_limit_low_battery);
+			hps_warn("hps_num_limit_low_battery_proc_write, bad argument(%u)\n",
+				 little_num_limit_low_battery);
 			return -EINVAL;
 		}
 
 		mutex_lock(&hps_ctxt.lock);
 
-		hps_ctxt.little_num_limit_low_battery =
-			little_num_limit_low_battery;
+		hps_ctxt.little_num_limit_low_battery = little_num_limit_low_battery;
 		if (num_online_little_cpus() > little_num_limit_low_battery)
 			hps_task_wakeup_nolock();
 
@@ -652,21 +611,20 @@ PROC_FOPS_RW(num_limit_low_battery);
  *     - little_num_limit_ultra_power_saving
  *     - big_num_limit_ultra_power_saving
  */
-static int hps_num_limit_ultra_power_saving_proc_show(struct seq_file *m,
-	void *v)
+static int hps_num_limit_ultra_power_saving_proc_show(struct seq_file *m, void *v)
 {
 	if (hps_ctxt.is_hmp || hps_ctxt.is_amp)
 		seq_printf(m, "%u %u\n",
 			   hps_ctxt.little_num_limit_ultra_power_saving,
 			   hps_ctxt.big_num_limit_ultra_power_saving);
 	else
-		seq_printf(m, "%u\n",
-			hps_ctxt.little_num_limit_ultra_power_saving);
+		seq_printf(m, "%u\n", hps_ctxt.little_num_limit_ultra_power_saving);
 	return 0;
 }
 
 static ssize_t hps_num_limit_ultra_power_saving_proc_write(struct file *file,
-	const char __user *buffer, size_t count, loff_t *pos)
+							   const char __user *buffer,
+							   size_t count, loff_t *pos)
 {
 	int len = 0;
 	int little_num_limit_ultra_power_saving = 0;
@@ -685,55 +643,45 @@ static ssize_t hps_num_limit_ultra_power_saving_proc_write(struct file *file,
 		    &little_num_limit_ultra_power_saving,
 		    &big_num_limit_ultra_power_saving) == 2)) {
 		if (little_num_limit_ultra_power_saving >
-		num_possible_little_cpus() ||
-		little_num_limit_ultra_power_saving < 1) {
+		    num_possible_little_cpus() || little_num_limit_ultra_power_saving < 1) {
 			hps_warn
-("hps_num_limit_ultra_power_saving_proc_write, bad argument(%u, %u)\n",
-little_num_limit_ultra_power_saving, big_num_limit_ultra_power_saving);
+			    ("hps_num_limit_ultra_power_saving_proc_write, bad argument(%u, %u)\n",
+			     little_num_limit_ultra_power_saving, big_num_limit_ultra_power_saving);
 			return -EINVAL;
 		}
 
-		if (big_num_limit_ultra_power_saving >
-		num_possible_big_cpus()) {
+		if (big_num_limit_ultra_power_saving > num_possible_big_cpus()) {
 			hps_warn
-("hps_num_limit_ultra_power_saving_proc_write, bad argument(%u, %u)\n",
-little_num_limit_ultra_power_saving, big_num_limit_ultra_power_saving);
+			    ("hps_num_limit_ultra_power_saving_proc_write, bad argument(%u, %u)\n",
+			     little_num_limit_ultra_power_saving, big_num_limit_ultra_power_saving);
 			return -EINVAL;
 		}
 
 		mutex_lock(&hps_ctxt.lock);
 
-		hps_ctxt.little_num_limit_ultra_power_saving =
-			little_num_limit_ultra_power_saving;
-		hps_ctxt.big_num_limit_ultra_power_saving =
-			big_num_limit_ultra_power_saving;
+		hps_ctxt.little_num_limit_ultra_power_saving = little_num_limit_ultra_power_saving;
+		hps_ctxt.big_num_limit_ultra_power_saving = big_num_limit_ultra_power_saving;
 		if (num_online_big_cpus() > big_num_limit_ultra_power_saving)
 			hps_task_wakeup_nolock();
-		else if (num_online_little_cpus() >
-			little_num_limit_ultra_power_saving)
+		else if (num_online_little_cpus() > little_num_limit_ultra_power_saving)
 			hps_task_wakeup_nolock();
 
 		mutex_unlock(&hps_ctxt.lock);
 
 		return count;
 	} else if ((!hps_ctxt.is_hmp || !hps_ctxt.is_amp)
-	&& !kstrtouint(desc, 0,
-	&little_num_limit_ultra_power_saving)) {
-		if (little_num_limit_ultra_power_saving >
-		num_possible_little_cpus()
+		   && !kstrtouint(desc, 0, &little_num_limit_ultra_power_saving)) {
+		if (little_num_limit_ultra_power_saving > num_possible_little_cpus()
 		    || little_num_limit_ultra_power_saving < 1) {
-			hps_warn
-	("hps_num_limit_ultra_power_saving_proc_write, bad argument(%u)\n",
-	little_num_limit_ultra_power_saving);
+			hps_warn("hps_num_limit_ultra_power_saving_proc_write, bad argument(%u)\n",
+				 little_num_limit_ultra_power_saving);
 			return -EINVAL;
 		}
 
 		mutex_lock(&hps_ctxt.lock);
 
-		hps_ctxt.little_num_limit_ultra_power_saving =
-			little_num_limit_ultra_power_saving;
-		if (num_online_little_cpus() >
-		little_num_limit_ultra_power_saving)
+		hps_ctxt.little_num_limit_ultra_power_saving = little_num_limit_ultra_power_saving;
+		if (num_online_little_cpus() > little_num_limit_ultra_power_saving)
 			hps_task_wakeup_nolock();
 
 		mutex_unlock(&hps_ctxt.lock);
@@ -741,8 +689,7 @@ little_num_limit_ultra_power_saving, big_num_limit_ultra_power_saving);
 		return count;
 	}
 
-	hps_warn
-	("hps_num_limit_ultra_power_saving_proc_write, bad argument\n");
+	hps_warn("hps_num_limit_ultra_power_saving_proc_write, bad argument\n");
 
 	return -EINVAL;
 }
@@ -779,33 +726,28 @@ static ssize_t hps_num_limit_power_serv_proc_write(struct file *file,
 	desc[len] = '\0';
 
 	if ((hps_ctxt.is_hmp || hps_ctxt.is_amp)
-	&&
-	(sscanf(desc, "%u %u", &little_num_limit_power_serv,
-	&big_num_limit_power_serv) == 2)) {
+	    &&
+	    (sscanf(desc, "%u %u", &little_num_limit_power_serv, &big_num_limit_power_serv) == 2)) {
 		if (little_num_limit_power_serv > num_possible_little_cpus()
 		    || little_num_limit_power_serv < 1) {
-			hps_warn
-		("hps_num_limit_power_serv_proc_write, bad argument(%u, %u)\n",
-		little_num_limit_power_serv, big_num_limit_power_serv);
+			hps_warn("hps_num_limit_power_serv_proc_write, bad argument(%u, %u)\n",
+				 little_num_limit_power_serv, big_num_limit_power_serv);
 			return -EINVAL;
 		}
 
 		if (big_num_limit_power_serv > num_possible_big_cpus()) {
-			hps_warn
-		("hps_num_limit_power_serv_proc_write, bad argument(%u, %u)\n",
-		little_num_limit_power_serv, big_num_limit_power_serv);
+			hps_warn("hps_num_limit_power_serv_proc_write, bad argument(%u, %u)\n",
+				 little_num_limit_power_serv, big_num_limit_power_serv);
 			return -EINVAL;
 		}
 
 		mutex_lock(&hps_ctxt.lock);
 
-		hps_ctxt.little_num_limit_power_serv =
-			little_num_limit_power_serv;
+		hps_ctxt.little_num_limit_power_serv = little_num_limit_power_serv;
 		hps_ctxt.big_num_limit_power_serv = big_num_limit_power_serv;
 		if (num_online_big_cpus() > big_num_limit_power_serv)
 			hps_task_wakeup_nolock();
-		else if (num_online_little_cpus() >
-		little_num_limit_power_serv)
+		else if (num_online_little_cpus() > little_num_limit_power_serv)
 			hps_task_wakeup_nolock();
 
 		mutex_unlock(&hps_ctxt.lock);
@@ -815,16 +757,14 @@ static ssize_t hps_num_limit_power_serv_proc_write(struct file *file,
 		   && !kstrtouint(desc, 0, &little_num_limit_power_serv)) {
 		if (little_num_limit_power_serv > num_possible_little_cpus()
 		    || little_num_limit_power_serv < 1) {
-			hps_warn
-		("hps_num_limit_power_serv_proc_write, bad argument(%u)\n",
-		little_num_limit_power_serv);
+			hps_warn("hps_num_limit_power_serv_proc_write, bad argument(%u)\n",
+				 little_num_limit_power_serv);
 			return -EINVAL;
 		}
 
 		mutex_lock(&hps_ctxt.lock);
 
-		hps_ctxt.little_num_limit_power_serv =
-			little_num_limit_power_serv;
+		hps_ctxt.little_num_limit_power_serv = little_num_limit_power_serv;
 		if (num_online_little_cpus() > little_num_limit_power_serv)
 			hps_task_wakeup_nolock();
 
@@ -897,9 +837,8 @@ int hps_procfs_init(void)
 
 	for (i = 0; i < ARRAY_SIZE(entries); i++) {
 		if (!proc_create(entries[i].name,
-				 0664, hps_dir, entries[i].fops))
-			hps_emerg("create /proc/hps/%s failed\n",
-				entries[i].name);
+				 S_IRUGO | S_IWUSR | S_IWGRP, hps_dir, entries[i].fops))
+			hps_emerg("create /proc/hps/%s failed\n", entries[i].name);
 	}
 
 	return r;

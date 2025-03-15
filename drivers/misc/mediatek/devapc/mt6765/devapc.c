@@ -624,10 +624,6 @@ static void execute_aee(unsigned int i, unsigned int dbg0, unsigned int dbg1)
 			subsys_str
 			);
 	}
-
-	/* unmask irq for module "i" */
-	unmask_infra_module_irq(i);
-
 }
 #ifndef DBG_ENABLE
 static void evaluate_aee_exception(unsigned int i, unsigned int dbg0,
@@ -666,8 +662,8 @@ static void evaluate_aee_exception(unsigned int i, unsigned int dbg0,
 		}
 	}
 }
-#endif // DBG_ENABLE
-#endif // AEE_FEATURE
+#endif /* DBG_ENABLE */
+#endif /* CONFIG_MTK_AEE_FEATURE && DEVAPC_ENABLE_AEE */
 
 static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 {

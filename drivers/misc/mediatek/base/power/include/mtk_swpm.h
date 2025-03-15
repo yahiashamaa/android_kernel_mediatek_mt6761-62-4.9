@@ -14,7 +14,7 @@
 #ifndef _MTK_SWPM_H_
 #define _MTK_SWPM_H_
 
-#if defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6779)
+#if defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6775)
 
 #include "swpm_v1/mtk_swpm.h"
 

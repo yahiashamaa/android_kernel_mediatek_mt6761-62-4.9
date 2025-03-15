@@ -14,11 +14,9 @@
 #ifndef __CMDQ_MMP_H__
 #define __CMDQ_MMP_H__
 
-#include "cmdq_helper_ext.h"
-#ifdef CMDQ_PROFILE_MMP
 #include "mmprofile.h"
 #include "mmprofile_function.h"
-#endif
+#include "cmdq_core.h"
 
 struct CMDQ_MMP_events_t {
 	mmp_event CMDQ;
@@ -38,7 +36,6 @@ struct CMDQ_MMP_events_t {
 	mmp_event thread_suspend;
 	mmp_event thread_resume;
 	mmp_event alloc_buffer;
-	mmp_event timeout;
 };
 
 void cmdq_mmp_init(void);

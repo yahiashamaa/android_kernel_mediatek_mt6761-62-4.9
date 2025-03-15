@@ -102,10 +102,10 @@ static void u3phywrite32(struct phy *phy, int offset, int mask, int value)
 	u32 cur_value;
 	u32 new_value;
 
-	cur_value = usb_mtkphy_io_read(phy, offset);
+	cur_value = usb_mtkphy_io_read(phy, 1, offset);
 	new_value = (cur_value & (~mask)) | value;
 	mb();/**/
-	usb_mtkphy_io_write(phy, new_value, offset);
+	usb_mtkphy_io_write(phy, 1, new_value, offset);
 	mb();/**/
 }
 
@@ -216,7 +216,7 @@ static int usb_driving_capability_show(struct seq_file *s, void *unused)
 	char str[16];
 	u8 combined_val, tmp_val = 0xff;
 
-	val = usb_mtkphy_io_read(phy, (OFFSET_RG_USB20_TERM_VREF_SEL));
+	val = usb_mtkphy_io_read(phy, 1, (OFFSET_RG_USB20_TERM_VREF_SEL));
 	val = val >> SHFT_RG_USB20_TERM_VREF_SEL;
 	val = val & MSK_RG_USB20_TERM_VREF_SEL;
 	val = usb20_phy_debugfs_read_val(val, BIT_WIDTH_3, str);
@@ -256,7 +256,7 @@ static int usb_driving_capability_show(struct seq_file *s, void *unused)
 
 	combined_val = tmp_val;
 
-	val = usb_mtkphy_io_read(phy, (OFFSET_RG_USB20_VRT_VREF_SEL));
+	val = usb_mtkphy_io_read(phy, 1, (OFFSET_RG_USB20_VRT_VREF_SEL));
 	val = val >> SHFT_RG_USB20_VRT_VREF_SEL;
 	val = val & MSK_RG_USB20_VRT_VREF_SEL;
 	val = usb20_phy_debugfs_read_val(val, BIT_WIDTH_3, str);
@@ -312,7 +312,7 @@ static int rg_usb20_term_vref_sel_show(struct seq_file *s, void *unused)
 	u32 val;
 	char str[16];
 
-	val = usb_mtkphy_io_read(phy, (OFFSET_RG_USB20_TERM_VREF_SEL));
+	val = usb_mtkphy_io_read(phy, 1, (OFFSET_RG_USB20_TERM_VREF_SEL));
 	val = val >> SHFT_RG_USB20_TERM_VREF_SEL;
 	val = val & MSK_RG_USB20_TERM_VREF_SEL;
 	val = usb20_phy_debugfs_read_val(val, BIT_WIDTH_3, str);
@@ -327,7 +327,7 @@ static int rg_usb20_hstx_srctrl_show(struct seq_file *s, void *unused)
 	u32 val;
 	char str[16];
 
-	val = usb_mtkphy_io_read(phy, (OFFSET_RG_USB20_HSTX_SRCTRL));
+	val = usb_mtkphy_io_read(phy, 1, (OFFSET_RG_USB20_HSTX_SRCTRL));
 	val = val >> SHFT_RG_USB20_HSTX_SRCTRL;
 	val = val & MSK_RG_USB20_HSTX_SRCTRL;
 	val = usb20_phy_debugfs_read_val(val, BIT_WIDTH_3, str);
@@ -342,7 +342,7 @@ static int rg_usb20_vrt_vref_sel_show(struct seq_file *s, void *unused)
 	u32 val;
 	char str[16];
 
-	val = usb_mtkphy_io_read(phy, (OFFSET_RG_USB20_VRT_VREF_SEL));
+	val = usb_mtkphy_io_read(phy, 1, (OFFSET_RG_USB20_VRT_VREF_SEL));
 	val = val >> SHFT_RG_USB20_VRT_VREF_SEL;
 	val = val & MSK_RG_USB20_VRT_VREF_SEL;
 	val = usb20_phy_debugfs_read_val(val, BIT_WIDTH_3, str);
@@ -357,7 +357,7 @@ static int rg_usb20_intr_en_show(struct seq_file *s, void *unused)
 	u32 val;
 	char str[16];
 
-	val = usb_mtkphy_io_read(phy, (OFFSET_RG_USB20_INTR_EN));
+	val = usb_mtkphy_io_read(phy, 1, (OFFSET_RG_USB20_INTR_EN));
 	val = val >> SHFT_RG_USB20_INTR_EN;
 	val = val & MSK_RG_USB20_INTR_EN;
 	val = usb20_phy_debugfs_read_val(val, BIT_WIDTH_1, str);
@@ -372,7 +372,7 @@ static int rg_usb20_rev6_show(struct seq_file *s, void *unused)
 	u32 val;
 	char str[16];
 
-	val = usb_mtkphy_io_read(phy, (OFFSET_RG_USB20_PHY_REV6));
+	val = usb_mtkphy_io_read(phy, 1, (OFFSET_RG_USB20_PHY_REV6));
 	val = val >> SHFT_RG_USB20_PHY_REV6;
 	val = val & MSK_RG_USB20_PHY_REV6;
 	val = usb20_phy_debugfs_read_val(val, BIT_WIDTH_2, str);
@@ -460,11 +460,11 @@ static ssize_t usb_driving_capability_write(struct file *file,
 	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
 		return -EFAULT;
 
-	if (kstrtol(buf, 10, (long *)&val) != 0) {
-		MYDBG("kstrtol, err(%d)\n", kstrtol(buf, 10, (long *)&val));
+	if (kstrtou8(buf, 10, &val) != 0) {
+		MYDBG("kstrtou8, err(%d)\n", kstrtou8(buf, 10, &val));
 		return count;
 	}
-	MYDBG("kstrtol, val(%d)\n", val);
+	MYDBG("kstrtou8, val(%d)\n", val);
 
 	if (val > VAL_7_WIDTH_3 * 2) {
 		MYDBG("wrong val set(%d), direct return\n", val);
@@ -585,7 +585,7 @@ static ssize_t rg_rw_write(struct file *file,
 
 	if (!strncmp(buf, "r", 1)) {
 		if (sscanf(buf, "r32 0x%x", &debug_addr) == 1)
-			debug_value = usb_mtkphy_io_read(phy, debug_addr);
+			debug_value = usb_mtkphy_io_read(phy, 1, debug_addr);
 	}
 
 	return count;

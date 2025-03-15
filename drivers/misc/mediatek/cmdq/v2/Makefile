@@ -12,18 +12,17 @@
 #
 
 # common driver code for CMDQ
-# 72/82/92 does not use this common code
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v2/$(MTK_PLATFORM) \
              -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/mmp/ \
-             -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
-             -I$(srctree)/drivers/misc/mediatek/include/mt-plat/trustzone/ \
-
+             -I$(srctree)/drivers/misc/mediatek/mdp/ \
+             -I$(srctree)/drivers/iommu/ \
+             -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM) \
+             -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include
 
 # Enable AEE
-# porting aee not ready yet
-# ccflags-y += -DCMDQ_AEE_READY
+ccflags-y += -DCMDQ_AEE_READY
 
 # Enable MET
 ccflags-y += -DMET_USER_EVENT_SUPPORT
@@ -31,18 +30,6 @@ ccflags-y += -DMET_USER_EVENT_SUPPORT
 ifeq ($(CONFIG_MTK_ENG_BUILD),y)
 ccflags-y += -D_CMDQ_TEST_PROC_
 ccflags-y += -D_CMDQ_DEBUG_
-endif
-
-# Common Clock Framework
-ifneq ($(CONFIG_MTK_CLKMGR),y)
-
-ifeq ($(CONFIG_ARCH_MT6580),y)
-else ifeq ($(CONFIG_ARCH_MT6735M),y)
-else ifeq ($(CONFIG_ARCH_MT6753),y)
-else
-ccflags-y += -DCMDQ_USE_CCF
-endif
-
 endif
 
 # secure path
@@ -57,54 +44,29 @@ ccflags-y += -DCMDQ_SECURE_PATH_SUPPORT
 ifneq ($(CONFIG_MTK_CMDQ_TAB),y)
 ccflags-y += -DCMDQ_SECURE_PATH_NORMAL_IRQ
 endif
-
-ifeq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6735"))
 ccflags-y += -DCMDQ_EVENT_SVP_BACKUP
-endif
-
 endif
 endif
 
 # platform dependent definition
 ccflags-$(CONFIG_MTK_SMI_EXT) += -DCMDQ_CONFIG_SMI
-
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6570" "mt6580"))
-ccflags-y += -DCMDQ_DUMP_IMG_CLOCK_STATE
-endif
-
 # ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6755"))
 # ccflags-$(CONFIG_MTK_MET) += -DCMDQ_MDP_MET_STATUS
 # endif
-
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6735" "mt6570" "mt6580"))
-ccflags-y += -DCMDQ_USE_LARGE_MAX_COOKIE
-endif
-
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6797" "mt6757"))
 ccflags-y += -DCMDQ_LARGE_MAX_FIRSTERROR_BUFFER
-endif
-
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6735" "mt6570" "mt6580" "mt6755" "mt6797"))
-ccflags-y += -DCMDQ_DISP_LEGACY_SUB_SCENARIO
-endif
+ccflags-y += -DCMDQ_SPECIAL_ESD_PRIORITY
+ccflags-y += -D_CMDQ_DISABLE_MARKER_
+ccflags-y += -DCMDQ_PROFILE_MMP
 
 ifeq ($(CONFIG_MTK_CMDQ_TAB), y)
-ccflags-y += -DEARLY_PORTING_MIGRATION
-#porting
 #ccflags-y += -DCMDQ_USE_LEGACY
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v2/inc/cmdq_sec_dr \
              -I$(srctree)/drivers/misc/mediatek/cmdq/v2/inc/cmdq_sec_tl \
-             -I$(srctree)/include/trustzone
+             -I$(srctree)/drivers/misc/mediatek/include/mt-plat/trustzone
 
 ifeq ($(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT),y)
 ccflags-y += -DCMDQ_SECURE_PATH_SUPPORT
 endif
-endif
-
-ccflags-y += -D_CMDQ_DISABLE_MARKER_
-# porting don't support mmp
-ifeq (,$(filter $(CONFIG_MTK_PLATFORM), "elbrus", "mt8173"))
-ccflags-y += -DCMDQ_PROFILE_MMP
 endif
 
 # driver module
@@ -113,8 +75,7 @@ obj-y += cmdq_core.o
 obj-y += cmdq_virtual.o
 obj-y += cmdq_device.o
 obj-y += cmdq_driver.o
-# porting mmp is not ready
-# obj-y += cmdq_mmp.o
+obj-y += cmdq_mmp.o
 obj-y += cmdq_mdp_common.o
 obj-y += cmdq_prof.o
 obj-y += cmdq_test.o
@@ -125,5 +86,3 @@ obj-y += mtee/
 endif
 
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
-
-

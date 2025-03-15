@@ -40,8 +40,7 @@ typedef struct {
 	struct list_head ge_entry_list;
 } GEEntry;
 
-#define GED_PDEBUG(fmt, ...)\
-	pr_debug("[GRALLOC_EXTRA,%s:%d]" fmt, __FILE__, __LINE__, ##__VA_ARGS__)
+#define GE_PERR(fmt, ...)   pr_err("[GRALLOC_EXTRA,%s:%d]" fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 
 static struct kmem_cache *gPoolCache;
 static struct dentry *gDFSEntry;
@@ -177,30 +176,28 @@ int ged_ge_alloc(int region_num, uint32_t *region_sizes)
 	GEEntry *entry = (GEEntry *)kmem_cache_zalloc(gPoolCache, GFP_KERNEL);
 
 	if (!entry) {
-		GED_PDEBUG("alloc entry fail, size:%zu\n", sizeof(GEEntry));
+		GE_PERR("alloc entry fail, size:%zu\n", sizeof(GEEntry));
 		goto err_entry;
 	}
 
 	entry->alloc_fd = get_unused_fd_flags(O_CLOEXEC);
 
 	if (entry->alloc_fd < 0) {
-		GED_PDEBUG("get_unused_fd_flags() return %d\n",
-			entry->alloc_fd);
+		GE_PERR("get_unused_fd_flags() return %d\n", entry->alloc_fd);
 		goto err_fd;
 	}
 
 	entry->file = anon_inode_getfile("gralloc_extra", &GEEntry_fops, entry, 0);
 
 	if (IS_ERR(entry->file)) {
-		GED_PDEBUG("anon_inode_getfile() fail\n");
+		GE_PERR("anon_inode_getfile() fail\n");
 		goto err_entry_file;
 	}
 
 	entry->region_num = region_num;
 	entry->data = kzalloc((sizeof(uint32_t) + sizeof(uint32_t *)) * region_num, GFP_KERNEL);
 	if (!entry->data) {
-		GED_PDEBUG("alloc data fail, size:%zu\n",
-			sizeof(void *) * region_num);
+		GE_PERR("alloc data fail, size:%zu\n", sizeof(void *) * region_num);
 		goto err_kmalloc;
 	}
 
@@ -232,10 +229,8 @@ static void dump_ge_regions(GEEntry *entry)
 {
 	int i;
 
-	for (i = 0; i < entry->region_num; ++i) {
-		GED_PDEBUG("ged_ge dump, %d/%d, s %d\n",
-		i, entry->region_num, entry->region_sizes[i]);
-	}
+	for (i = 0; i < entry->region_num; ++i)
+		GE_PERR("ged_ge dump, %d/%d, s %d\n", i, entry->region_num, entry->region_sizes[i]);
 }
 
 static int valid_parameters(GEEntry *entry, int region_id, int u32_offset, int u32_size)
@@ -246,7 +241,7 @@ static int valid_parameters(GEEntry *entry, int region_id, int u32_offset, int u
 		(u32_offset + u32_size) * sizeof(uint32_t) > entry->region_sizes[region_id]
 		) {
 
-		GED_PDEBUG("fail, invalid r_id %d, o %d, s %d\n",
+		GE_PERR("fail, invalid r_id %d, o %d, s %d\n",
 				region_id, u32_offset, u32_size);
 
 		dump_ge_regions(entry);
@@ -267,7 +262,7 @@ int ged_ge_get(int ge_fd, int region_id, int u32_offset, int u32_size, uint32_t 
 	struct file *file = fget(ge_fd);
 
 	if (file == NULL || file->f_op != &GEEntry_fops) {
-		GED_PDEBUG("fail, invalid ge_fd %d\n", ge_fd);
+		GE_PERR("fail, invalid ge_fd %d\n", ge_fd);
 		return -EFAULT;
 	}
 
@@ -306,7 +301,7 @@ int ged_ge_set(int ge_fd, int region_id, int u32_offset, int u32_size, uint32_t 
 	struct file *file = fget(ge_fd);
 
 	if (file == NULL || file->f_op != &GEEntry_fops) {
-		GED_PDEBUG("fail, invalid ge_fd %d\n", ge_fd);
+		GE_PERR("fail, invalid ge_fd %d\n", ge_fd);
 		return -EFAULT;
 	}
 
@@ -324,8 +319,7 @@ int ged_ge_set(int ge_fd, int region_id, int u32_offset, int u32_size, uint32_t 
 		spin_unlock_irqrestore(&ge_raf_lock, flags);
 		data = kzalloc(entry->region_sizes[region_id], GFP_KERNEL);
 		if (!data) {
-			GED_PDEBUG("kmalloc fail, size: %d\n",
-			entry->region_sizes[region_id]);
+			GE_PERR("kmalloc fail, size: %d\n", entry->region_sizes[region_id]);
 			err = -EFAULT;
 			goto err_parameter;
 		}
@@ -390,7 +384,7 @@ int ged_bridge_ge_info(GED_BRIDGE_IN_GE_INFO *psINFO_IN, GED_BRIDGE_OUT_GE_INFO 
 	struct file *file = fget(psINFO_IN->ge_fd);
 
 	if (file == NULL || file->f_op != &GEEntry_fops) {
-		GED_PDEBUG("ged_ge fail, invalid ge_fd %d\n", psINFO_IN->ge_fd);
+		GE_PERR("ged_ge fail, invalid ge_fd %d\n", psINFO_IN->ge_fd);
 		return -EFAULT;
 	}
 

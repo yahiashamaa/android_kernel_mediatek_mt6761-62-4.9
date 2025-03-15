@@ -12,12 +12,10 @@
 #
 
 # common driver code for CMDQ
-ifeq ($(CONFIG_MTK_CMDQ_TAB), y)
-  obj-y += v2/
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6757" "mt8167" "kiboplus"))
+	obj-y += v2/
 else
-  # use common driver
-  obj-y += v3/
+	obj-y += v3/
 endif
-# mdp_sw_sync
-obj-y += mdp_sync/
+
 # EOF

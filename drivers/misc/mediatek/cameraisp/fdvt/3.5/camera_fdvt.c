@@ -76,23 +76,17 @@ struct wake_lock fdvt_wake_lock;
 
 #define FDVT_DEVNAME     "camera-fdvt"
 
-#define log_vrb(format, args...) \
-pr_debug("FDVT [%s] " format, __func__, ##args)
-#define log_dbg(format, args...) \
-pr_debug("FDVT [%s] " format, __func__, ##args)
-#define log_inf(format, args...) \
-pr_info("FDVT [%s] " format, __func__, ##args)
-#define log_wrn(format, args...) \
-pr_info("FDVT [%s] WARNING: " format, __func__, ##args)
-#define log_err(format, args...) \
-pr_info("FDVT [%s, line%04d] ERROR: " format, __func__, __LINE__, ##args)
-#define log_ast(format, args...) \
-pr_info("FDVT [%s, line%04d] ASSERT: " format, __func__, __LINE__, ##args)
-
+#define LOG_VRB(format, args...)	pr_debug("FDVT [%s] " format, __func__, ##args)
+#define LOG_DBG(format, args...)	pr_debug("FDVT [%s] " format, __func__, ##args)
+#define LOG_INF(format, args...)	pr_info("FDVT [%s] " format, __func__, ##args)
+#define LOG_WRN(format, args...)	pr_info("FDVT [%s] WARNING: " format, __func__, ##args)
+#define LOG_ERR(format, args...)	pr_info("FDVT [%s, line%04d] ERROR: " format, __func__, __LINE__, ##args)
+#define LOG_AST(format, args...)	pr_info("FDVT [%s, line%04d] ASSERT: " format, __func__, __LINE__, ##args)
 
 #define LDVT_EARLY_PORTING_NO_CCF 0
 #if LDVT_EARLY_PORTING_NO_CCF
 void __iomem *IMGSYS_CONFIG_BASE;
+void __iomem *CAMSYS_CONFIG_BASE;
 #endif
 
 static dev_t FDVT_devno;
@@ -363,12 +357,16 @@ void FDVT_basic_config(void)
 	FDVT_WR32(0x014000F0, FDVT_SRC_WD_HT);
 }
 
+/*******************************************************************************
+* Clock to ms
+********************************************************************************/
+
 /*
- *static unsigned long ms_to_jiffies(unsigned long ms)
- *{
- *	return (ms * HZ + 512) >> 10;
- *}
- */
+*static unsigned long ms_to_jiffies(unsigned long ms)
+*{
+*	return (ms * HZ + 512) >> 10;
+*}
+*/
 
 static unsigned long us_to_jiffies(unsigned long us)
 {
@@ -380,24 +378,59 @@ static unsigned long us_to_jiffies(unsigned long us)
 /*=======================================================================*/
 #if LDVT_EARLY_PORTING_NO_CCF
 #else
+static inline void FD_Prepare_ccf_clock(void)
+{
+	int ret;
+
+	smi_clk_prepare(SMI_LARB_IMGSYS0, "camera_fdvt", 1);
+
+	ret = clk_prepare(fd_clk.CG_IMGSYS_FDVT);
+	if (ret)
+		LOG_ERR("cannot prepare CG_IMGSYS_FDVT clock\n");
+
+}
+
+static inline void FD_Enable_ccf_clock(void)
+{
+	int ret;
+
+	smi_clk_enable(SMI_LARB_IMGSYS0, "camera_fdvt", 1);
+
+	ret = clk_enable(fd_clk.CG_IMGSYS_FDVT);
+	if (ret)
+		LOG_ERR("cannot enable CG_IMGSYS_FDVT clock\n");
+
+}
+
 static inline void FD_Prepare_Enable_ccf_clock(void)
 {
 	int ret;
 
-	/*smi_bus_enable(SMI_LARB_IMGSYS0, "camera_fdvt");*/
-	smi_bus_prepare_enable(SMI_LARB2_REG_INDX, "camera_fdvt", true);
+	smi_bus_enable(SMI_LARB_IMGSYS0, "camera_fdvt");
+
 	ret = clk_prepare_enable(fd_clk.CG_IMGSYS_FDVT);
 	if (ret)
-		log_err("cannot prepare and enable CG_IMGSYS_FDVT clock\n");
+		LOG_ERR("cannot prepare and enable CG_IMGSYS_FDVT clock\n");
 
 
+}
+
+static inline void FD_Unprepare_ccf_clock(void)
+{
+	clk_unprepare(fd_clk.CG_IMGSYS_FDVT);
+	smi_clk_unprepare(SMI_LARB_IMGSYS0, "camera_fdvt", 1);
+}
+
+static inline void FD_Disable_ccf_clock(void)
+{
+	clk_disable(fd_clk.CG_IMGSYS_FDVT);
+	smi_clk_disable(SMI_LARB_IMGSYS0, "camera_fdvt", 1);
 }
 
 static inline void FD_Disable_Unprepare_ccf_clock(void)
 {
 	clk_disable_unprepare(fd_clk.CG_IMGSYS_FDVT);
-	/*smi_bus_disable(SMI_LARB_IMGSYS0, "camera_fdvt");*/
-	smi_bus_disable_unprepare(SMI_LARB2_REG_INDX, "camera_fdvt", true);
+	smi_bus_disable(SMI_LARB_IMGSYS0, "camera_fdvt");
 }
 #endif
 
@@ -407,11 +440,13 @@ static int mt_fdvt_clk_ctrl(int en)
 	if (en) {
 		unsigned int setReg = 0xFFFFFFFF;
 
+		FDVT_WR32(setReg, CAMSYS_CONFIG_BASE+0x8);
 		FDVT_WR32(setReg, IMGSYS_CONFIG_BASE+0x8);
 	} else {
 		unsigned int setReg = 0xFFFFFFFF;
 
 		FDVT_WR32(setReg, IMGSYS_CONFIG_BASE+0x4);
+		FDVT_WR32(setReg, CAMSYS_CONFIG_BASE+0x4);
 	}
 #else
 	if (en)
@@ -470,12 +505,12 @@ void FDVT_DUMPREG(void)
 	unsigned int u4RegValue = 0;
 	unsigned int u4Index = 0;
 
-	log_dbg("FDVT REG:\n ********************\n");
+	LOG_DBG("FDVT REG:\n ********************\n");
 
 	/* for(u4Index = 0; u4Index < 0x180; u4Index += 4) { */
 	for (u4Index = 0x158; u4Index < 0x180; u4Index += 4) {
 		u4RegValue = ioread32((void *)(FDVT_ADDR + u4Index));
-		log_dbg("+0x%x 0x%x\n", u4Index, u4RegValue);
+		LOG_DBG("+0x%x 0x%x\n", u4Index, u4RegValue);
 	}
 }
 
@@ -488,62 +523,59 @@ static int FDVT_SetRegHW(FDVTRegIO *a_pstCfg)
 	u32 i = 0;
 
 	if (a_pstCfg == NULL) {
-		log_dbg("Null input argrment\n");
+		LOG_DBG("Null input argrment\n");
 		return -EINVAL;
 	}
 
 	pREGIO = (FDVTRegIO *)a_pstCfg;
 
-	if (pREGIO->u4Count > FDVT_DRAM_REGCNT) {
-		log_dbg("Buffer Size Exceeded!\n");
+	if (pREGIO->u4Count > FDVT_DRAM_REGCNT || pREGIO->u4Count == 0) {
+		LOG_DBG("Buffer Size Exceeded!\n");
 		return -EFAULT;
 	}
 
-	if (copy_from_user(
-		(void *)pFDVTWriteBuffer.u4Addr,
-		(void *) pREGIO->pAddr,
-		pREGIO->u4Count * sizeof(u32))) {
-		log_dbg("ioctl copy from user failed\n");
+	if (pREGIO->pData == NULL) {
+		LOG_DBG("SetRegHW pRegIo->pData is NULL\n");
 		return -EFAULT;
 	}
 
-	if (copy_from_user(
-		(void *)pFDVTWriteBuffer.u4Data,
-		(void *) pREGIO->pData,
-		pREGIO->u4Count * sizeof(u32))) {
-		log_dbg("ioctl copy from user failed\n");
+	if (copy_from_user((void *)pFDVTWriteBuffer.u4Addr, (void *) pREGIO->pAddr, pREGIO->u4Count * sizeof(u32))) {
+		LOG_DBG("ioctl copy from user failed\n");
+		return -EFAULT;
+	}
+
+	if (copy_from_user((void *)pFDVTWriteBuffer.u4Data, (void *) pREGIO->pData, pREGIO->u4Count * sizeof(u32))) {
+		LOG_DBG("ioctl copy from user failed\n");
 		return -EFAULT;
 	}
 
 	/* pFDVTWriteBuffer.u4Counter=pREGIO->u4Count; */
-	/* log_dbg("Count = %d\n", pREGIO->u4Count); */
+	/* LOG_DBG("Count = %d\n", pREGIO->u4Count); */
 
 	for (i = 0; i < pREGIO->u4Count; i++) {
 		if (((FDVT_ADDR + pFDVTWriteBuffer.u4Addr[i]) >= FDVT_ENABLE) &&
 			((pFDVTWriteBuffer.u4Addr[i]) <= FDVT_MAX_OFFSET) &&
 			((pFDVTWriteBuffer.u4Addr[i] & 0x3) == 0)) {
-			/* log_dbg("Write: FDVT[0x%03lx](0x%08lx) = 0x%08lx\n",
-			 * (unsigned long)pFDVTWriteBuffer.u4Addr[i],
-			 * (unsigned long)(FDVT_ADDR +
-			 *		pFDVTWriteBuffer.u4Addr[i]),
-			 * (unsigned long)pFDVTWriteBuffer.u4Data[i]);
-			 */
-			FDVT_WR32(pFDVTWriteBuffer.u4Data[i],
-				FDVT_ADDR + pFDVTWriteBuffer.u4Addr[i]);
+			/* LOG_DBG("Write: FDVT[0x%03lx](0x%08lx) = 0x%08lx\n", */
+			/* (unsigned long)pFDVTWriteBuffer.u4Addr[i], */
+			/* (unsigned long)(FDVT_ADDR + pFDVTWriteBuffer.u4Addr[i]), */
+			/* (unsigned long)pFDVTWriteBuffer.u4Data[i]); */
+			FDVT_WR32(pFDVTWriteBuffer.u4Data[i], FDVT_ADDR + pFDVTWriteBuffer.u4Addr[i]);
 		} else {
-			log_err("Error: Writing Memory(0x%lx) Excess FDVT Range!  FD Offset: 0x%lx, FD Base: 0x%lx\n",
+			LOG_ERR("Error: Writing Memory(0x%lx) Excess FDVT Range!  FD Offset: 0x%lx, FD Base: 0x%lx\n",
 			(unsigned long)(FDVT_ADDR + pFDVTReadBuffer.u4Addr[i]),
 			(unsigned long)pFDVTReadBuffer.u4Addr[i],
 			(unsigned long)FDVT_ADDR);
+			return -EFAULT;
 		}
 	}
 
 	return 0;
 }
 
-/***********************************************************
- *
- ************************************************************/
+/*******************************************************************************
+*
+********************************************************************************/
 static int FDVT_ReadRegHW(FDVTRegIO *a_pstCfg)
 {
 	int ret = 0;
@@ -551,22 +583,24 @@ static int FDVT_ReadRegHW(FDVTRegIO *a_pstCfg)
 	int i = 0;
 
 	if (a_pstCfg == NULL) {
-		log_dbg("Null input argrment\n");
+		LOG_DBG("Null input argrment\n");
 		return -EINVAL;
 	}
 
-	if (a_pstCfg->u4Count > FDVT_DRAM_REGCNT) {
-		log_dbg("Buffer Size Exceeded!\n");
+	if (a_pstCfg->u4Count > FDVT_DRAM_REGCNT || a_pstCfg->u4Count == 0) {
+		LOG_DBG("Buffer Size Exceeded!\n");
+		return -EFAULT;
+	}
+
+	if (a_pstCfg->pData == NULL) {
+		LOG_DBG("ReadRegHW a_pstCfg->pData is NULL\n");
 		return -EFAULT;
 	}
 
 	size = a_pstCfg->u4Count * 4;
 
-	if (copy_from_user(
-		pFDVTReadBuffer.u4Addr,
-		a_pstCfg->pAddr,
-		size) != 0) {
-		log_dbg("copy_from_user failed\n");
+	if (copy_from_user(pFDVTReadBuffer.u4Addr,  a_pstCfg->pAddr, size) != 0) {
+		LOG_DBG("copy_from_user failed\n");
 		ret = -EFAULT;
 		goto mt_FDVT_read_reg_exit;
 	}
@@ -575,16 +609,11 @@ static int FDVT_ReadRegHW(FDVTRegIO *a_pstCfg)
 		if (((FDVT_ADDR + pFDVTReadBuffer.u4Addr[i]) >= FDVT_ADDR) &&
 			((pFDVTReadBuffer.u4Addr[i]) <= FDVT_MAX_OFFSET) &&
 			((pFDVTWriteBuffer.u4Addr[i] & 0x3) == 0)) {
-			pFDVTReadBuffer.u4Data[i] =
-				ioread32(
-					(void *)(FDVT_ADDR +
-					pFDVTReadBuffer.u4Addr[i]));
-			/*log_dbg("Read  addr/val: 0x%08x/0x%08x\n",
-			 *	(u32) (FDVT_ADDR + pFDVTReadBuffer.u4Addr[i]),
-			 *	(u32) pFDVTReadBuffer.u4Data[i]);
-			 */
+			pFDVTReadBuffer.u4Data[i] = ioread32((void *)(FDVT_ADDR + pFDVTReadBuffer.u4Addr[i]));
+			/*LOG_DBG("Read  addr/val: 0x%08x/0x%08x\n", (u32) (FDVT_ADDR + pFDVTReadBuffer.u4Addr[i]),*/
+			/*(u32) pFDVTReadBuffer.u4Data[i]);*/
 		} else {
-			log_err("Error: Reading Memory(0x%lx) Excess FDVT Range!  FD Offset: 0x%lx, FD Base: 0x%lx\n",
+			LOG_ERR("Error: Reading Memory(0x%lx) Excess FDVT Range!  FD Offset: 0x%lx, FD Base: 0x%lx\n",
 			(unsigned long)(FDVT_ADDR + pFDVTReadBuffer.u4Addr[i]),
 			(unsigned long)pFDVTReadBuffer.u4Addr[i],
 			(unsigned long)FDVT_ADDR);
@@ -593,7 +622,7 @@ static int FDVT_ReadRegHW(FDVTRegIO *a_pstCfg)
 		}
 	}
 	if (copy_to_user(a_pstCfg->pData, pFDVTReadBuffer.u4Data, size) != 0) {
-		log_dbg("copy_to_user failed\n");
+		LOG_DBG("copy_to_user failed\n");
 		ret = -EFAULT;
 		goto mt_FDVT_read_reg_exit;
 	}
@@ -609,32 +638,30 @@ mt_FDVT_read_reg_exit:
 static int FDVT_WaitIRQ(u32 *u4IRQMask)
 {
 	int timeout;
-
-	timeout = wait_event_interruptible_timeout(
-		g_FDVTWQ, (g_FDVTIRQMSK & g_FDVTIRQ),
+	/*timeout = wait_event_interruptible_timeout(g_FDVTWQ, (g_FDVTIRQMSK & g_FDVTIRQ),*/
+	/*ms_to_jiffies(500));*/
+	timeout = wait_event_interruptible_timeout(g_FDVTWQ, (g_FDVTIRQMSK & g_FDVTIRQ),
 	us_to_jiffies(15 * 1000000));
 
 	if (timeout == 0) {
-		log_err("wait_event_interruptible_timeout timeout, %d, %d\n",
-			g_FDVTIRQMSK, g_FDVTIRQ);
+		LOG_ERR("wait_event_interruptible_timeout timeout, %d, %d\n", g_FDVTIRQMSK,
+			g_FDVTIRQ);
 		FDVT_WR32(0x00030000, FDVT_START);  /* LDVT Disable */
 		FDVT_WR32(0x00000000, FDVT_START);  /* LDVT Disable */
 		return -EAGAIN;
 	}
 
 	*u4IRQMask = g_FDVTIRQ;
-	/*log_dbg("[FDVT] IRQ : 0x%8x\n",g_FDVTIRQ);*/
+	/*LOG_DBG("[FDVT] IRQ : 0x%8x\n",g_FDVTIRQ);*/
 
 	/* check if user is interrupted by system signal */
 	if (timeout != 0 && !(g_FDVTIRQMSK & g_FDVTIRQ)) {
-		log_err("interrupted by system signal,return value(%d)\n",
-			timeout);
+		LOG_ERR("interrupted by system signal,return value(%d)\n", timeout);
 		return -ERESTARTSYS; /* actually it should be -ERESTARTSYS */
 	}
 
 	if (!(g_FDVTIRQMSK & g_FDVTIRQ)) {
-		log_err("wait_event_interruptible Not FDVT, %d, %d\n",
-			g_FDVTIRQMSK, g_FDVTIRQ);
+		LOG_ERR("wait_event_interruptible Not FDVT, %d, %d\n", g_FDVTIRQMSK, g_FDVTIRQ);
 		FDVT_DUMPREG();
 		return -1;
 	}
@@ -659,35 +686,32 @@ static long FDVT_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	int ret = 0;
 
 	if (_IOC_SIZE(cmd) > buf_size) {
-		log_dbg("Buffer Size Exceeded!\n");
+		LOG_DBG("Buffer Size Exceeded!\n");
 		return -EFAULT;
 	}
 
 	if (_IOC_DIR(cmd) != _IOC_NONE) {
 		/* IO write */
 		if (_IOC_WRITE & _IOC_DIR(cmd)) {
-			if (copy_from_user(
-				pBuff,
-				(void *)arg,
-				_IOC_SIZE(cmd))) {
-				log_dbg(" ioctl copy from user failed\n");
+			if (copy_from_user(pBuff, (void *)arg, _IOC_SIZE(cmd))) {
+				LOG_DBG(" ioctl copy from user failed\n");
 				return -EFAULT;
 			}
 		}
 		/* else */
-			/* log_dbg(" ioctlnot write command\n"); */
+			/* LOG_DBG(" ioctlnot write command\n"); */
 	}
 	/* else */
-		/* log_dbg(" ioctl command = NONE\n"); */
+		/* LOG_DBG(" ioctl command = NONE\n"); */
 
 	switch (cmd) {
 	case FDVT_IOC_INIT_SETPARA_CMD:
-		log_dbg("[FDVT] FDVT_INIT_CMD\n");
+		LOG_DBG("[FDVT] FDVT_INIT_CMD\n");
 		haveConfig = 0;
 		FDVT_basic_config();
 		break;
 	case FDVT_IOC_STARTFD_CMD:
-		/* log_dbg("[FDVT] FDVTIOC_STARTFD_CMD\n"); */
+		/* LOG_DBG("[FDVT] FDVTIOC_STARTFD_CMD\n"); */
 		if (haveConfig) {
 			FDVT_WR32(0x00000001, FDVT_INT_EN);
 			FDVT_WR32(0x00000000, FDVT_START);
@@ -698,42 +722,39 @@ static long FDVT_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		/* FDVT_DUMPREG(); */
 		break;
 	case FDVT_IOC_G_WAITIRQ:
-		/* log_dbg("[FDVT] FDVT_WaitIRQ\n"); */
+		/* LOG_DBG("[FDVT] FDVT_WaitIRQ\n"); */
 		ret = FDVT_WaitIRQ((unsigned int *)pBuff);
-		FDVT_WR32(0x00000000, FDVT_INT_EN);
+		FDVT_WR32(0x00000000, FDVT_INT_EN);  /* BinChang 20120516 Close Interrupt */
 		break;
 	case FDVT_IOC_T_SET_FDCONF_CMD:
-		/* log_dbg("[FDVT] FDVT set FD config\n"); */
-		FaceDetecteConfig();
-		FDVT_SetRegHW((FDVTRegIO *)pBuff);
-		haveConfig = 1;
+		/* LOG_DBG("[FDVT] FDVT set FD config\n"); */
+		FaceDetecteConfig();  /* LDVT Disable, Due to the different feature number between FD/SD/BD/REC */
+		ret = FDVT_SetRegHW((FDVTRegIO *)pBuff);
+		haveConfig = (ret == 0) ? 1:0;
 		break;
 	case FDVT_IOC_T_SET_SDCONF_CMD:
-		/* log_dbg("[FDVT] FDVT set SD config\n"); */
+		/* LOG_DBG("[FDVT] FDVT set SD config\n"); */
 		SmileDetecteConfig();
-		FDVT_SetRegHW((FDVTRegIO *)pBuff);
-		haveConfig = 1;
+		ret = FDVT_SetRegHW((FDVTRegIO *)pBuff);
+		haveConfig = (ret == 0) ? 1:0;
 		break;
 	case FDVT_IOC_G_READ_FDREG_CMD:
-		/* log_dbg("[FDVT] FDVT read FD config\n"); */
+		/* LOG_DBG("[FDVT] FDVT read FD config\n"); */
 		FDVT_ReadRegHW((FDVTRegIO *)pBuff);
 		break;
 	case FDVT_IOC_T_DUMPREG:
-		log_dbg("[FDVT] FDVT_DUMPREG\n");
+		LOG_DBG("[FDVT] FDVT_DUMPREG\n");
 		FDVT_DUMPREG();
 		break;
 	default:
-		log_dbg("[FDVT][ERROR] %s default case\n", __func__);
+		LOG_DBG("[FDVT][ERROR] FDVT_ioctl default case\n");
 		break;
 	}
 	/* NOT_REFERENCED(ret); */
-	/* log_dbg("[FDVT] FDVT IOCtrol out\n"); */
+	/* LOG_DBG("[FDVT] FDVT IOCtrol out\n"); */
 	if (_IOC_READ & _IOC_DIR(cmd)) {
-		if (copy_to_user(
-			(void __user *)arg,
-			pBuff,
-			_IOC_SIZE(cmd)) != 0) {
-			log_dbg("copy_to_user failed\n");
+		if (copy_to_user((void __user *)arg, pBuff, _IOC_SIZE(cmd)) != 0) {
+			LOG_DBG("copy_to_user failed\n");
 			return -EFAULT;
 		}
 	}
@@ -743,9 +764,9 @@ static long FDVT_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 #ifdef CONFIG_COMPAT
 
-/***********************************************************
- *
- ************************************************************/
+/*******************************************************************************
+*
+********************************************************************************/
 
 static int compat_FD_get_register_data(
 		compat_FDVTRegIO __user *data32,
@@ -786,8 +807,7 @@ static int compat_FD_put_register_data(
 	return err;
 }
 
-static long compat_FD_ioctl(
-	struct file *file, unsigned int cmd, unsigned long arg)
+static long compat_FD_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	long ret;
 
@@ -797,19 +817,11 @@ static long compat_FD_ioctl(
 	switch (cmd) {
 	case COMPAT_FDVT_IOC_INIT_SETPARA_CMD:
 	{
-		ret = file->f_op->unlocked_ioctl
-			(file,
-			cmd,
-			(unsigned long)compat_ptr(arg));
-		return ret;
+		return file->f_op->unlocked_ioctl(file, cmd, (unsigned long)compat_ptr(arg));
 	}
 	case COMPAT_FDVT_IOC_STARTFD_CMD:
 	{
-		ret = file->f_op->unlocked_ioctl
-			(file,
-			cmd,
-			(unsigned long)compat_ptr(arg));
-		return ret;
+		return file->f_op->unlocked_ioctl(file, cmd, (unsigned long)compat_ptr(arg));
 	}
 	case COMPAT_FDVT_IOC_G_WAITIRQ:
 	{
@@ -825,10 +837,7 @@ static long compat_FD_ioctl(
 		err = compat_FD_get_register_data(data32, data);
 		if (err)
 			return err;
-		ret = file->f_op->unlocked_ioctl(
-			file,
-			FDVT_IOC_G_WAITIRQ,
-			(unsigned long)data);
+		ret = file->f_op->unlocked_ioctl(file, FDVT_IOC_G_WAITIRQ, (unsigned long)data);
 		err = compat_FD_put_register_data(data32, data);
 		return ret ? ret : err;
 	}
@@ -846,10 +855,7 @@ static long compat_FD_ioctl(
 		err = compat_FD_get_register_data(data32, data);
 		if (err)
 			return err;
-		ret = file->f_op->unlocked_ioctl(
-			file,
-			FDVT_IOC_T_SET_FDCONF_CMD,
-			(unsigned long)data);
+		ret = file->f_op->unlocked_ioctl(file, FDVT_IOC_T_SET_FDCONF_CMD, (unsigned long)data);
 		return ret ? ret : err;
 	}
 	case COMPAT_FDVT_IOC_G_READ_FDREG_CMD:
@@ -866,10 +872,7 @@ static long compat_FD_ioctl(
 		err = compat_FD_get_register_data(data32, data);
 		if (err)
 			return err;
-		ret = file->f_op->unlocked_ioctl
-			(file,
-			FDVT_IOC_G_READ_FDREG_CMD,
-			(unsigned long)data);
+		ret = file->f_op->unlocked_ioctl(file, FDVT_IOC_G_READ_FDREG_CMD, (unsigned long)data);
 		err = compat_FD_put_register_data(data32, data);
 		return ret ? ret : err;
 	}
@@ -887,19 +890,12 @@ static long compat_FD_ioctl(
 		err = compat_FD_get_register_data(data32, data);
 		if (err)
 			return err;
-		ret = file->f_op->unlocked_ioctl
-			(file,
-			FDVT_IOC_T_SET_SDCONF_CMD,
-			(unsigned long)data);
+		ret = file->f_op->unlocked_ioctl(file, FDVT_IOC_T_SET_SDCONF_CMD, (unsigned long)data);
 		return ret ? ret : err;
 	}
 	case COMPAT_FDVT_IOC_T_DUMPREG:
 	{
-		ret = file->f_op->unlocked_ioctl
-			(file,
-			cmd,
-			(unsigned long)compat_ptr(arg));
-		return ret;
+		return file->f_op->unlocked_ioctl(file, cmd, (unsigned long)compat_ptr(arg));
 	}
 	default:
 		return -ENOIOCTLCMD;
@@ -914,12 +910,12 @@ static int FDVT_open(struct inode *inode, struct file *file)
 {
 	signed int ret = 0;
 
-	log_dbg("[FDVT_DEBUG] %s\n", __func__);
+	LOG_DBG("[FDVT_DEBUG] FDVT_open\n");
 
 	spin_lock(&g_spinLock);
 	if (g_drvOpened) {
 		spin_unlock(&g_spinLock);
-		log_dbg("Opened, return -EBUSY\n");
+		LOG_DBG("Opened, return -EBUSY\n");
 		return -EBUSY;
 	}
 	g_drvOpened = 1;
@@ -940,24 +936,24 @@ static int FDVT_open(struct inode *inode, struct file *file)
 #endif
 
 	if (pBuff != NULL)
-		log_dbg("pBuff is not null\n");
+		LOG_DBG("pBuff is not null\n");
 	if (pread_buf != NULL)
-		log_dbg("pread_buf is not null\n");
+		LOG_DBG("pread_buf is not null\n");
 
 	pBuff = kmalloc(buf_size, GFP_KERNEL);
 	if (pBuff == NULL) {
-		/* log_dbg(" ioctl allocate mem failed\n"); */
+		LOG_DBG(" ioctl allocate mem failed\n");
 		ret = -ENOMEM;
 	} else {
-		log_dbg(" ioctl allocate mem ok\n");
+		LOG_DBG(" ioctl allocate mem ok\n");
 	}
 
 	pread_buf = kmalloc(buf_size, GFP_KERNEL);
 	if (pread_buf == NULL) {
-		/* log_dbg(" ioctl allocate mem failed\n"); */
+		LOG_DBG(" ioctl allocate mem failed\n");
 		ret = -ENOMEM;
 	} else {
-		log_dbg(" ioctl allocate mem ok\n");
+		LOG_DBG(" ioctl allocate mem ok\n");
 	}
 
 	if (ret < 0) {
@@ -974,15 +970,15 @@ static int FDVT_open(struct inode *inode, struct file *file)
 	return 0;
 }
 /*
- * static int FDVT_flush(struct file *file, fl_owner_t id)
- * {
- *	log_dbg("[FDVT_DEBUG] FDVT_flush\n");
- *	return 0;
- * }
- */
+*static int FDVT_flush(struct file *file, fl_owner_t id)
+*{
+*	LOG_DBG("[FDVT_DEBUG] FDVT_flush\n");
+*	return 0;
+*}
+*/
 static int FDVT_release(struct inode *inode, struct file *file)
 {
-	log_dbg("[FDVT_DEBUG] %s\n", __func__);
+	LOG_DBG("[FDVT_DEBUG] FDVT_release\n");
 	/*if (pBuff) {*/
 		kfree(pBuff);
 		pBuff = NULL;
@@ -1044,25 +1040,36 @@ static int FDVT_probe(struct platform_device *dev)
 #if LDVT_EARLY_PORTING_NO_CCF
 	node = of_find_compatible_node(NULL, NULL, "mediatek,imgsys_config");
 	if (!node) {
-		log_err("find IMGSYS_CONFIG node failed!!!\n");
+		LOG_ERR("find IMGSYS_CONFIG node failed!!!\n");
 		return -ENODEV;
 	}
 	IMGSYS_CONFIG_BASE = of_iomap(node, 0);
 	if (!IMGSYS_CONFIG_BASE) {
-		log_err("unable to map IMGSYS_CONFIG_BASE registers!!!\n");
+		LOG_ERR("unable to map IMGSYS_CONFIG_BASE registers!!!\n");
 		return -ENODEV;
 	}
 
-	log_dbg("[FDVT_DEBUG] IMGSYS_CONFIG_BASE: %lx\n",
-		(unsigned long)IMGSYS_CONFIG_BASE);
+	LOG_DBG("[FDVT_DEBUG] IMGSYS_CONFIG_BASE: %lx\n", (unsigned long)IMGSYS_CONFIG_BASE);
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,camsys_config");
+	if (!node) {
+		LOG_ERR("find CAMSYS_CONFIG node failed!!!\n");
+		return -ENODEV;
+	}
+	CAMSYS_CONFIG_BASE = of_iomap(node, 0);
+	if (!CAMSYS_CONFIG_BASE) {
+		LOG_ERR("unable to map CAMSYS_CONFIG_BASE registers!!!\n");
+		return -ENODEV;
+	}
+	LOG_DBG("[FDVT_DEBUG] CAMSYS_CONFIG_BASE: %lx\n", (unsigned long)CAMSYS_CONFIG_BASE);
 #endif
 
 	nr_fdvt_devs = 0;
 
-	log_inf("FDVT PROBE!!!\n");
+	LOG_INF("FDVT PROBE!!!\n");
 #ifdef CONFIG_OF
 
-	log_dbg("[FDVT_DEBUG] %s\n", __func__);
+	LOG_DBG("[FDVT_DEBUG] FDVT_probe\n");
 
 	if (dev == NULL) {
 		dev_info(&dev->dev, "dev is NULL");
@@ -1070,10 +1077,7 @@ static int FDVT_probe(struct platform_device *dev)
 	}
 
 	new_count = nr_fdvt_devs + 1;
-	tempFdvt = krealloc
-		(fdvt_devs,
-		sizeof(struct fdvt_device) * new_count,
-		GFP_KERNEL);
+	tempFdvt = krealloc(fdvt_devs, sizeof(struct fdvt_device) * new_count, GFP_KERNEL);
 	if (!tempFdvt) {
 		dev_info(&dev->dev, "Unable to realloc fdvt_devs\n");
 		return -ENOMEM;
@@ -1086,45 +1090,35 @@ static int FDVT_probe(struct platform_device *dev)
 	for (i = 0; i < FDVT_BASEADDR_NUM; i++)	{
 		fdvt_dev->regs[i] = of_iomap(dev->dev.of_node, i);
 		if (!fdvt_dev->regs[i]) {
-			dev_info(&dev->dev,
-				"Unable to ioremap registers, of_iomap fail, i=%d\n",
-				i);
+			dev_info(&dev->dev, "Unable to ioremap registers, of_iomap fail, i=%d\n", i);
 			return -ENOMEM;
 		}
 		gFDVT_Reg[i] = (unsigned long)fdvt_dev->regs[i];
-		log_inf("DT, i=%d, map_addr=0x%lx\n", i, gFDVT_Reg[i]);
+		LOG_INF("DT, i=%d, map_addr=0x%lx\n", i, gFDVT_Reg[i]);
 	}
 
 #ifdef CONFIG_MTK_CLKMGR
 #else
-	/*of_property_read_u32(
-	 *	pdev->dev.of_node,
-	 *	"clock-frequency",
-	 *	&speed_hz);
-	 */
+	/*of_property_read_u32(pdev->dev.of_node, "clock-frequency", &speed_hz);*/
 	/*of_property_read_u32(pdev->dev.of_node, "clock-div", &clk_src_div);*/
-	fdvt_devs->clk_SCP_SYS_DIS =
-		devm_clk_get(fdvt_dev->dev, "FD-SCP_SYS_DIS");
+	fdvt_devs->clk_SCP_SYS_DIS = devm_clk_get(fdvt_dev->dev, "FD-SCP_SYS_DIS");
 	if (!fdvt_devs->clk_SCP_SYS_DIS) {
-		log_err("cannot get clock: FD-SCP_SYS_DIS\n");
+		LOG_ERR("cannot get clock: FD-SCP_SYS_DIS\n");
 		return -ENOMEM;
 	}
-	fdvt_devs->clk_SCP_SYS_ISP =
-		devm_clk_get(fdvt_dev->dev, "FD-SCP_SYS_ISP");
+	fdvt_devs->clk_SCP_SYS_ISP = devm_clk_get(fdvt_dev->dev, "FD-SCP_SYS_ISP");
 	if (!fdvt_devs->clk_SCP_SYS_ISP) {
-		log_err("cannot get clock: FD-SCP_SYS_ISP\n");
+		LOG_ERR("cannot get clock: FD-SCP_SYS_ISP\n");
 		return -ENOMEM;
 	}
-	fdvt_devs->clk_SMI_COMMON =
-		devm_clk_get(fdvt_dev->dev, "FD-MM_DISP0_SMI_COMMON");
+	fdvt_devs->clk_SMI_COMMON = devm_clk_get(fdvt_dev->dev, "FD-MM_DISP0_SMI_COMMON");
 	if (!fdvt_devs->clk_SMI_COMMON) {
-		log_err("cannot get clock: FD-MM_DISP0_SMI_COMMON\n");
+		LOG_ERR("cannot get clock: FD-MM_DISP0_SMI_COMMON\n");
 		return -ENOMEM;
 	}
-	fdvt_devs->clk_FD =
-		devm_clk_get(fdvt_dev->dev, "FD-IMG_IMAGE_FD");
+	fdvt_devs->clk_FD = devm_clk_get(fdvt_dev->dev, "FD-IMG_IMAGE_FD");
 	if (!fdvt_devs->clk_FD) {
-		log_err("cannot get clock: FD-IMG_IMAGE_FD\n");
+		LOG_ERR("cannot get clock: FD-IMG_IMAGE_FD\n");
 		return -ENOMEM;
 	}
 #endif
@@ -1135,29 +1129,17 @@ static int FDVT_probe(struct platform_device *dev)
 		fdvt_dev->irq[i] = irq_of_parse_and_map(dev->dev.of_node, i);
 		gFDVT_Irq[i] = fdvt_dev->irq[i];
 		if (i == FDVT_IRQ_IDX) {
-			/* IRQF_TRIGGER_NONE dose not take effect here,
-			 * real trigger mode set in dts file
-			 */
-			ret = request_irq
-			(fdvt_dev->irq[i],
-			(irq_handler_t)FDVT_irq,
-			IRQF_TRIGGER_NONE,
-			FDVT_DEVNAME,
-			NULL);
-			/* request_irq
-			 * (FD_IRQ_BIT_ID,
-			 * (irq_handler_t)FDVT_irq,
-			 * IRQF_TRIGGER_LOW,
-			 * FDVT_DEVNAME,
-			 * NULL)
-			 */
+			/* IRQF_TRIGGER_NONE dose not take effect here, real trigger mode set in dts file */
+			ret = request_irq(fdvt_dev->irq[i], (irq_handler_t)FDVT_irq, IRQF_TRIGGER_NONE,
+			FDVT_DEVNAME, NULL);
+			/* request_irq(FD_IRQ_BIT_ID, (irq_handler_t)FDVT_irq, IRQF_TRIGGER_LOW, FDVT_DEVNAME, NULL) */
 		}
 		if (ret) {
 			dev_info(&dev->dev, "Unable to request IRQ, request_irq fail, i=%d, irq=%d\n",
 				i, fdvt_dev->irq[i]);
 			return ret;
 		}
-		log_inf("DT, i=%d, map_irq=%d\n", i, fdvt_dev->irq[i]);
+		LOG_INF("DT, i=%d, map_irq=%d\n", i, fdvt_dev->irq[i]);
 	}
 
 	nr_fdvt_devs = new_count;
@@ -1167,7 +1149,7 @@ static int FDVT_probe(struct platform_device *dev)
 	ret = alloc_chrdev_region(&FDVT_devno, 0, 1, FDVT_DEVNAME);
 
 	if (ret)
-		log_dbg("[FDVT_DEBUG][ERROR] Can't Get Major number for FDVT Device\n");
+		LOG_DBG("[FDVT_DEBUG][ERROR] Can't Get Major number for FDVT Device\n");
 
 	FDVT_cdev = cdev_alloc();
 
@@ -1178,30 +1160,25 @@ static int FDVT_probe(struct platform_device *dev)
 
 	ret = cdev_add(FDVT_cdev, FDVT_devno, 1);
 	if (ret < 0) {
-		log_dbg("[FDVT_DEBUG] Attatch file operation failed\n");
+		LOG_DBG("[FDVT_DEBUG] Attatch file operation failed\n");
 		return -EFAULT;
 	}
 
 #ifndef CONFIG_OF
 	/* Register Interrupt */
-	if (request_irq
-		(FD_IRQ_BIT_ID,
-		(irq_handler_t)FDVT_irq,
-		IRQF_TRIGGER_LOW,
-		FDVT_DEVNAME,
-		NULL) < 0)
-		log_dbg("[FDVT_DEBUG][ERROR] error to request FDVT irq\n");
+	if (request_irq(FD_IRQ_BIT_ID, (irq_handler_t)FDVT_irq, IRQF_TRIGGER_LOW, FDVT_DEVNAME, NULL) < 0)
+		LOG_DBG("[FDVT_DEBUG][ERROR] error to request FDVT irq\n");
 	else
-		log_dbg("[FDVT_DEBUG] success to request FDVT irq\n");
+		LOG_DBG("[FDVT_DEBUG] success to request FDVT irq\n");
 #endif
 
 #if LDVT_EARLY_PORTING_NO_CCF
 #else
     /*CCF: Grab clock pointer (struct clk*) */
-	fd_clk.CG_IMGSYS_FDVT = devm_clk_get(&dev->dev, "FD_CLK_CAM_FDVT");
+	fd_clk.CG_IMGSYS_FDVT = devm_clk_get(&dev->dev, "IMG_FDVT");
 
 	if (IS_ERR(fd_clk.CG_IMGSYS_FDVT)) {
-		log_err("cannot get CG_IMGSYS_FDVT clock\n");
+		LOG_ERR("cannot get CG_IMGSYS_FDVT clock\n");
 		return PTR_ERR(fd_clk.CG_IMGSYS_FDVT);
 	}
 
@@ -1218,15 +1195,12 @@ static int FDVT_probe(struct platform_device *dev)
 	init_waitqueue_head(&g_FDVTWQ);
 
 #ifdef CONFIG_PM_WAKELOCKS
-			wakeup_source_init(&fdvt_wake_lock,
-							"fdvt_lock_wakelock");
+			wakeup_source_init(&fdvt_wake_lock, "fdvt_lock_wakelock");
 #else
-			wake_lock_init(&fdvt_wake_lock,
-							WAKE_LOCK_SUSPEND,
-							"fdvt_lock_wakelock");
+			wake_lock_init(&fdvt_wake_lock, WAKE_LOCK_SUSPEND, "fdvt_lock_wakelock");
 #endif
 
-	log_dbg("[FDVT_DEBUG] %s Done\n", __func__);
+	LOG_DBG("[FDVT_DEBUG] FDVT_probe Done\n");
 
 	return 0;
 }
@@ -1235,7 +1209,7 @@ static int FDVT_remove(struct platform_device *dev)
 {
 	int i4IRQ = 0;
 
-	log_dbg("[FDVT_DEBUG] FDVT_driver_exit\n");
+	LOG_DBG("[FDVT_DEBUG] FDVT_driver_exit\n");
 	FDVT_WR32(0x00000000, FDVT_INT_EN);
 	g_FDVTIRQ = ioread32((void *)FDVT_INT);
 
@@ -1277,7 +1251,7 @@ static int FDVT_suspend(struct platform_device *dev, pm_message_t state)
 {
 	spin_lock(&g_spinLock);
 	if (g_drvOpened > 0) {
-		log_inf("[FDVT_DEBUG] %s\n", __func__);
+		LOG_INF("[FDVT_DEBUG] FDVT_suspend\n");
 		mt_fdvt_clk_ctrl(0);
 		g_isSuspend = 1;
 	}
@@ -1289,7 +1263,7 @@ static int FDVT_resume(struct platform_device *dev)
 {
 	spin_lock(&g_spinLock);
 	if (g_isSuspend) {
-		log_inf("[FDVT_DEBUG] %s\n", __func__);
+		LOG_INF("[FDVT_DEBUG] FDVT_resume\n");
 		mt_fdvt_clk_ctrl(1);
 		g_isSuspend = 0;
 	}
@@ -1319,23 +1293,23 @@ static struct platform_driver FDVT_driver = {
 };
 
 /* Device Tree Architecture Don't Use This Struct
- *static struct platform_device FDVT_device = {
- *	.name    = FDVT_DEVNAME,
- *	.id         = 0,
- *};
- */
+*static struct platform_device FDVT_device = {
+*	.name    = FDVT_DEVNAME,
+*	.id         = 0,
+*};
+*/
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void FDVT_early_suspend(struct early_suspend *h)
 {
-	/* log_dbg("[FDVT_DEBUG] FDVT_suspend\n"); */
+	/* LOG_DBG("[FDVT_DEBUG] FDVT_suspend\n"); */
 	/* mt_fdvt_clk_ctrl(0); */
 
 }
 
 static void FDVT_early_resume(struct early_suspend *h)
 {
-	/* log_dbg("[FDVT_DEBUG] FDVT_suspend\n"); */
+	/* LOG_DBG("[FDVT_DEBUG] FDVT_suspend\n"); */
 	/* mt_fdvt_clk_ctrl(1); */
 }
 
@@ -1350,10 +1324,10 @@ static int __init FDVT_driver_init(void)
 {
 	int ret;
 
-	log_dbg("[FDVT_DEBUG] %s\n", __func__);
+	LOG_DBG("[FDVT_DEBUG] FDVT_driver_init\n");
 
 	if (platform_driver_register(&FDVT_driver)) {
-		log_dbg("[FDVT_DEBUG][ERROR] failed to register FDVT Driver\n");
+		LOG_DBG("[FDVT_DEBUG][ERROR] failed to register FDVT Driver\n");
 		ret = -ENODEV;
 		return ret;
 	}
@@ -1361,14 +1335,14 @@ static int __init FDVT_driver_init(void)
 	register_early_suspend(&FDVT_early_suspend_desc);
 	#endif
 
-	log_dbg("[FDVT_DEBUG] %s Done\n", __func__);
+	LOG_DBG("[FDVT_DEBUG] FDVT_driver_init Done\n");
 
 	return 0;
 }
 
 static void __exit FDVT_driver_exit(void)
 {
-	log_dbg("[FDVT_DEBUG] %s\n", __func__);
+	LOG_DBG("[FDVT_DEBUG] FDVT_driver_exit\n");
 
 	device_destroy(FDVT_class, FDVT_devno);
 	class_destroy(FDVT_class);
@@ -1377,8 +1351,6 @@ static void __exit FDVT_driver_exit(void)
 	unregister_chrdev_region(FDVT_devno, 1);
 
 	platform_driver_unregister(&FDVT_driver);
-
-	log_dbg("[FDVT_DEBUG] %s Done\n", __func__);
 }
 
 

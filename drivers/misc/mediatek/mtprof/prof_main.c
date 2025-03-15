@@ -36,17 +36,12 @@ static unsigned long long second = 1;
 
 static int mt_log_show(struct seq_file *m, void *v)
 {
-	SEQ_printf(m, "Print %ld lines log in %lld second in last time.\n",
-		print_num, second);
-	SEQ_printf(m,
-		"show: Please echo m n > log again. m: second, n: level.\n");
+	SEQ_printf(m, "Print %ld lines log in %lld second in last time.\n", print_num, second);
+	SEQ_printf(m, "show: Please echo m n > log again. m: second, n: level.\n");
 	return 0;
 }
 
-static ssize_t mt_log_write(struct file *filp,
-				const char *ubuf,
-				size_t cnt,
-				loff_t *data)
+static ssize_t mt_log_write(struct file *filp, const char *ubuf, size_t cnt, loff_t *data)
 {
 	char buf[64];
 	unsigned long long t1 = 0, t2 = 0;
@@ -61,24 +56,19 @@ static ssize_t mt_log_write(struct file *filp,
 	buf[cnt] = 0;
 
 	if (sscanf(buf, "%lld %d ", &second, &level) == 2) {
-		SEQ_printf(NULL, "will print log in level %d",
-			level);
-		SEQ_printf(NULL, " about %lld second.\n",
-			second);
+		SEQ_printf(NULL, "will print log in level %d about %lld second.\n", level, second);
 	} else {
-		SEQ_printf(NULL, "Please echo m n > log;");
-		SEQ_printf(NULL, "m: second, n: level.\n");
+		SEQ_printf(NULL, "Please echo m n > log; m: second, n: level.\n");
 		return cnt;
 	}
 	t1 = sched_clock();
-	pr_info("printk debug log: start time: %lld.\n", t1);
+	pr_err("printk debug log: start time: %lld.\n", t1);
 	print_num = 0;
 	for (;;) {
 		t2 = sched_clock();
 		if (t2 - t1 > second * 1000000000)
 			break;
-		pr_info("printk debug log: the %ld line, time: %lld.\n",
-			print_num++, t2);
+		pr_err("printk debug log: the %ld line, time: %lld.\n", print_num++, t2);
 		switch (level) {
 		case 0:
 			break;
@@ -115,8 +105,7 @@ static ssize_t mt_log_write(struct file *filp,
 		}
 	}
 
-	pr_info("mt log total write %ld line in %lld second.\n",
-		print_num, second);
+	pr_err("mt log total write %ld line in %lld second.\n", print_num, second);
 	return cnt;
 }
 #endif
@@ -160,8 +149,7 @@ static ssize_t mt_pid_write(struct file *filp, const char *ubuf,
 	if (reboot_pid > 1) {
 		tsk = find_task_by_vpid(reboot_pid);
 		if (tsk != NULL)
-			pr_info("Reboot Process(%s:%d).\n",
-				tsk->comm, tsk->pid);
+			pr_crit("Reboot Process(%s:%d).\n", tsk->comm, tsk->pid);
 	}
 
 	return cnt;
@@ -205,16 +193,15 @@ static unsigned int enabled_signal_log;
 static void probe_signal_generate(void *ignore, int sig, struct siginfo *info,
 		struct task_struct *task, int group, int result)
 {
-	unsigned int state = task->state ? __ffs(task->state) + 1 : 0;
+	unsigned state = task->state ? __ffs(task->state) + 1 : 0;
 	int errno, code;
 
 	/*
 	 * only log delivered signals
 	 */
 	STORE_SIGINFO(errno, code, info);
-	pr_debug("[signal][%d:%s]generate sig %d",
-		 current->pid, current->comm, sig);
-	pr_debug(" to [%d:%s:%c] errno=%d code=%d grp=%d res=%s\n",
+	pr_debug("[signal][%d:%s]generate sig %d to [%d:%s:%c] errno=%d code=%d grp=%d res=%s\n",
+		 current->pid, current->comm, sig,
 		task->pid, task->comm,
 		state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?',
 		errno, code, group, signal_deliver_results[result]);
@@ -226,16 +213,9 @@ static void probe_signal_deliver(void *ignore, int sig, struct siginfo *info,
 	int errno, code;
 
 	STORE_SIGINFO(errno, code, info);
-	pr_debug("[signal]sig %d delivered to [%d:%s]",
-		sig,
-		current->pid,
-		current->comm);
-	pr_debug(" errno=%d code=%d sa_handler=%lx sa_flags=%lx\n",
-		errno,
-		code,
-		(unsigned long)ka->sa.sa_handler,
-		ka->sa.sa_flags);
-
+	pr_debug("[signal]sig %d delivered to [%d:%s] errno=%d code=%d sa_handler=%lx sa_flags=%lx\n",
+			sig, current->pid, current->comm, errno, code,
+			(unsigned long)ka->sa.sa_handler, ka->sa.sa_flags);
 }
 
 static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
@@ -252,7 +232,7 @@ static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
 	if (sig_fatal(task, sig) && result == TRACE_SIGNAL_DELIVERED) {
 		signal = task->signal;
 		group = _group ||
-		(signal->flags & (SIGNAL_GROUP_EXIT | SIGNAL_GROUP_COREDUMP));
+			(signal->flags & (SIGNAL_GROUP_EXIT | SIGNAL_GROUP_COREDUMP));
 		/*
 		 * kernel log reduction
 		 * skip SIGRTMIN because it's used as timer signal
@@ -308,10 +288,8 @@ static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
 
 static int mt_signal_log_show(struct seq_file *m, void *v)
 {
-	SEQ_printf(m, "%d: debug message for signal being generated\n",
-		SI_GENERATE);
-	SEQ_printf(m, "%d: debug message for signal being delivered\n",
-		SI_DELIVER);
+	SEQ_printf(m, "%d: debug message for signal being generated\n", SI_GENERATE);
+	SEQ_printf(m, "%d: debug message for signal being delivered\n", SI_DELIVER);
 	SEQ_printf(m, "%d: enable all logs\n", SI_GENERATE | SI_DELIVER);
 	SEQ_printf(m, "%d\n", enabled_signal_log);
 	return 0;
@@ -331,19 +309,15 @@ static ssize_t mt_signal_log_write(struct file *filp, const char *ubuf,
 	update = enabled_signal_log ^ val;
 	if (update & SI_GENERATE) {
 		if (val & SI_GENERATE)
-			register_trace_signal_generate(probe_signal_generate,
-				NULL);
+			register_trace_signal_generate(probe_signal_generate, NULL);
 		else
-			unregister_trace_signal_generate(probe_signal_generate,
-				NULL);
+			unregister_trace_signal_generate(probe_signal_generate, NULL);
 	}
 	if (update & SI_DELIVER) {
 		if (val & SI_DELIVER)
-			register_trace_signal_deliver(probe_signal_deliver,
-				NULL);
+			register_trace_signal_deliver(probe_signal_deliver, NULL);
 		else
-			unregister_trace_signal_deliver(probe_signal_deliver,
-				NULL);
+			unregister_trace_signal_deliver(probe_signal_deliver, NULL);
 	}
 	enabled_signal_log = val;
 
@@ -372,8 +346,7 @@ enum {
 static unsigned int enabled_fork_exit_log;
 
 static void probe_sched_fork_time(void *ignore,
-	struct task_struct *parent,
-	struct task_struct *child, unsigned long long dur)
+	struct task_struct *parent, struct task_struct *child, unsigned long long dur)
 {
 	char parent_comm[TASK_COMM_LEN], child_comm[TASK_COMM_LEN];
 	pid_t parent_pid, child_pid;
@@ -425,25 +398,17 @@ static ssize_t mt_fork_exit_log_write(struct file *filp, const char *ubuf,
 		return ret;
 
 	update = enabled_fork_exit_log ^ val;
-
 	if (update & DO_FORK) {
 		if (val & DO_FORK)
-			register_trace_sched_fork_time(probe_sched_fork_time,
-				NULL);
+			register_trace_sched_fork_time(probe_sched_fork_time, NULL);
 		else
-			unregister_trace_sched_fork_time(probe_sched_fork_time,
-				NULL);
+			unregister_trace_sched_fork_time(probe_sched_fork_time, NULL);
 	}
-
 	if (update & DO_EXIT) {
 		if (val & DO_EXIT)
-			register_trace_sched_process_exit(
-				probe_sched_process_exit,
-				NULL);
+			register_trace_sched_process_exit(probe_sched_process_exit, NULL);
 		else
-			unregister_trace_sched_process_exit(
-				probe_sched_process_exit,
-				NULL);
+			unregister_trace_sched_process_exit(probe_sched_process_exit, NULL);
 	}
 	enabled_fork_exit_log = val;
 
@@ -455,8 +420,7 @@ static void __init init_fork_exit_log(void)
 	if (enabled_fork_exit_log & DO_FORK)
 		register_trace_sched_fork_time(probe_sched_fork_time, NULL);
 	if (enabled_fork_exit_log & DO_EXIT)
-		register_trace_sched_process_exit(probe_sched_process_exit,
-			NULL);
+		register_trace_sched_process_exit(probe_sched_process_exit, NULL);
 }
 
 /*-------------------------------------------------------------------*/
@@ -475,8 +439,7 @@ static int __init init_mtsched_prof(void)
 		return -ENOMEM;
 
 	init_fork_exit_log();
-	pe = proc_create("mtprof/fork_exit_log", 0664, NULL,
-		&mt_fork_exit_log_fops);
+	pe = proc_create("mtprof/fork_exit_log", 0664, NULL, &mt_fork_exit_log_fops);
 	if (!pe)
 		return -ENOMEM;
 

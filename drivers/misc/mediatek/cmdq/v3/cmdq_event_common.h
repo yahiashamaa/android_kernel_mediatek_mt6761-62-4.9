@@ -21,7 +21,7 @@
  *
  * Note: event name must sync to cmdq_events table in cmdq_event_common.c
  */
-enum cmdq_event {
+enum CMDQ_EVENT_ENUM {
 	/* MDP start frame */
 	CMDQ_EVENT_MDP_RDMA0_SOF,			/* 0 */
 	CMDQ_EVENT_MDP_RDMA1_SOF,			/* 1 */

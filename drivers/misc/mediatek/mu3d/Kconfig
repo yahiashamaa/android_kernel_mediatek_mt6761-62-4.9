@@ -59,7 +59,7 @@ config USB_MU3D_DEFAULT_U2_MODE
 
 config USB_MU3D_DRV_36BIT
 	tristate "MediaTek SSUSB 36bits addressing support"
-	default y
+	default n
 	---help---
 	  This selects the MediaTek SSUSB(USB3.0 HW IP) support 36-bits
 	  address accessing.

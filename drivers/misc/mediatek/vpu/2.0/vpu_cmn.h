@@ -20,7 +20,7 @@
 #include "vpu_drv.h"
 
 #define VPU_MET_READY
-#define VPU_PORT_OF_IOMMU M4U_PORT_VPU
+#define VPU_PORT_OF_IOMMU M4U_PORT_VPU1
 
 /* Common Structure */
 struct vpu_device {
@@ -32,7 +32,7 @@ struct vpu_device {
 	unsigned long vpu_adlctrl_base;
 	unsigned long vpu_vcorecfg_base;
 	unsigned long vpu_base[MTK_VPU_CORE];
-	unsigned long smi_cmn_base;
+	unsigned long smi_common_base;
 	unsigned long bin_base;
 	unsigned long bin_pa;
 	unsigned int bin_size;
@@ -44,11 +44,11 @@ struct vpu_device {
 	/* pool for each vpu core and common part */
 	/* need error handle, pop all requests in pool */
 	struct mutex servicepool_mutex[MTK_VPU_CORE];
-	struct list_head pool_list[MTK_VPU_CORE];
+	struct list_head servicepool_list[MTK_VPU_CORE];
 	int servicepool_list_size[MTK_VPU_CORE];
 	bool service_core_available[MTK_VPU_CORE];
 	struct mutex commonpool_mutex;
-	struct list_head cmnpool_list;
+	struct list_head commonpool_list;
 	int commonpool_list_size;
 	/* notify enque thread */
 	wait_queue_head_t req_wait;
@@ -110,14 +110,9 @@ enum VpuCoreState {
 };
 
 enum VpuPowerOnType {
-	/* power on previously by setPower */
-	VPT_PRE_ON		= 1,
-
-	/* power on by enque */
-	VPT_ENQUE_ON	= 2,
-
-	/* power on by enque, but want to immediately off(when exception) */
-	VPT_IMT_OFF		= 3,
+	VPT_PRE_ON		= 1,	/* power on previously by setPower */
+	VPT_ENQUE_ON	= 2,	/* power on by enque */
+	VPT_IMT_OFF		= 3,	/* power on by enque, but want to immediately off(when exception) */
 };
 
 
@@ -141,8 +136,7 @@ struct type ## _list { \
  * @ptr:	the pointer to struct vlist
  * @type:	the type of list node
  */
-#define vlist_link(ptr, type) \
-	((struct list_head *)((char *)ptr + offsetof(type ## _list, link)))
+#define vlist_link(ptr, type) ((struct list_head *)((char *)ptr + offsetof(type ## _list, link)))
 
 /*
  * vlist_type - get the type of struct vlist
@@ -164,7 +158,7 @@ DECLARE_VLIST(vpu_request);
 DECLARE_VLIST(vpu_dev_debug_info);
 
 
-/* ========================= define in vpu_emu.c  ========================= */
+/* =============================== define in vpu_emu.c  =============================== */
 
 /**
  * vpu_init_emulator - init a hw emulator to serve driver's operation
@@ -178,8 +172,7 @@ int vpu_init_emulator(struct vpu_device *device);
 int vpu_uninit_emulator(void);
 
 /**
- * vpu_request_emulator_irq - it will callback to handler while an operation of
- *                            emulator is done
+ * vpu_request_emulator_irq - it will callback to handler while an operation of emulator is done
  * @irq:        irq number
  * @handler:    irq handler
  */
@@ -187,11 +180,10 @@ int vpu_request_emulator_irq(uint32_t irq, irq_handler_t handler);
 
 
 
-/* ========================== define in vpu_hw.c  =========================== */
+/* =============================== define in vpu_hw.c  ================================ */
 
 /**
- * vpu_init_hw - init the procedure related to hw,
- *               include irq register and enque thread
+ * vpu_init_hw - init the procedure related to hw, include irq register and enque thread
  * @core:	core index of vpu_device.
  * @device:     the pointer of vpu_device.
  */
@@ -215,8 +207,7 @@ int vpu_boot_up(int core);
 int vpu_shut_down(int core);
 
 /**
- * vpu_hw_load_algo - call vpu program to load algo, by specifying the
- *                    start address
+ * vpu_hw_load_algo - call vpu program to load algo, by specifying the start address
  * @core:	core index of device.
  * @algo:       the pointer to struct algo, which has right binary-data info.
  */
@@ -238,16 +229,14 @@ int vpu_get_name_of_algo(int core, int id, char **name);
  * @mva:        return the mva of algo binary
  * @length:     return the length of algo binary
  */
-int vpu_get_entry_of_algo(int core, char *name, int *id,
-				unsigned int *mva, int *length);
+int vpu_get_entry_of_algo(int core, char *name, int *id, unsigned int *mva, int *length);
 
 /**
  * vpu_hw_get_algo_info - prepare a memory for vpu program to dump algo info
  * @core:	core index of device.
  * @algo:       the pointer to memory block for algo dump.
  *
- * Query properties value and port info from vpu algo(kernel).
- * Should create enough of memory
+ * Query properties value and port info from vpu algo(kernel). Should create enough of memory
  * for properties dump, and assign the pointer to vpu_props_t's ptr.
  */
 int vpu_hw_get_algo_info(int core, struct vpu_algo *algo);
@@ -275,8 +264,7 @@ int vpu_quick_suspend(int core);
  * @shmem:      return the pointer of struct memory
  * @param:      the pointer to the parameters of memory allocation
  */
-int vpu_alloc_shared_memory(struct vpu_shared_memory **shmem,
-					struct vpu_shared_memory_param *param);
+int vpu_alloc_shared_memory(struct vpu_shared_memory **shmem, struct vpu_shared_memory_param *param);
 
 /**
  * vpu_free_shared_memory - free a memory
@@ -297,8 +285,7 @@ int vpu_ext_be_busy(void);
 int vpu_debug_func_core_state(int core, enum VpuCoreState state);
 
 /**
- * vpu_dump_register - dump the register table, and show the content
- *                     of all fields.
+ * vpu_dump_register - dump the register table, and show the content of all fields.
  * @s:		the pointer to seq_file.
  */
 int vpu_dump_register(struct seq_file *s);
@@ -361,7 +348,7 @@ int vpu_set_power_parameter(uint8_t param, int argc, int *args);
  */
 int vpu_set_algo_parameter(uint8_t param, int argc, int *args);
 
-/* ========================== define in vpu_drv.c  ========================= */
+/* =============================== define in vpu_drv.c  =============================== */
 
 /**
  * vpu_create_user - create vpu user, and add to user list
@@ -397,8 +384,7 @@ int vpu_put_request_to_pool(struct vpu_user *user, struct vpu_request *req);
  * @user:       the pointer to user.
  * @rreq:       return the request to be removed.
  */
-int vpu_pop_request_from_queue(struct vpu_user *user,
-					struct vpu_request **rreq);
+int vpu_pop_request_from_queue(struct vpu_user *user, struct vpu_request **rreq);
 
 
 /**
@@ -407,8 +393,7 @@ int vpu_pop_request_from_queue(struct vpu_user *user,
  * @request_id: request id to identify which enqued request user want to get
  * @rreq:          return the request to be removed.
  */
-int vpu_get_request_from_queue(struct vpu_user *user, uint64_t request_id,
-					struct vpu_request **rreq);
+int vpu_get_request_from_queue(struct vpu_user *user, uint64_t request_id, struct vpu_request **rreq);
 
 
 /**
@@ -427,7 +412,7 @@ int vpu_flush_requests_from_queue(struct vpu_user *user);
 int vpu_dump_user(struct seq_file *s);
 
 
-/* ========================== define in vpu_algo.c  ======================== */
+/* =============================== define in vpu_algo.c  =============================== */
 
 /**
  * vpu_init_algo - init algo module
@@ -449,8 +434,7 @@ int vpu_add_algo_to_pool(int core, struct vpu_algo *algo);
 
 int vpu_find_algo_by_id(int core, vpu_id_t id, struct vpu_algo **ralgo);
 
-int vpu_find_algo_by_name(int core, char *name, struct vpu_algo **ralgo,
-				bool needload);
+int vpu_find_algo_by_name(int core, char *name, struct vpu_algo **ralgo, bool needload);
 
 int vpu_get_algo_id_by_name(int core, char *name);
 
@@ -463,7 +447,7 @@ int vpu_alloc_request(struct vpu_request **rreq);
 int vpu_free_request(struct vpu_request *req);
 
 
-/* ========================== define in vpu_dbg.c  ========================= */
+/* =============================== define in vpu_dbg.c  =============================== */
 
 /**
  * vpu_init_debug - init debug module
@@ -472,7 +456,7 @@ int vpu_free_request(struct vpu_request *req);
 int vpu_init_debug(struct vpu_device *vpu_dev);
 
 
-/* ========================== define in vpu_reg.c  ========================= */
+/* =============================== define in vpu_reg.c  =============================== */
 
 /**
  * vpu_init_reg - init register module
@@ -481,20 +465,23 @@ int vpu_init_debug(struct vpu_device *vpu_dev);
  */
 int vpu_init_reg(int core, struct vpu_device *vpu_dev);
 
-/* ========================== define in vpu_profile.c  ===================== */
+/* =============================== define in vpu_profile.c  =============================== */
 
 /**
  * vpu_init_profile - init profiling
  * @device:     the pointer of vpu_device.
  */
-/* #define MET_POLLING_MODE */
+#define MET_POLLING_MODE
 int vpu_init_profile(int core, struct vpu_device *vpu_dev);
 int vpu_uninit_profile(void);
 int vpu_profile_state_set(int core, int val);
 int vpu_profile_state_get(void);
-void vpu_met_event_enter(int core, int algo_id, int vcore_opp,
-	int dsp_freq, int ipu_if_freq, int dsp1_freq, int dsp2_freq);
+void vpu_met_event_enter(int core, int algo_id, int dsp_freq);
 void vpu_met_event_leave(int core, int algo_id);
+void vpu_met_packet(long long wclk, char action, int core, int pid,
+	int sessid, char *str_desc, int val);
+void vpu_met_event_dvfs(int vcore_opp,
+	int dsp_freq, int ipu_if_freq, int dsp1_freq, int dsp2_freq);
 
 
 /* LOG & AEE */
@@ -509,8 +496,15 @@ void vpu_met_event_leave(int core, int algo_id);
 #define LOG_WRN(format, args...)    pr_info(VPU_TAG "[warn] " format, ##args)
 #define LOG_ERR(format, args...)    pr_info(VPU_TAG "[error] " format, ##args)
 
-#define PRINT_LINE() pr_info(VPU_TAG " %s (%s:%d)\n", \
-						__func__,  __FILE__, __LINE__)
+#define PRINT_LINE() pr_info/*pr_info*/(VPU_TAG " %s (%s:%d)\n", __func__,  __FILE__, __LINE__)
+
+#define CHECK_RET(format, args...) \
+	{ \
+		if (ret) { \
+			LOG_ERR(format, ##args); \
+			goto out; \
+		} \
+	}
 
 #define vpu_print_seq(seq_file, format, args...) \
 	{ \
@@ -520,24 +514,18 @@ void vpu_met_event_leave(int core, int algo_id);
 			LOG_ERR(format, ##args); \
 	}
 
-#ifdef CONFIG_MTK_AEE_FEATURE
 #define vpu_aee(key, format, args...) \
 	do { \
 		LOG_ERR(format, ##args); \
-		aee_kernel_exception("VPU", \
-			"\nCRDISPATCH_KEY:" key "\n" format, ##args); \
+		aee_kernel_exception("VPU", "\nCRDISPATCH_KEY:" key "\n" format, ##args); \
 	} while (0)
 
 #define vpu_aee_warn(key, format, args...) \
 	do { \
 		LOG_ERR(format, ##args); \
-		aee_kernel_warning("VPU", \
-			"\nCRDISPATCH_KEY:" key "\n" format, ##args); \
+		aee_kernel_warning("VPU", "\nCRDISPATCH_KEY:" key "\n" format, ##args); \
 	} while (0)
-#else
-#define vpu_aee(key, format, args...)
-#define vpu_aee_warn(key, format, args...)
-#endif
+
 /* Performance Measure */
 #ifdef VPU_TRACE_ENABLED
 #include <linux/kallsyms.h>
@@ -545,25 +533,32 @@ void vpu_met_event_leave(int core, int algo_id);
 #include <linux/preempt.h>
 static unsigned long __read_mostly vpu_tracing_writer;
 #define vpu_trace_begin(format, args...) \
-{ \
-	if (vpu_tracing_writer == 0) \
-		vpu_tracing_writer = \
-			kallsyms_lookup_name("tracing_mark_write"); \
-	preempt_disable(); \
-	event_trace_printk(vpu_tracing_writer, \
-			"B|%d|" format "\n", current->tgid, ##args); \
-	preempt_enable(); \
-}
+	{ \
+		if (vpu_tracing_writer == 0) \
+			vpu_tracing_writer = kallsyms_lookup_name("tracing_mark_write"); \
+		preempt_disable(); \
+		event_trace_printk(vpu_tracing_writer, "B|%d|" format "\n", current->tgid, ##args); \
+		preempt_enable(); \
+	}
 
 #define vpu_trace_end() \
-{ \
-	preempt_disable(); \
-	event_trace_printk(vpu_tracing_writer, "E\n"); \
-	preempt_enable(); \
-}
+	{ \
+		preempt_disable(); \
+		event_trace_printk(vpu_tracing_writer, "E\n"); \
+		preempt_enable(); \
+	}
+
+#define vpu_trace_dump(format, args...) \
+	{ \
+		preempt_disable(); \
+		event_trace_printk(vpu_tracing_writer, "MET_DUMP|" format "\n", ##args); \
+		preempt_enable(); \
+	}
+
 #else
 #define vpu_trace_begin(...)
 #define vpu_trace_end()
+#define vpu_trace_dump(...)
 #endif
 
 #endif

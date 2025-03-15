@@ -36,6 +36,7 @@
 #include <linux/kobject.h>
 #include <linux/platform_device.h>
 #include <linux/atomic.h>
+#include <linux/pm_wakeup.h>
 
 #include <hwmsensor.h>
 #include <sensors_io.h>
@@ -48,6 +49,12 @@
 #include <linux/notifier.h>
 #include "scp_helper.h"
 
+#define FLAT_TAG                  "[flat] "
+#define FLAT_FUN(f)               pr_debug(FLAT_TAG"%s\n", __func__)
+#define FLAT_PR_ERR(fmt, args...)    pr_err(FLAT_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
+#define FLAT_LOG(fmt, args...)    pr_debug(FLAT_TAG fmt, ##args)
+
+static struct wakeup_source flat_wake_lock;
 
 static int flat_get_data(int *probability, int *status)
 {
@@ -57,12 +64,12 @@ static int flat_get_data(int *probability, int *status)
 
 	err = sensor_get_data_from_hub(ID_FLAT, &data);
 	if (err < 0) {
-		pr_warn("sensor_get_data_from_hub fail!!\n");
+		FLAT_PR_ERR("sensor_get_data_from_hub fail!!\n");
 		return -1;
 	}
 	time_stamp = data.time_stamp;
 	*probability = data.gesture_data_t.probability;
-	pr_debug("recv ipi: timestamp: %lld, probability: %d!\n", time_stamp,
+	FLAT_LOG("recv ipi: timestamp: %lld, probability: %d!\n", time_stamp,
 		*probability);
 	return 0;
 }
@@ -71,7 +78,7 @@ static int flat_open_report_data(int open)
 {
 	int ret = 0;
 
-	pr_debug("%s : enable=%d\n", __func__, open);
+	FLAT_LOG("%s : enable=%d\n", __func__, open);
 #if defined CONFIG_MTK_SCP_SENSORHUB_V1
 	if (open == 1)
 		ret = sensor_set_delay_to_hub(ID_FLAT, 120);
@@ -85,21 +92,21 @@ static int flat_open_report_data(int open)
 	return ret;
 }
 
-static int flat_batch(int flag, int64_t samplingPeriodNs,
-		int64_t maxBatchReportLatencyNs)
+static int flat_batch(int flag, int64_t samplingPeriodNs, int64_t maxBatchReportLatencyNs)
 {
-	pr_debug("%s : flag=%d\n", __func__, flag);
+	FLAT_LOG("%s : flag=%d\n", __func__, flag);
 
-	return sensor_batch_to_hub(ID_FLAT, flag, samplingPeriodNs,
-			maxBatchReportLatencyNs);
+	return sensor_batch_to_hub(ID_FLAT, flag, samplingPeriodNs, maxBatchReportLatencyNs);
 }
 
 static int flat_recv_data(struct data_unit_t *event, void *reserved)
 {
 	if (event->flush_action == FLUSH_ACTION)
-		pr_warn("flat do not support flush\n");
-	else if (event->flush_action == DATA_ACTION)
+		FLAT_PR_ERR("flat do not support flush\n");
+	else if (event->flush_action == DATA_ACTION) {
+		__pm_wakeup_event(&flat_wake_lock, msecs_to_jiffies(100));
 		situation_notify(ID_FLAT);
+	}
 	return 0;
 }
 
@@ -114,21 +121,22 @@ static int flat_local_init(void)
 	ctl.is_support_wake_lock = true;
 	err = situation_register_control_path(&ctl, ID_FLAT);
 	if (err) {
-		pr_warn("register flat control path err\n");
+		FLAT_PR_ERR("register flat control path err\n");
 		goto exit;
 	}
 
 	data.get_data = flat_get_data;
 	err = situation_register_data_path(&data, ID_FLAT);
 	if (err) {
-		pr_warn("register flat data path err\n");
+		FLAT_PR_ERR("register flat data path err\n");
 		goto exit;
 	}
 	err = scp_sensorHub_data_registration(ID_FLAT, flat_recv_data);
 	if (err) {
-		pr_warn("SCP_sensorHub_data_registration fail!!\n");
+		FLAT_PR_ERR("SCP_sensorHub_data_registration fail!!\n");
 		goto exit_create_attr_failed;
 	}
+	wakeup_source_init(&flat_wake_lock, "flat_wake_lock");
 	return 0;
 exit:
 exit_create_attr_failed:
@@ -153,7 +161,7 @@ static int __init flat_init(void)
 
 static void __exit flat_exit(void)
 {
-	pr_debug("flat exit\n");
+	FLAT_FUN();
 }
 
 module_init(flat_init);

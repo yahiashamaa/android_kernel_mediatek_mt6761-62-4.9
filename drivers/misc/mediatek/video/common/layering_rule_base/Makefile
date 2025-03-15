@@ -11,13 +11,8 @@
 # See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 #
 
-# for legacy chip, use v1
-ifeq (y, $(filter y, $(CONFIG_MACH_MT6763) $(CONFIG_MACH_MT6799) $(CONFIG_MACH_MT6758)))
-	obj-y += v1/
-else
-ifeq (y, $(filter y, $(CONFIG_MACH_MT6779)))
-	obj-y += v1.2/
-else
-	obj-y += v1.1/
-endif
-endif
+obj-$(CONFIG_MACH_MT6799) += v1/
+obj-$(CONFIG_MACH_MT6758) += v1/
+obj-$(CONFIG_MACH_MT6771) += v1.1/
+obj-$(CONFIG_MACH_MT6763) += v1/
+obj-$(CONFIG_MACH_MT6739) += v1/

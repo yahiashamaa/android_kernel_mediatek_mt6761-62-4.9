@@ -42,10 +42,13 @@
 #include <linux/usb.h>
 #include <linux/usb/otg.h>
 #include <linux/usb/musb.h>
-#include <linux/pm_wakeup.h>
+#include <linux/wakelock.h>
 #include <linux/workqueue.h>
 /*#include <mt-plat/battery_common.h>*/
-#if 1
+#if (CONFIG_MTK_GAUGE_VERSION != 30)
+#include <mt-plat/charging.h>
+#endif
+#if (CONFIG_MTK_GAUGE_VERSION == 30)
 #include <mt-plat/charger_type.h>
 #endif
 
@@ -53,16 +56,14 @@ struct musb;
 struct musb_hw_ep;
 struct musb_ep;
 
-
-#ifdef CONFIG_MTK_KERNEL_POWER_OFF_CHARGING
 #include <mt-plat/mtk_boot_common.h>
-#endif
-extern u32 fake_CDP;
+extern int fake_CDP;
 extern unsigned int musb_speed;
 
 extern struct musb *_mu3d_musb;
-#if defined(CONFIG_MTK_CHARGER) && !defined(FOR_BRING_UP)
+#if defined(CONFIG_MTK_SMART_BATTERY) && !defined(FOR_BRING_UP)
 extern void BATTERY_SetUSBState(int usb_state_value);
+extern enum charger_type mt_get_charger_type(void);
 #endif
 /* Helper defines for struct musb->hwvers */
 #define MUSB_HWVERS_MAJOR(x)	((x >> 10) & 0x1f)
@@ -575,7 +576,6 @@ struct musb {
 
 	u8 address;
 	u8 test_mode_nr;
-	bool in_ipo_off;
 	u32 ackpend;		/* ep0 *//*We don't maintain Max Packet size in it. */
 	enum musb_g_ep0_state ep0_state;
 	struct usb_gadget g;	/* the gadget */
@@ -611,8 +611,7 @@ struct musb {
 	unsigned active_ep;
 	enum charger_type charger_mode;
 	struct work_struct suspend_work;
-	struct wakeup_source usb_wakelock;
-	struct delayed_work connection_work;
+	struct wake_lock usb_wakelock;
 	struct delayed_work check_ltssm_work;
 #ifndef CONFIG_USBIF_COMPLIANCE
 	struct delayed_work reconnect_work;
@@ -707,6 +706,7 @@ extern const char musb_driver_name[];
 
 extern void musb_start(struct musb *musb);
 extern void musb_stop(struct musb *musb);
+extern void musb_power_down(struct musb *musb);
 
 extern void musb_write_fifo(struct musb_hw_ep *ep, u16 len, const u8 *src);
 extern void musb_read_fifo(struct musb_hw_ep *ep, u16 len, u8 *dst);
@@ -824,23 +824,18 @@ extern void usb_phy_switch_to_uart(void);
 extern ssize_t musb_cmode_show(struct device *dev, struct device_attribute *attr, char *buf);
 extern ssize_t musb_cmode_store(struct device *dev, struct device_attribute *attr, const char *buf,
 				size_t count);
-
 extern ssize_t musb_saving_mode_show(struct device *dev, struct device_attribute *attr, char *buf);
 extern ssize_t musb_saving_mode_store(struct device *dev, struct device_attribute *attr, const char *buf,
 				size_t count);
-
-
-extern void usb20_pll_settings(bool host, bool forceOn);
 extern bool is_saving_mode(void);
 
+extern void usb20_pll_settings(bool host, bool forceOn);
 
 extern bool upmu_is_chr_det(void);
 extern u32 upmu_get_rgs_chrdet(void);
 
 #ifdef CONFIG_USB_MTK_DUALMODE
 extern bool mtk_is_host_mode(void);
-extern void mtk_enable_host(void);
-extern void mtk_disable_host(void);
 
 #else
 static inline int mtk_is_host_mode(void)
@@ -848,11 +843,22 @@ static inline int mtk_is_host_mode(void)
 	return 0;
 }
 #endif
-#ifdef CONFIG_USB_C_SWITCH
-extern int typec_switch_usb_disconnect(void *data);
-extern int typec_switch_usb_connect(void *data);
-#endif
 extern int mu3d_force_on;
 extern void mt_usb_connect(void);
+extern void mt_usb_disconnect(void);
+extern void mt_usb_reconnect(void);
+extern void mt_usb_dev_off(void);
 extern void mt_usb_connect_test(int start);
+extern void trigger_disconnect_check_work(void);
+extern struct workqueue_struct *mt_usb_get_workqueue(void);
+/* specific USB operation */
+enum CONNECTION_OPS {
+	CONNECTION_OPS_DISC = 0,
+	CONNECTION_OPS_CHECK,
+	CONNECTION_OPS_CONN
+};
+struct mt_usb_work {
+	struct delayed_work dwork;
+	int ops;
+};
 #endif	/* __MUSB_CORE_H__ */

@@ -1,15 +1,15 @@
 /*
- * Copyright (C) 2016 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
- */
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 
 #ifndef __PORT_RPC_H__
 #define __PORT_RPC_H__
@@ -72,19 +72,14 @@ struct rpc_buffer {
 	u8 buffer[0];
 } __packed;
 
-/* hardcode, becarefull with data size, should not exceed tmp_data[]
- * in ccci_rpc_work_helper()
- */
+/* hardcode, becarefull with data size, should not exceed tmp_data[] in ccci_rpc_work_helper() */
 #define CLKBUF_MAX_COUNT 4
 struct ccci_rpc_clkbuf_result {
 	u16 CLKBuf_Count;
 	u8 CLKBuf_Status[CLKBUF_MAX_COUNT];
 	u8 CLKBuf_SWCtrl_Status[CLKBUF_MAX_COUNT];
 	u16 ClkBuf_Driving[CLKBUF_MAX_COUNT];
-} __packed;
-/* the total size should sync with tmp_data[] using
- * in ccci_rpc_work_helper()
- */
+} __packed;	/* the total size should sync with tmp_data[] using in ccci_rpc_work_helper() */
 
 struct ccci_rpc_clkbuf_input {
 	u16 CLKBuf_Num;
@@ -107,14 +102,10 @@ struct ccci_rpc_queue_mapping {
 };
 
 #ifdef CONFIG_MTK_TC1_FEATURE
-/* hardcode, becarefull with data size, should not exceed tmp_data[]
- * in ccci_rpc_work_helper()
- */
+/* hardcode, becarefull with data size, should not exceed tmp_data[] in ccci_rpc_work_helper() */
 #define GPIO_MAX_COUNT 6
 #else
-/* hardcode, becarefull with data size, should not exceed tmp_data[]
- * in ccci_rpc_work_helper()
- */
+/* hardcode, becarefull with data size, should not exceed tmp_data[] in ccci_rpc_work_helper() */
 #define GPIO_MAX_COUNT 3
 #endif
 #define GPIO_MAX_COUNT_V2 10
@@ -142,10 +133,7 @@ struct ccci_rpc_gpio_adc_output {
 	u32 gpioPinValue[GPIO_MAX_COUNT];
 	u32 adcChNum;
 	u32 adcChMeasSum;
-} __packed;
-/* the total size should sync with tmp_data[] using
- * in ccci_rpc_work_helper()
- */
+} __packed;	/* the total size should sync with tmp_data[] using in ccci_rpc_work_helper() */
 
 struct ccci_rpc_gpio_adc_intput_v2 { /* 10 pin GPIO support */
 	u16 reqMask;
@@ -162,10 +150,7 @@ struct ccci_rpc_gpio_adc_output_v2 { /* 10 pin GPIO support */
 	u32 gpioPinValue[GPIO_MAX_COUNT_V2];
 	u32 adcChNum;
 	u32 adcChMeasSum;
-} __packed;
-/* the total size should sync with tmp_data[] using
- * in ccci_rpc_work_helper()
- */
+} __packed;	/* the total size should sync with tmp_data[] using in ccci_rpc_work_helper() */
 
 struct ccci_rpc_dsp_emi_mpu_input {
 	u32 request;
@@ -195,14 +180,14 @@ enum {
 #define RPC_MAX_BUF_SIZE         2048
 #define RPC_API_RESP_ID          0xFFFF0000
 
-#define FS_NO_ERROR				0
-#define FS_NO_OP				-1
-#define	FS_PARAM_ERROR			-2
-#define FS_NO_FEATURE			-3
-#define FS_NO_MATCH				-4
-#define FS_FUNC_FAIL			-5
-#define FS_ERROR_RESERVED		-6
-#define FS_MEM_OVERFLOW			-7
+#define FS_NO_ERROR										 0
+#define FS_NO_OP										-1
+#define	FS_PARAM_ERROR									-2
+#define FS_NO_FEATURE									-3
+#define FS_NO_MATCH									    -4
+#define FS_FUNC_FAIL								    -5
+#define FS_ERROR_RESERVED								-6
+#define FS_MEM_OVERFLOW									-7
 
 #define CCCI_SED_LEN_BYTES   16
 typedef struct {
@@ -230,12 +215,10 @@ typedef enum {
 } sim_hot_plug_eint_queryErr;
 
 struct eint_struct {
-	/* sync with MD: value type of MD want to get */
-	int type;
+	int type;		/* sync with MD: value type of MD want to get */
 	char *property;		/* property name in the node of dtsi */
 	int index;		/* cell index in property */
-	/* value of each node of current type from property */
-	int value_sim[MD_SIM_MAX];
+	int value_sim[MD_SIM_MAX];	/* value of each node of current type from property */
 };
 struct eint_node_name {
 	char *node_name;	/*node name in dtsi */
@@ -258,7 +241,4 @@ extern int IMM_GetOneChannelValue(int dwChannel, int data[4], int *rawdata);
 extern bool is_clk_buf_from_pmic(void);
 extern void clk_buf_get_rf_drv_curr(void *rf_drv_curr);
 extern void clk_buf_save_afc_val(unsigned int afcdac);
-#ifdef CONFIG_PINCTRL_MTK_NO_UPSTREAM
-extern int gpio_get_tristate_input(unsigned int pin);
-#endif
 #endif	/* __PORT_RPC_H__ */

@@ -40,8 +40,7 @@ static int mlog_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static ssize_t mlog_read(struct file *file, char __user *buf,
-		size_t count, loff_t *ppos)
+static ssize_t mlog_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 {
 	if (file->f_flags & O_NONBLOCK) {
 		if (!mlog_unread())
@@ -93,10 +92,7 @@ static const struct file_operations proc_dmlog_operations = {
 
 void mlog_init_procfs(void)
 {
-	debugfs_create_file("mlog_fmt", 0444, NULL, NULL,
-			&mlog_fmt_proc_fops);
-	debugfs_create_file("mlog", 0444, NULL, NULL,
-			&proc_mlog_operations);
-	debugfs_create_file("dmlog", 0444, NULL, NULL,
-			&proc_dmlog_operations);
+	debugfs_create_file("mlog_fmt", S_IRUGO, NULL, NULL, &mlog_fmt_proc_fops);
+	debugfs_create_file("mlog", S_IRUGO, NULL, NULL, &proc_mlog_operations);
+	debugfs_create_file("dmlog", S_IRUGO, NULL, NULL, &proc_dmlog_operations);
 }

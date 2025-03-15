@@ -1,16 +1,15 @@
 /*
- * Copyright (C) 2016 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
- */
-
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 #ifndef __SSPM_IPI_H__
 #define __SSPM_IPI_H__
 
@@ -56,13 +55,12 @@ extern int sspm_ipi_init(void);
 
 #define sspm_ipi_send_sync_new  sspm_ipi_send_sync
 extern int sspm_ipi_recv_registration(int mid, struct ipi_action *act);
-extern int sspm_ipi_recv_registration_ex(int mid, spinlock_t *lock,
-	struct ipi_action *act);
+extern int sspm_ipi_recv_registration_ex(int mid, spinlock_t *lock, struct ipi_action *act);
 extern int sspm_ipi_recv_unregistration(int mid);
 extern int sspm_ipi_recv_wait(int mid);
 extern void sspm_ipi_recv_complete(int mid);
 extern int sspm_ipi_send_sync(int mid, int opts, void *buffer, int slot,
-	void *retbuf, int retslot);
+		void *retbuf, int retslot);
 extern int sspm_ipi_send_ack(int mid, unsigned int *data);
 extern int sspm_ipi_send_ack_ex(int mid, void *data, int retslot);
 
@@ -70,12 +68,10 @@ extern int sspm_ipi_send_ack_ex(int mid, void *data, int retslot);
 #define IPI_OPT_DEFAUT          0
 #define IPI_OPT_NOLOCK          (IPI_OPT_REDEF_MASK)
 #define IPI_OPT_LOCK_BUSY       (IPI_OPT_REDEF_MASK|IPI_OPT_LOCK_MASK)
-#define IPI_OPT_LOCK_POLLING    (IPI_OPT_REDEF_MASK|IPI_OPT_LOCK_MASK| \
-				 IPI_OPT_POLLING_MASK)
+#define IPI_OPT_LOCK_POLLING    (IPI_OPT_REDEF_MASK|IPI_OPT_LOCK_MASK|IPI_OPT_POLLING_MASK)
 extern int sspm_ipi_is_inited(void);
 extern int sspm_ipi_send_async(int mid, int opts, void *buffer, int slot);
 extern int sspm_ipi_send_async_wait(int mid, int opts, void *retbuf);
-extern int sspm_ipi_send_async_wait_ex(int mid, int opts, void *retbuf,
-	int retslot);
+extern int sspm_ipi_send_async_wait_ex(int mid, int opts, void *retbuf, int retslot);
 
 #endif /* __SSPM_IPI_H__ */

@@ -1,14 +1,13 @@
 /*
- *  Copyright (C) 2017 MediaTek Inc.
+ * Richtek regmap with debugfs Driver
  *
- * This program is free software: you can redistribute it and/or modify
+ * Copyright (C) 2014 Richtek Technology Corp.
+ * Author: Jeff Chang <jeff_chang@richtek.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
  */
 
 #include <linux/module.h>
@@ -30,7 +29,7 @@
 #include <linux/workqueue.h>
 
 #include <mt-plat/rt-regmap.h>
-#define RT_REGMAP_VERSION	"1.1.14_G"
+#define RT_REGMAP_VERSION	"1.1.13_G"
 
 struct rt_regmap_ops {
 	int (*regmap_block_write)(struct rt_regmap_device *rd, u32 reg,
@@ -184,8 +183,7 @@ static struct reg_index_offset find_register_index(
 			rio.index = index;
 			rio.offset = 0;
 			break;
-		}
-		if (reg > rm[index]->addr) {
+		} else if (reg > rm[index]->addr) {
 			if ((reg - rm[index]->addr) < rm[index]->size) {
 				rio.index = index;
 				while (&rd->props.group[i] != NULL) {
@@ -351,10 +349,6 @@ static int rt_cache_block_write(struct rt_regmap_device *rd, u32 reg,
 	unsigned char blk_index;
 	const rt_register_map_t rm;
 
-	if (bytes > 64) {
-		dev_err(&rd->dev, "over size > 64 bytes\n");
-		return -EINVAL;
-	}
 	memcpy(wdata, data, bytes);
 
 	rio = find_register_index(rd, reg);
@@ -494,8 +488,12 @@ static int rt_block_write_blk_all(struct rt_regmap_device *rd,
 				  unsigned char *wdata, int *count,
 				  int cache_idx)
 {
+	int cnt;
+
 	down(&rd->write_mode_lock);
-	*count += size;
+	cnt = *count;
+	cnt += size;
+	*count = cnt;
 	up(&rd->write_mode_lock);
 	return 0;
 }
@@ -506,18 +504,20 @@ static int rt_block_write_blk_chip(struct rt_regmap_device *rd,
 				   unsigned char *wdata, int *count,
 				   int cache_idx)
 {
-	int i;
+	int i, cnt;
 
 	down(&rd->write_mode_lock);
+	cnt = *count;
 	for (i = rio->offset; i < rio->offset+size; i++) {
 		if ((rm->reg_type&RT_REG_TYPE_MASK) != RT_VOLATILE) {
 			rd->cache_data[cache_idx][i] =
-				wdata[*count] & rm->wbit_mask[i];
+				wdata[cnt] & rm->wbit_mask[i];
 			if (!rd->cached[cache_idx])
 				rd->cached[cache_idx] = 1;
 		}
-		*count = *count + 1;
+		cnt++;
 	}
+	*count = cnt;
 	up(&rd->write_mode_lock);
 	return 0;
 }
@@ -1308,11 +1308,6 @@ static void rt_show_regs(struct rt_regmap_device *rd, struct seq_file *seq_file)
 		regval = devm_kzalloc(&rd->dev,
 			rd->props.map_byte_num*sizeof(char), GFP_KERNEL);
 
-	if (!regval) {
-		dev_err(&rd->dev, "regval is NULL\n");
-		return;
-	}
-
 	down(&rd->semaphore);
 	for (i = 0; i < rd->props.register_num; i++) {
 		ret = rd->regmap_ops.regmap_block_read(rd, rm[i]->addr,
@@ -1491,15 +1486,6 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 	unsigned char *reg_data;
 	int rc, size = 0;
 	char lbuf[128];
-
-#if 0
-	if (count > sizeof(lbuf) - 1)
-		return -EFAULT;
-
-	rc = copy_from_user(lbuf, ubuf, count);
-	if (rc)
-		return -EFAULT;
-#else
 	ssize_t res;
 
 	pr_info("%s @ %p\n", __func__, ubuf);
@@ -1507,7 +1493,7 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 	res = simple_write_to_buffer(lbuf, sizeof(lbuf) - 1, ppos, ubuf, count);
 	if (res <= 0)
 		return -EFAULT;
-#endif
+
 	lbuf[count] = '\0';
 
 	switch (st->id) {
@@ -1534,7 +1520,7 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 			sizeof(unsigned char)*rd->dbg_data.reg_size);
 		if (rd->dbg_data.rio.index == -1) {
 			size = rd->dbg_data.reg_size;
-			if ((size - 1) * 3 + 5 != count) {
+			if ((size - 1)*3 + 5 != count) {
 				dev_err(&rd->dev, "wrong input length\n");
 				if (rd->error_occurred) {
 					snprintf(rd->err_msg +
@@ -1752,23 +1738,23 @@ static const struct file_operations general_ops = {
 static void rt_create_general_debug(struct rt_regmap_device *rd,
 				    struct dentry *dir)
 {
-	RT_CREATE_GENERAL_FILE(RT_DBG_REG, "reg_addr", 0444);
-	RT_CREATE_GENERAL_FILE(RT_DBG_DATA, "data", 0444);
-	RT_CREATE_GENERAL_FILE(RT_DBG_REGS, "regs", 0444);
-	RT_CREATE_GENERAL_FILE(RT_DBG_SYNC, "sync", 0444);
-	RT_CREATE_GENERAL_FILE(RT_DBG_ERROR, "Error", 0444);
-	RT_CREATE_GENERAL_FILE(RT_DBG_NAME, "name", 0444);
-	RT_CREATE_GENERAL_FILE(RT_DBG_BLOCK, "block", 0444);
-	RT_CREATE_GENERAL_FILE(RT_DBG_SIZE, "size", 0444);
+	RT_CREATE_GENERAL_FILE(RT_DBG_REG, "reg_addr", S_IFREG|S_IRUGO);
+	RT_CREATE_GENERAL_FILE(RT_DBG_DATA, "data", S_IFREG|S_IRUGO);
+	RT_CREATE_GENERAL_FILE(RT_DBG_REGS, "regs", S_IFREG|S_IRUGO);
+	RT_CREATE_GENERAL_FILE(RT_DBG_SYNC, "sync", S_IFREG|S_IRUGO);
+	RT_CREATE_GENERAL_FILE(RT_DBG_ERROR, "Error", S_IFREG|S_IRUGO);
+	RT_CREATE_GENERAL_FILE(RT_DBG_NAME, "name", S_IFREG|S_IRUGO);
+	RT_CREATE_GENERAL_FILE(RT_DBG_BLOCK, "block", S_IFREG|S_IRUGO);
+	RT_CREATE_GENERAL_FILE(RT_DBG_SIZE, "size", S_IFREG|S_IRUGO);
 	RT_CREATE_GENERAL_FILE(RT_DBG_SLAVE_ADDR,
-					"slave_addr", 0444);
+					"slave_addr", S_IFREG|S_IRUGO);
 	RT_CREATE_GENERAL_FILE(RT_DBG_SUPPORT_MODE,
-					"support_mode", 0444);
-	RT_CREATE_GENERAL_FILE(RT_DBG_IO_LOG, "io_log", 0444);
+					"support_mode", S_IFREG|S_IRUGO);
+	RT_CREATE_GENERAL_FILE(RT_DBG_IO_LOG, "io_log", S_IFREG|S_IRUGO);
 	RT_CREATE_GENERAL_FILE(RT_DBG_CACHE_MODE,
-					"cache_mode", 0444);
-	RT_CREATE_GENERAL_FILE(RT_DBG_REG_SIZE, "reg_size", 0444);
-	RT_CREATE_GENERAL_FILE(RT_DBG_WATCHDOG, "watchdog", 0444);
+					"cache_mode", S_IFREG|S_IRUGO);
+	RT_CREATE_GENERAL_FILE(RT_DBG_REG_SIZE, "reg_size", S_IFREG|S_IRUGO);
+	RT_CREATE_GENERAL_FILE(RT_DBG_WATCHDOG, "watchdog", S_IFREG|S_IRUGO);
 }
 
 static int eachreg_open(struct inode *inode, struct file *file)
@@ -1788,7 +1774,7 @@ static ssize_t eachreg_write(struct file *file, const char __user *ubuf,
 	char lbuf[128];
 	ssize_t res;
 
-	if ((rm->size - 1) * 3 + 5 != count) {
+	if ((rm->size - 1)*3 + 5 != count) {
 		dev_err(&rd->dev, "wrong input length\n");
 		return -EINVAL;
 	}
@@ -1902,7 +1888,7 @@ static void rt_create_every_debug(struct rt_regmap_device *rd,
 		rd->reg_st[i]->info = rd;
 		rd->reg_st[i]->id = i;
 		rd->rt_reg_file[i] = debugfs_create_file(buf,
-							 0444, dir,
+							 S_IFREG | S_IRUGO, dir,
 							 (void *)rd->reg_st[i],
 							 &eachreg_ops);
 	}
@@ -2159,7 +2145,3 @@ MODULE_DESCRIPTION("Richtek regmap Driver");
 MODULE_AUTHOR("Jeff Chang <jeff_chang@richtek.com>");
 MODULE_VERSION(RT_REGMAP_VERSION);
 MODULE_LICENSE("GPL");
-/* Version Note
- * 1.1.14
- *	Fix Coverity by Mandatory's
- */

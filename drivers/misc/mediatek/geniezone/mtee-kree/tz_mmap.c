@@ -18,8 +18,9 @@
 
 /* map user space pages */
 /* control -> 0 = write, 1 = read only memory */
-long _map_user_pages(struct MTIOMMU_PIN_RANGE_T *pinRange, unsigned long uaddr,
-		     uint32_t size, uint32_t control)
+long _map_user_pages(struct MTIOMMU_PIN_RANGE_T *pinRange,
+				unsigned long uaddr, uint32_t size,
+				uint32_t control)
 {
 	int nr_pages;
 	unsigned long first, last;
@@ -41,21 +42,21 @@ long _map_user_pages(struct MTIOMMU_PIN_RANGE_T *pinRange, unsigned long uaddr,
 	if (pages == NULL)
 		return -ENOMEM;
 
-	pinRange->pageArray = (void *)pages;
+	pinRange->pageArray = (void *) pages;
 	write = (control == 0) ? 1 : 0;
 
 	/* Try to fault in all of the necessary pages */
 	down_read(&current->mm->mmap_sem);
-	vma = find_vma_intersection(current->mm, uaddr, uaddr + size);
+	vma = find_vma_intersection(current->mm, uaddr, uaddr+size);
 	if (!vma) {
 		res = -EFAULT;
 		goto out;
 	}
 	if (!(vma->vm_flags & (VM_IO | VM_PFNMAP))) {
 		pinRange->isPage = 1;
-		res = get_user_pages_remote(current, current->mm, uaddr,
-					    nr_pages, write ? FOLL_WRITE : 0,
-					    pages, NULL);
+		res = get_user_pages(current, current->mm, uaddr, nr_pages,
+					write, 0,/* don't force */
+					pages, NULL);
 	} else {
 		/* pfn mapped memory, don't touch page struct.
 		 * the buffer manager (possibly ion) should make sure
@@ -66,8 +67,8 @@ long _map_user_pages(struct MTIOMMU_PIN_RANGE_T *pinRange, unsigned long uaddr,
 		do {
 			unsigned long *pfns = (void *)pages;
 
-			while (res < nr_pages
-			       && uaddr + PAGE_SIZE <= vma->vm_end) {
+			while (res < nr_pages &&
+				uaddr + PAGE_SIZE <= vma->vm_end) {
 				j = follow_pfn(vma, uaddr, &pfns[res]);
 				if (j) { /* error */
 					res = j;
@@ -79,10 +80,10 @@ long _map_user_pages(struct MTIOMMU_PIN_RANGE_T *pinRange, unsigned long uaddr,
 			if (res >= nr_pages || uaddr < vma->vm_end)
 				break;
 			vma = find_vma_intersection(current->mm, uaddr,
-						    uaddr + 1);
+							uaddr+1);
 		} while (vma && vma->vm_flags & (VM_IO | VM_PFNMAP));
 	}
-out:
+ out:
 	up_read(&current->mm->mmap_sem);
 	if (res < 0) {
 		pr_debug("_map_user_pages error = %d\n", res);
@@ -96,7 +97,7 @@ out:
 
 	return 0;
 
-out_unmap:
+ out_unmap:
 	pr_debug("_map_user_pages fail\n");
 	if (pinRange->isPage) {
 		for (j = 0; j < res; j++)
@@ -104,7 +105,7 @@ out_unmap:
 	}
 	res = -EFAULT;
 
-out_free:
+ out_free:
 	kfree(pages);
 	return res;
 }
@@ -131,3 +132,4 @@ static void _unmap_user_pages(struct MTIOMMU_PIN_RANGE_T *pinRange)
 	kfree(pages);
 }
 #endif
+

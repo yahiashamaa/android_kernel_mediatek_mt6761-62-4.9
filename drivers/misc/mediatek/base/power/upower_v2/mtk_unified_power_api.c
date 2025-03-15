@@ -14,10 +14,8 @@
 #include <linux/module.h>
 #include "mtk_upower.h"
 
-
 /* PTP will update volt in init2 isr handler */
-void upower_update_volt_by_eem(enum upower_bank bank,
-	unsigned int *volt, unsigned int opp_num)
+void upower_update_volt_by_eem(enum upower_bank bank, unsigned int *volt, unsigned int opp_num)
 {
 	int i, j;
 	int index = opp_num;
@@ -31,18 +29,13 @@ void upower_update_volt_by_eem(enum upower_bank bank,
 	for (i = 0; i < NR_UPOWER_BANK; i++) {
 		if (upower_recognize_by_eem[i] == bank) {
 			for (j = 0; j < opp_num; j++) {
-				/* reorder idx of volt */
-				index = opp_num - j - 1;
+				index = opp_num - j - 1; /* reorder index of volt */
 				upower_tbl_ref[i].row[index].volt = volt[j];
 			}
-			upower_tbl_ref[i].lkg_idx = 0; /* default as 85 */
-			upower_debug("(bk %d)volt = %u, (eem bk %d)volt = %u\n",
-				i, upower_tbl_ref[i].row[0].volt,
-				bank, volt[0]);
+			upower_debug("(upower bk %d)volt = %u, (eem bk %d)volt = %u\n",
+						i, upower_tbl_ref[i].row[0].volt, bank, volt[0]);
 		}
 	}
-	//upower_update_dyn_pwr();
-	//upower_update_lkg_pwr();
 }
 EXPORT_SYMBOL(upower_update_volt_by_eem);
 
@@ -118,19 +111,11 @@ struct upower_tbl *upower_get_core_tbl(unsigned int cpu)
 	enum upower_bank bank = UPOWER_BANK_LL;
 #endif
 
-#if defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6779)
-	if (cpu < 6) /* cpu 0-5 */
-		bank = UPOWER_BANK_LL;
-	else if (cpu < 8) /* cpu 6-7 */
-		bank = UPOWER_BANK_LL + 1;
-	else if (cpu < 10) /* cpu 8-9 */
-		bank = UPOWER_BANK_LL + 2;
-#else
 #ifdef FIRST_CLUSTER_IS_L
 	if (cpu < 4) /* cpu 0-3 */
-		bank = UPOWER_BANK_0;
+		bank = UPOWER_BANK_L;
 	else if (cpu < 8) /* cpu 4-7 */
-		bank = UPOWER_BANK_1;
+		bank = UPOWER_BANK_B;
 #else
 	if (cpu < 4) /* cpu 0-3 */
 		bank = UPOWER_BANK_LL;
@@ -138,7 +123,6 @@ struct upower_tbl *upower_get_core_tbl(unsigned int cpu)
 		bank = UPOWER_BANK_LL + 1;
 	else if (cpu < 10) /* cpu 8-9 */
 		bank = UPOWER_BANK_LL + 2;
-#endif
 #endif
 
 #ifdef UPOWER_L_PLUS
@@ -178,8 +162,8 @@ upower_dtype type)
 	if (idx >= NR_UPOWER_DEGREE)
 		idx = 0;
 	ret = (type == UPOWER_DYN) ? ptr_tbl->row[volt_idx].dyn_pwr :
-		(type == UPOWER_LKG) ? ptr_tbl->row[volt_idx].lkg_pwr[idx] :
-		ptr_tbl->row[volt_idx].cap;
+			(type == UPOWER_LKG) ? ptr_tbl->row[volt_idx].lkg_pwr[idx] :
+			ptr_tbl->row[volt_idx].cap;
 	upower_read_unlock();
 	#else
 	ptr_tbl_info = p_upower_tbl_infos;
@@ -188,8 +172,8 @@ upower_dtype type)
 	if (idx >= NR_UPOWER_DEGREE)
 		idx = 0;
 	ret = (type == UPOWER_DYN) ? ptr_tbl->row[volt_idx].dyn_pwr :
-		(type == UPOWER_LKG) ? ptr_tbl->row[volt_idx].lkg_pwr[idx] :
-		ptr_tbl->row[volt_idx].cap;
+			(type == UPOWER_LKG) ? ptr_tbl->row[volt_idx].lkg_pwr[idx] :
+			ptr_tbl->row[volt_idx].cap;
 	#endif
 
 	#ifdef UPOWER_PROFILE_API_TIME
@@ -199,4 +183,3 @@ upower_dtype type)
 	return ret;
 }
 EXPORT_SYMBOL(upower_get_power);
-

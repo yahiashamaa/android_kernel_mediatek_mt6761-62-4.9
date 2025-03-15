@@ -88,37 +88,29 @@ static void mtk_cpuidle_timestamp_report(int cpu)
 
 	report[cpu].count++;
 
-	report[cpu].kernel_plat_backup += (mtk_cpuidle_timestamp[cpu]
-		[MTK_SUSPEND_TIMESTAMP_BEFORE_ATF] -
-		mtk_cpuidle_timestamp[cpu]
-		[MTK_SUSPEND_TIMESTAMP_ENTER_CPUIDLE]);
-	report[cpu].kernel_to_atf += (mtk_cpuidle_timestamp[cpu]
-		[MTK_SUSPEND_TIMESTAMP_ENTER_ATF] -
-		mtk_cpuidle_timestamp[cpu]
-		[MTK_SUSPEND_TIMESTAMP_BEFORE_ATF]);
-	report[cpu].atf_l2_flush += (mtk_cpuidle_timestamp[cpu]
-		[MTK_SUSPEND_TIMESTAMP_AFTER_L2_FLUSH] -
-		mtk_cpuidle_timestamp[cpu]
-		[MTK_SUSPEND_TIMESTAMP_BEFORE_L2_FLUSH]);
-	report[cpu].atf_spm_suspend += (mtk_cpuidle_timestamp[cpu]
-		[MTK_SUSPEND_TIMESTAMP_LEAVE_SPM_SUSPEND] -
-		mtk_cpuidle_timestamp[cpu]
-		[MTK_SUSPEND_TIMESTAMP_ENTER_SPM_SUSPEND]);
+	report[cpu].kernel_plat_backup +=
+		(mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_BEFORE_ATF] -
+		mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_ENTER_CPUIDLE]);
+	report[cpu].kernel_to_atf +=
+		(mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_ENTER_ATF] -
+		mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_BEFORE_ATF]);
+	report[cpu].atf_l2_flush +=
+		(mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_AFTER_L2_FLUSH] -
+		mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_BEFORE_L2_FLUSH]);
+	report[cpu].atf_spm_suspend +=
+		(mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_LEAVE_SPM_SUSPEND] -
+		mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_ENTER_SPM_SUSPEND]);
 	report[cpu].atf_gic_backup +=
 		(mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_GIC_P2] -
 		mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_GIC_P1]);
 	report[cpu].atf_plat_backup +=
 		(mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_GIC_P1] -
-		mtk_cpuidle_timestamp[cpu]
-		[MTK_SUSPEND_TIMESTAMP_LEAVE_SPM_SUSPEND]);
-	report[cpu].atf_setup += (mtk_cpuidle_timestamp[cpu]
-		[MTK_SUSPEND_TIMESTAMP_BEFORE_L2_FLUSH] -
-		mtk_cpuidle_timestamp[cpu]
-		[MTK_SUSPEND_TIMESTAMP_ENTER_ATF]) +
-		(mtk_cpuidle_timestamp[cpu]
-		[MTK_SUSPEND_TIMESTAMP_ENTER_SPM_SUSPEND] -
-		mtk_cpuidle_timestamp[cpu]
-		[MTK_SUSPEND_TIMESTAMP_AFTER_L2_FLUSH]) +
+		mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_LEAVE_SPM_SUSPEND]);
+	report[cpu].atf_setup +=
+		(mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_BEFORE_L2_FLUSH] -
+		mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_ENTER_ATF]) +
+		(mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_ENTER_SPM_SUSPEND] -
+		mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_AFTER_L2_FLUSH]) +
 		(mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_BEFORE_WFI] -
 		mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_GIC_P2]);
 
@@ -128,52 +120,39 @@ static void mtk_cpuidle_timestamp_report(int cpu)
 	report[cpu].atf_gic_restore +=
 		(mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_GIC_P4] -
 		mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_GIC_P3]);
-	report[cpu].atf_spm_suspend_finish += (mtk_cpuidle_timestamp[cpu]
-		[MTK_SUSPEND_TIMESTAMP_LEAVE_SPM_SUSPEND_FINISH] -
-		mtk_cpuidle_timestamp[cpu]
-		[MTK_SUSPEND_TIMESTAMP_ENTER_SPM_SUSPEND_FINISH]);
-	report[cpu].atf_plat_restore += (mtk_cpuidle_timestamp[cpu]
-		[MTK_SUSPEND_TIMESTAMP_ENTER_SPM_SUSPEND_FINISH] -
+	report[cpu].atf_spm_suspend_finish +=
+		(mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_LEAVE_SPM_SUSPEND_FINISH] -
+		mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_ENTER_SPM_SUSPEND_FINISH]);
+	report[cpu].atf_plat_restore +=
+		(mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_ENTER_SPM_SUSPEND_FINISH] -
 		mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_GIC_P4]);
 	report[cpu].atf_to_kernel +=
 		(mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_AFTER_ATF] -
-		mtk_cpuidle_timestamp[cpu]
-		[MTK_SUSPEND_TIMESTAMP_LEAVE_SPM_SUSPEND_FINISH]);
+		mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_LEAVE_SPM_SUSPEND_FINISH]);
 	report[cpu].kernel_plat_restore +=
-		(mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_LEAVE_CPUIDLE]
-		- mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_AFTER_ATF]);
+		(mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_LEAVE_CPUIDLE] -
+		mtk_cpuidle_timestamp[cpu][MTK_SUSPEND_TIMESTAMP_AFTER_ATF]);
 
 	if (report[cpu].count == 1000) {
-		pr_info("======== MTK_CPUIDLE Time Profiling Start ========\n");
-		pr_info(",CPU,%d,CPU Freq,%d\n",
-			cpu, mt_cpufreq_get_cur_freq(cpu >> 2));
-		pr_info(",Kernel Platform Backup,%u\n",
-			report[cpu].kernel_plat_backup / report[cpu].count);
-		pr_info(",Kernel to ATF,%u\n",
-			report[cpu].kernel_to_atf / report[cpu].count);
-		pr_info(",ATF Setup,%u\n",
-			report[cpu].atf_setup / report[cpu].count);
-		pr_info(",ATF L2 Flush,%u\n",
-			report[cpu].atf_l2_flush / report[cpu].count);
-		pr_info(",ATF SPM Suspend,%u\n",
-		report[cpu].atf_spm_suspend / report[cpu].count);
-		pr_info(",ATF GIC Backup,%u\n",
-		report[cpu].atf_gic_backup / report[cpu].count);
-		pr_info(",ATF Platform Backup,%u\n",
-		report[cpu].atf_plat_backup / report[cpu].count);
-		pr_info("ATF CPU Init,%u\n",
-			report[cpu].atf_cpu_init / report[cpu].count);
-		pr_info("ATF GIC Restore,%u\n",
-			report[cpu].atf_gic_restore / report[cpu].count);
-		pr_info("ATF SPM Suspend Finish,%u\n",
-			report[cpu].atf_spm_suspend_finish / report[cpu].count);
-		pr_info("ATF Platform Restore,%u\n",
-			report[cpu].atf_plat_restore / report[cpu].count);
-		pr_info("ATF to Kernel,%u\n",
-			report[cpu].atf_to_kernel / report[cpu].count);
-		pr_info("Kernel Platform Restore,%u\n",
-			report[cpu].kernel_plat_restore / report[cpu].count);
-		pr_info("======== MTK_CPUIDLE Time Profiling Done ========\n");
+
+		pr_emerg("======== MTK_CPUIDLE Time Profiling Start ========\n");
+		pr_emerg(",CPU,%d,CPU Freq,%d\n", cpu, mt_cpufreq_get_cur_freq(cpu >> 2));
+
+		pr_emerg(",Kernel Platform Backup,%u\n", report[cpu].kernel_plat_backup / report[cpu].count);
+		pr_emerg(",Kernel to ATF,%u\n", report[cpu].kernel_to_atf / report[cpu].count);
+		pr_emerg(",ATF Setup,%u\n", report[cpu].atf_setup / report[cpu].count);
+		pr_emerg(",ATF L2 Flush,%u\n", report[cpu].atf_l2_flush / report[cpu].count);
+		pr_emerg(",ATF SPM Suspend,%u\n", report[cpu].atf_spm_suspend / report[cpu].count);
+		pr_emerg(",ATF GIC Backup,%u\n", report[cpu].atf_gic_backup / report[cpu].count);
+		pr_emerg(",ATF Platform Backup,%u\n", report[cpu].atf_plat_backup / report[cpu].count);
+
+		pr_emerg("ATF CPU Init,%u\n", report[cpu].atf_cpu_init / report[cpu].count);
+		pr_emerg("ATF GIC Restore,%u\n", report[cpu].atf_gic_restore / report[cpu].count);
+		pr_emerg("ATF SPM Suspend Finish,%u\n", report[cpu].atf_spm_suspend_finish / report[cpu].count);
+		pr_emerg("ATF Platform Restore,%u\n", report[cpu].atf_plat_restore / report[cpu].count);
+		pr_emerg("ATF to Kernel,%u\n", report[cpu].atf_to_kernel / report[cpu].count);
+		pr_emerg("Kernel Platform Restore,%u\n", report[cpu].kernel_plat_restore / report[cpu].count);
+		pr_emerg("======== MTK_CPUIDLE Time Profiling Done ========\n");
 
 		report[cpu].count = 0;
 		report[cpu].kernel_plat_backup = 0;
@@ -201,7 +180,7 @@ static void mtk_cpuidle_ram_console_init(void)
 
 	WARN_ON(!mtk_cpuidle_aee_virt_addr || !mtk_cpuidle_aee_phys_addr);
 
-	kernel_smc_msg(0, 2, (long)mtk_cpuidle_aee_phys_addr);
+	kernel_smc_msg(0, 2, (long) mtk_cpuidle_aee_phys_addr);
 #endif
 }
 
@@ -212,11 +191,11 @@ static u32 get_dts_node_irq_nr(const char *irq_match, int index)
 
 	node = of_find_compatible_node(NULL, NULL, irq_match);
 	if (!node)
-		pr_info("error: cannot find node [%s]\n", irq_match);
+		pr_err("error: cannot find node [%s]\n", irq_match);
 
 	irq_nr = irq_of_parse_and_map(node, index);
 	if (!irq_nr)
-		pr_info("error: cannot property_read [%s]\n", irq_match);
+		pr_err("error: cannot property_read [%s]\n", irq_match);
 
 	of_node_put(node);
 	pr_debug("compatible = %s, irq_nr = %u\n", irq_match, irq_nr);
@@ -246,8 +225,7 @@ static void mtk_dbg_save_restore(int cpu, int save)
 	unsigned int cpu_idle_sta;
 	int nr_cpu_bit = (1 << CONFIG_NR_CPUS) - 1;
 
-	cpu_idle_sta =
-	    (spm_read(CPU_IDLE_STA) >> CPU_IDLE_STA_OFFSET) | (1 << cpu);
+	cpu_idle_sta = (spm_read(CPU_IDLE_STA) >> CPU_IDLE_STA_OFFSET) | (1 << cpu);
 
 	if ((cpu_idle_sta & nr_cpu_bit) == nr_cpu_bit) {
 		if (save)
@@ -301,10 +279,8 @@ int mtk_enter_idle_state(int idx)
 	if (!ret) {
 		mtk_platform_save_context(cpu, idx);
 
-		mtk_cpuidle_footprint_log(cpu,
-			MTK_SUSPEND_FOOTPRINT_BEFORE_ATF);
-		mtk_cpuidle_timestamp_log(cpu,
-			MTK_SUSPEND_TIMESTAMP_BEFORE_ATF);
+		mtk_cpuidle_footprint_log(cpu, MTK_SUSPEND_FOOTPRINT_BEFORE_ATF);
+		mtk_cpuidle_timestamp_log(cpu, MTK_SUSPEND_TIMESTAMP_BEFORE_ATF);
 		/*
 		 * Pass idle state index to cpu_suspend which in turn will
 		 * call the CPU ops suspend protocol with idle index as a
@@ -319,8 +295,7 @@ int mtk_enter_idle_state(int idx)
 		cpu_pm_exit();
 
 		mtk_cpuidle_footprint_clr(cpu);
-		mtk_cpuidle_timestamp_log(cpu,
-			MTK_SUSPEND_TIMESTAMP_LEAVE_CPUIDLE);
+		mtk_cpuidle_timestamp_log(cpu, MTK_SUSPEND_TIMESTAMP_LEAVE_CPUIDLE);
 
 		mtk_cpuidle_timestamp_report(cpu);
 	}
@@ -343,3 +318,4 @@ int mtk_cpuidle_init(void)
 
 	return 0;
 }
+

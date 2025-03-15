@@ -1,20 +1,20 @@
 /*
- * Copyright (C) 2016 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
- */
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 
 #ifndef __MODEM_CCIF_H__
 #define __MODEM_CCIF_H__
 
-#include <linux/pm_wakeup.h>
+#include <linux/wakelock.h>
 #include <linux/dmapool.h>
 #include <linux/atomic.h>
 #include <mt-plat/mtk_ccci_common.h>
@@ -106,21 +106,19 @@ struct md_ccif_ctrl {
 	struct ccci_hif_ops *ops;
 };
 
-static inline void ccif_set_busy_queue(struct md_ccif_ctrl *md_ctrl,
-	unsigned int qno)
+static inline void ccif_set_busy_queue(struct md_ccif_ctrl *md_ctrl, unsigned int qno)
 {
 	if (!md_ctrl->flow_ctrl)
 		return;
-	/* set busy bit */
+	/*set busy bit*/
 	md_ctrl->flow_ctrl->ap_busy_queue |= (0x1 << qno);
 }
 
-static inline void ccif_clear_busy_queue(struct md_ccif_ctrl *md_ctrl,
-	unsigned int qno)
+static inline void ccif_clear_busy_queue(struct md_ccif_ctrl *md_ctrl, unsigned int qno)
 {
 	if (!md_ctrl->flow_ctrl)
 		return;
-	/* clear busy bit */
+	/*clear busy bit*/
 	md_ctrl->flow_ctrl->ap_busy_queue &= ~(0x1 << qno);
 }
 
@@ -129,18 +127,15 @@ static inline void ccif_reset_busy_queue(struct md_ccif_ctrl *md_ctrl)
 #ifdef	FLOW_CTRL_ENABLE
 	if (!md_ctrl->flow_ctrl)
 		return;
-	/* reset busy bit */
+	/*reset busy bit*/
 	md_ctrl->flow_ctrl->head_magic = FLOW_CTRL_HEAD;
 	md_ctrl->flow_ctrl->ap_busy_queue = 0x0;
 	md_ctrl->flow_ctrl->md_busy_queue = 0x0;
-	/* Notice: tail will be set by modem
-	 * if it supports flow control
-	 */
+	/*Notice: tail will be set by modem if it supports flow control*/
 #endif
 }
 
-static inline int ccif_is_md_queue_busy(struct md_ccif_ctrl *md_ctrl,
-	unsigned int qno)
+static inline int ccif_is_md_queue_busy(struct md_ccif_ctrl *md_ctrl, unsigned int qno)
 {
 	/*caller should handle error*/
 	if (!md_ctrl->flow_ctrl)
@@ -164,8 +159,7 @@ static inline int ccif_is_md_flow_ctrl_supported(struct md_ccif_ctrl *md_ctrl)
 		return 0;
 }
 
-static inline void ccif_wake_up_tx_queue(struct md_ccif_ctrl *md_ctrl,
-	unsigned int qno)
+static inline void ccif_wake_up_tx_queue(struct md_ccif_ctrl *md_ctrl, unsigned int qno)
 {
 	struct md_ccif_queue *queue = &md_ctrl->txq[qno];
 
@@ -176,23 +170,19 @@ static inline void ccif_wake_up_tx_queue(struct md_ccif_ctrl *md_ctrl,
 
 int ccci_ccif_hif_init(unsigned char hif_id, unsigned char md_id);
 
-static inline int ccci_ccif_hif_send_skb(unsigned char hif_id, int tx_qno,
-	struct sk_buff *skb, int from_pool, int blocking)
+static inline int ccci_ccif_hif_send_skb(unsigned char hif_id, int tx_qno, struct sk_buff *skb,
+	int from_pool, int blocking)
 {
-	struct md_ccif_ctrl *md_ctrl =
-		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_ccif_ctrl *md_ctrl = (struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 
 	if (md_ctrl)
-		return md_ctrl->ops->send_skb(hif_id, tx_qno,
-			skb, from_pool, blocking);
+		return md_ctrl->ops->send_skb(hif_id, tx_qno, skb, from_pool, blocking);
 	else
 		return -1;
 }
-static inline int ccci_ccif_hif_write_room(unsigned char hif_id,
-	unsigned char qno)
+static inline int ccci_ccif_hif_write_room(unsigned char hif_id, unsigned char qno)
 {
-	struct md_ccif_ctrl *md_ctrl =
-		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_ccif_ctrl *md_ctrl = (struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 
 	if (md_ctrl)
 		return md_ctrl->ops->write_room(hif_id, qno);
@@ -202,23 +192,19 @@ static inline int ccci_ccif_hif_write_room(unsigned char hif_id,
 }
 static inline int ccci_ccif_hif_give_more(unsigned char hif_id, int rx_qno)
 {
-	struct md_ccif_ctrl *md_ctrl =
-		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_ccif_ctrl *md_ctrl = (struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 
 	if (md_ctrl)
 		return md_ctrl->ops->give_more(hif_id, rx_qno);
 	else
 		return -1;
 }
-static inline int ccci_ccif_hif_dump_status(unsigned int hif_id,
-	MODEM_DUMP_FLAG dump_flag, int length)
+static inline int ccci_ccif_hif_dump_status(unsigned int hif_id, MODEM_DUMP_FLAG dump_flag, int length)
 {
-	struct md_ccif_ctrl *md_ctrl =
-		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_ccif_ctrl *md_ctrl = (struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 
 	if (md_ctrl)
-		return md_ctrl->ops->dump_status(hif_id,
-				dump_flag, length);
+		return md_ctrl->ops->dump_status(hif_id, dump_flag, length);
 	else
 		return -1;
 
@@ -226,8 +212,7 @@ static inline int ccci_ccif_hif_dump_status(unsigned int hif_id,
 
 static inline int ccci_ccif_hif_set_wakeup_src(unsigned char hif_id, int value)
 {
-	struct md_ccif_ctrl *md_ctrl =
-		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct md_ccif_ctrl *md_ctrl = (struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 
 	if (md_ctrl)
 		return atomic_set(&md_ctrl->wakeup_src, value);
@@ -235,8 +220,7 @@ static inline int ccci_ccif_hif_set_wakeup_src(unsigned char hif_id, int value)
 		return -1;
 }
 
-void *ccif_hif_fill_rt_header(unsigned char hif_id, int packet_size,
-	unsigned int tx_ch, unsigned int txqno);
+void *ccif_hif_fill_rt_header(unsigned char hif_id, int packet_size, unsigned int tx_ch, unsigned int txqno);
 void md_ccif_reset_queue(unsigned char hif_id, unsigned char for_start);
 
 void ccif_polling_ready(unsigned char hif_id, int step);
@@ -247,9 +231,7 @@ void md_ccif_switch_ringbuf(unsigned char hif_id, RINGBUF_ID rb_id);
 
 int md_ccif_send(unsigned char hif_id, int channel_id);
 
-/* always keep this in mind:
- * what if there are more than 1 modems using CLDMA...
- */
+/* always keep this in mind: what if there are more than 1 modems using CLDMA... */
 extern void mt_irq_dump_status(int irq);
 extern void mt_irq_set_sens(unsigned int irq, unsigned int sens);
 extern void mt_irq_set_polarity(unsigned int irq, unsigned int polarity);

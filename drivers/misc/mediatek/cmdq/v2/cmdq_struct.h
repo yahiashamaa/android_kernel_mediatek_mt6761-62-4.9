@@ -24,4 +24,4 @@ struct cmdqFileNodeStruct {
 	spinlock_t nodeLock;
 };
 
-#endif /* __CMDQ_STRUCT_H__ */
+#endif				/* __CMDQ_STRUCT_H__ */

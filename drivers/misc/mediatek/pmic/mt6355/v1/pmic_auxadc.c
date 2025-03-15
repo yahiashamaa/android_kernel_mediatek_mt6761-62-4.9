@@ -21,8 +21,8 @@
 #include <linux/list.h>
 #include <linux/mutex.h>
 #include <linux/kthread.h>
+#include <linux/wakelock.h>
 #include <linux/device.h>
-#include <linux/pm_wakeup.h>
 #include <linux/kdev_t.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
@@ -38,45 +38,32 @@
 
 #include "include/pmic.h"
 #include "include/mtk_pmic_common.h"
+#include "include/pmic_debugfs.h"
 #include <mt-plat/upmu_common.h>
-#include <mach/mtk_pmic.h>
 #include <mt-plat/mtk_auxadc_intf.h>
+#include <mt-plat/charger_class.h>
+#include <mt-plat/aee.h>
 
 static int count_time_out = 100;
 
-static struct wakeup_source  mt6355_auxadc_wake_lock;
+static struct wake_lock  mt6355_auxadc_wake_lock;
 static struct mutex mt6355_adc_mutex;
 static DEFINE_MUTEX(auxadc_ch3_mutex);
 
 /*--Monitor MTS Thread Start--*/
 static int mts_adc;
-static struct wakeup_source  adc_monitor_wake_lock;
+static struct wake_lock  adc_monitor_wake_lock;
 static struct mutex adc_monitor_mutex;
 static struct task_struct *adc_thread_handle;
-
-const char *pmic_auxadc_channel_name[] = {
-	/* mt6355 */
-	"BATADC",
-	"VCDT",
-	"BAT TEMP",
-	"BATID",
-	"VBIF",
-	"MT6355 CHIP TEMP",
-	"DCXO",
-	"ACCDET",
-	"TSX",
-	"HP",
-};
 
 void wake_up_auxadc_detect(void)
 {
 	PMICLOG("[%s]\n", __func__);
 	if (adc_thread_handle != NULL) {
-		__pm_stay_awake(&adc_monitor_wake_lock);
+		wake_lock(&adc_monitor_wake_lock);
 		wake_up_process(adc_thread_handle);
 	} else
-		pr_info(PMICTAG "[%s] adc_thread_handle not ready\n"
-			, __func__);
+		pr_err(PMICTAG "[%s] adc_thread_handle not ready\n", __func__);
 }
 /*--Monitor MTS Thread End--*/
 
@@ -99,22 +86,19 @@ unsigned int wk_auxadc_vsen_tdet_ctrl(unsigned char en_check)
 	if (en_check) {
 		if ((!pmic_get_register_value(PMIC_RG_ADCIN_VSEN_MUX_EN)) &&
 			(pmic_get_register_value(PMIC_BATON_TDET_EN))) {
-			PMICLOG("[%s] vbif %d\n"
-				, __func__, g_pmic_pad_vbif28_vol);
+			PMICLOG("[%s] vbif %d\n", __func__, g_pmic_pad_vbif28_vol);
 			return g_pmic_pad_vbif28_vol;
 		}
-		pr_info("[%s] baton switch off! vsen_mux_en = %d, tdet_en = %d\n"
-			, __func__
-			, pmic_get_register_value(PMIC_RG_ADCIN_VSEN_MUX_EN)
-			, pmic_get_register_value(PMIC_BATON_TDET_EN));
+		pr_err("[%s] baton switch off! vsen_mux_en = %d, tdet_en = %d\n",
+					__func__, pmic_get_register_value(PMIC_RG_ADCIN_VSEN_MUX_EN),
+					pmic_get_register_value(PMIC_BATON_TDET_EN));
 		ret = 0;
 	} else {
 		pmic_set_register_value(PMIC_RG_ADCIN_VSEN_MUX_EN, 0);
 		pmic_set_register_value(PMIC_BATON_TDET_EN, 1);
-		pr_info("[%s] baton switch on! vsen_mux_en = %d, tdet_en = %d\n"
-			, __func__
-			, pmic_get_register_value(PMIC_RG_ADCIN_VSEN_MUX_EN)
-			, pmic_get_register_value(PMIC_BATON_TDET_EN));
+		pr_err("[%s] baton switch on! vsen_mux_en = %d, tdet_en = %d\n",
+					__func__, pmic_get_register_value(PMIC_RG_ADCIN_VSEN_MUX_EN),
+					pmic_get_register_value(PMIC_BATON_TDET_EN));
 		ret = 1;
 	}
 	return ret;
@@ -124,54 +108,39 @@ void wk_auxadc_bgd_ctrl(unsigned char en)
 {
 	if (en) {
 		/*--Enable BATON TDET EN--*/
-		pmic_config_interface_nolock(MT6355_PCHR_VREF_ANA_DA0
-					     , 0x1, 0x1, 2);
+		pmic_config_interface_nolock(MT6355_PCHR_VREF_ANA_DA0, 0x1, 0x1, 2);
 		/*--BAT TEMP MAX DET EN--*/
-		pmic_config_interface_nolock(MT6355_AUXADC_BAT_TEMP_4
-					     , 0x3, 0x3, 12);
+		pmic_config_interface_nolock(MT6355_AUXADC_BAT_TEMP_4, 0x3, 0x3, 12);
 		/*--BAT TEMP MIN DET EN--*/
-		pmic_config_interface_nolock(MT6355_AUXADC_BAT_TEMP_5
-					     , 0x3, 0x3, 12);
+		pmic_config_interface_nolock(MT6355_AUXADC_BAT_TEMP_5, 0x3, 0x3, 12);
 		/*--BAT TEMP DET EN--*/
-		pmic_config_interface_nolock(MT6355_INT_CON1_SET
-					     , 0x00C0, 0xffff, 0);
+		pmic_config_interface_nolock(MT6355_INT_CON1_SET, 0x00C0, 0xffff, 0);
 	} else {
 		/*--BAT TEMP MAX DET EN--*/
-		pmic_config_interface_nolock(MT6355_AUXADC_BAT_TEMP_4
-					     , 0x0, 0x3, 12);
+		pmic_config_interface_nolock(MT6355_AUXADC_BAT_TEMP_4, 0x0, 0x3, 12);
 		/*--BAT TEMP MIN DET EN--*/
-		pmic_config_interface_nolock(MT6355_AUXADC_BAT_TEMP_5
-					     , 0x0, 0x3, 12);
+		pmic_config_interface_nolock(MT6355_AUXADC_BAT_TEMP_5, 0x0, 0x3, 12);
 		/*--BAT TEMP DET EN--*/
-		pmic_config_interface_nolock(MT6355_INT_CON1_CLR
-					     , 0x00C0, 0xffff, 0);
+		pmic_config_interface_nolock(MT6355_INT_CON1_CLR, 0x00C0, 0xffff, 0);
 		/*--Disable BATON TDET EN--*/
-		pmic_config_interface_nolock(MT6355_PCHR_VREF_ANA_DA0
-					     , 0x0, 0x1, 2);
+		pmic_config_interface_nolock(MT6355_PCHR_VREF_ANA_DA0, 0x0, 0x1, 2);
 	}
 }
 
 void wk_auxadc_bgd_ctrl_dbg(void)
 {
-	pr_info("EN_BAT_TEMP_L: %d\n"
-		, pmic_get_register_value(PMIC_RG_INT_EN_BAT_TEMP_L));
-	pr_info("EN_BAT_TEMP_H: %d\n"
-		, pmic_get_register_value(PMIC_RG_INT_EN_BAT_TEMP_H));
-	pr_info("BAT_TEMP_IRQ_EN_MAX: %d\n"
-		, pmic_get_register_value(PMIC_AUXADC_BAT_TEMP_IRQ_EN_MAX));
-	pr_info("BAT_TEMP_IRQ_EN_MIN: %d\n"
-		, pmic_get_register_value(PMIC_AUXADC_BAT_TEMP_IRQ_EN_MIN));
-	pr_info("BAT_TEMP_EN_MAX: %d\n"
-		, pmic_get_register_value(PMIC_AUXADC_BAT_TEMP_EN_MAX));
-	pr_info("BAT_TEMP_EN_MIN: %d\n"
-		, pmic_get_register_value(PMIC_AUXADC_BAT_TEMP_EN_MIN));
-	pr_info("BATON_TDET_EN: %d\n"
-		, pmic_get_register_value(PMIC_BATON_TDET_EN));
+	pr_err("EN_BAT_TEMP_L: %d\n", pmic_get_register_value(PMIC_RG_INT_EN_BAT_TEMP_L));
+	pr_err("EN_BAT_TEMP_H: %d\n", pmic_get_register_value(PMIC_RG_INT_EN_BAT_TEMP_H));
+	pr_err("BAT_TEMP_IRQ_EN_MAX: %d\n", pmic_get_register_value(PMIC_AUXADC_BAT_TEMP_IRQ_EN_MAX));
+	pr_err("BAT_TEMP_IRQ_EN_MIN: %d\n", pmic_get_register_value(PMIC_AUXADC_BAT_TEMP_IRQ_EN_MIN));
+	pr_err("BAT_TEMP_EN_MAX: %d\n", pmic_get_register_value(PMIC_AUXADC_BAT_TEMP_EN_MAX));
+	pr_err("BAT_TEMP_EN_MIN: %d\n", pmic_get_register_value(PMIC_AUXADC_BAT_TEMP_EN_MIN));
+	pr_err("BATON_TDET_EN: %d\n", pmic_get_register_value(PMIC_BATON_TDET_EN));
 }
 
 void mt6355_auxadc_lock(void)
 {
-	__pm_stay_awake(&mt6355_auxadc_wake_lock);
+	wake_lock(&mt6355_auxadc_wake_lock);
 	mutex_lock(&mt6355_adc_mutex);
 }
 
@@ -189,7 +158,7 @@ void unlockadcch3(void)
 void mt6355_auxadc_unlock(void)
 {
 	mutex_unlock(&mt6355_adc_mutex);
-	__pm_relax(&mt6355_auxadc_wake_lock);
+	wake_unlock(&mt6355_auxadc_wake_lock);
 }
 
 struct pmic_auxadc_channel mt6355_auxadc_channel[] = {
@@ -216,25 +185,23 @@ struct pmic_auxadc_channel mt6355_auxadc_channel[] = {
 };
 #define MT6355_AUXADC_CHANNEL_MAX	ARRAY_SIZE(mt6355_auxadc_channel)
 
-int pmic_get_auxadc_channel_max(void)
-{
-	return MT6355_AUXADC_CHANNEL_MAX;
-}
+static signed int g_ch0_reg_val;
+static unsigned int g_ch0_count;
 
-int mt_get_auxadc_value(u8 channel)
+int mt6355_get_auxadc_value(u8 channel)
 {
 	int count = 0;
 	signed int adc_result = 0, reg_val = 0;
 	struct pmic_auxadc_channel *auxadc_channel;
 	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 5);
 
-	if (channel - AUXADC_LIST_START < 0 ||
-			channel - AUXADC_LIST_END > 0) {
-		pr_info("[%s] Invalid channel(%d)\n", __func__, channel);
+	if (channel - AUXADC_LIST_MT6355_START < 0 ||
+			channel - AUXADC_LIST_MT6355_END > 0) {
+		pr_err("[%s] Invalid channel(%d)\n", __func__, channel);
 		return -EINVAL;
 	}
 	auxadc_channel =
-		&mt6355_auxadc_channel[channel-AUXADC_LIST_START];
+		&mt6355_auxadc_channel[channel-AUXADC_LIST_MT6355_START];
 
 	if (channel == AUXADC_LIST_VBIF) {
 		if (wk_auxadc_vsen_tdet_ctrl(1))
@@ -247,16 +214,14 @@ int mt_get_auxadc_value(u8 channel)
 		pmic_set_register_value(PMIC_AUXADC_DCXO_CH4_MUX_AP_SEL, 1);
 	if (channel == AUXADC_LIST_MT6355_CHIP_TEMP)
 		pmic_set_register_value(PMIC_AUXADC_DCXO_CH4_MUX_AP_SEL, 0);
-	if (channel == AUXADC_LIST_BATTEMP ||
-	    channel == AUXADC_LIST_BATID ||
-	    channel == AUXADC_LIST_VBIF) {
+	if (channel == AUXADC_LIST_BATTEMP || channel == AUXADC_LIST_BATID || channel == AUXADC_LIST_VBIF) {
 		if (!wk_auxadc_ch3_bif_on(2)) {
-			pr_info("ch3 bif off abnormal\n");
+			pr_err("ch3 bif off abnormal\n");
 			wk_auxadc_ch3_bif_on(1);
 		}
 		if (channel == AUXADC_LIST_BATTEMP) {
 			if (!wk_auxadc_vsen_tdet_ctrl(1)) {
-				pr_info("ch3 tdet ctrl abnormal\n");
+				pr_err("ch3 tdet ctrl abnormal\n");
 				wk_auxadc_vsen_tdet_ctrl(0);
 			}
 			mutex_lock(&auxadc_ch3_mutex);
@@ -269,15 +234,25 @@ int mt_get_auxadc_value(u8 channel)
 	while (pmic_get_register_value(auxadc_channel->channel_rdy) != 1) {
 		usleep_range(1300, 1500);
 		if ((count++) > count_time_out) {
-			pr_info("[%s] (%d) Time out!\n", __func__, channel);
+			pr_err("[%s] (%d) Time out!\n", __func__, channel);
 			break;
 		}
 	}
 	reg_val = pmic_get_register_value(auxadc_channel->channel_out);
+	if (channel == AUXADC_LIST_BATADC) {
+		if (reg_val == g_ch0_reg_val)
+			g_ch0_count++;
+		else {
+			g_ch0_count = 0;
+			g_ch0_reg_val = reg_val;
+		}
+		if (g_ch0_count > 50) {
+			pmic_dump_register(NULL);
+			g_ch0_count = 0;
+		}
+	}
 
-	if (channel == AUXADC_LIST_BATTEMP ||
-	    channel == AUXADC_LIST_BATID ||
-	    channel == AUXADC_LIST_VBIF) {
+	if (channel == AUXADC_LIST_BATTEMP || channel == AUXADC_LIST_BATID || channel == AUXADC_LIST_VBIF) {
 		if (channel == AUXADC_LIST_BATTEMP)
 			mutex_unlock(&auxadc_ch3_mutex);
 	}
@@ -296,22 +271,34 @@ int mt_get_auxadc_value(u8 channel)
 
 	if (channel == AUXADC_LIST_BATTEMP) {
 		if (adc_result > 2000 || adc_result < 300) {
-			pr_info("[bif] %d\n", wk_auxadc_ch3_bif_on(2));
-			pr_info("[baton] vsen_mux_en = %d, tdet_en = %d\n",
-				pmic_get_register_value(
-						PMIC_RG_ADCIN_VSEN_MUX_EN),
+			pr_err("[bif] %d\n", wk_auxadc_ch3_bif_on(2));
+			pr_err("[baton] vsen_mux_en = %d, tdet_en = %d\n",
+				pmic_get_register_value(PMIC_RG_ADCIN_VSEN_MUX_EN),
 				pmic_get_register_value(PMIC_BATON_TDET_EN));
-			if (adc_result < 200 &&
-			    wk_auxadc_ch3_bif_on(2) &&
-			    wk_auxadc_vsen_tdet_ctrl(1))
+			if (adc_result < 200 && wk_auxadc_ch3_bif_on(2) && wk_auxadc_vsen_tdet_ctrl(1))
 				adc_result = mt6355_auxadc_recv_batmp();
 		}
 	}
 
 	if (__ratelimit(&ratelimit))
-		pr_info("[%s] ch = %d, reg_val = 0x%x, adc_result = %d\n",
+		pr_err("[%s] ch = %d, reg_val = 0x%x, adc_result = %d\n",
 					__func__, channel, reg_val, adc_result);
 
+	if (
+		pmic_get_register_value(PMIC_RG_INT_MASK_PWRKEY) == 1 ||
+		pmic_get_register_value(PMIC_RG_INT_MASK_PWRKEY_R) == 1 ||
+		pmic_get_register_value(PMIC_RG_INTRP_CK_PDN) == 1 ||
+		pmic_get_register_value(PMIC_RG_AUXADC_1M_CK_PDN) == 1 ||
+		pmic_get_register_value(PMIC_AUXADC_ADC_PWDB_SWCTRL) == 1 ||
+		pmic_get_register_value(PMIC_RG_LDO_VCN18_SW_OP_EN) == 0) {
+		pr_notice("PMIC_RG_INT_MASK_PWRKEY=%d(0)\n", pmic_get_register_value(PMIC_RG_INT_MASK_PWRKEY));
+		pr_notice("PMIC_RG_INT_MASK_PWRKEY_R=%d(0)\n", pmic_get_register_value(PMIC_RG_INT_MASK_PWRKEY_R));
+		pr_notice("PMIC_RG_INTRP_CK_PDN=%d(0)\n", pmic_get_register_value(PMIC_RG_INTRP_CK_PDN));
+		pr_notice("PMIC_RG_AUXADC_1M_CK_PDN=%d(0)\n", pmic_get_register_value(PMIC_RG_AUXADC_1M_CK_PDN));
+		pr_notice("PMIC_AUXADC_ADC_PWDB_SWCTRL=%d(0)\n", pmic_get_register_value(PMIC_AUXADC_ADC_PWDB_SWCTRL));
+		pr_notice("PMIC_RG_LDO_VCN18_SW_OP_EN=%d(1)\n", pmic_get_register_value(PMIC_RG_LDO_VCN18_SW_OP_EN));
+		aee_kernel_warning("PMIC REG error", "PMIC REG error");
+	}
 	/*--Monitor MTS Thread--*/
 	if (channel == AUXADC_LIST_BATADC)
 		wake_up_auxadc_detect();
@@ -331,22 +318,26 @@ static int mt6355_auxadc_get_auxadc_value_batmp(void)
 	u8 channel = AUXADC_LIST_BATTEMP;
 
 	auxadc_channel =
-		&mt6355_auxadc_channel[channel-AUXADC_LIST_START];
+		&mt6355_auxadc_channel[channel-AUXADC_LIST_MT6355_START];
 
 	mt6355_auxadc_lock();
 	mutex_lock(&auxadc_ch3_mutex);
 
-	pmic_set_register_value(auxadc_channel->channel_rqst, 1);
-	udelay(10);
+	/* repeat get AUXADC BATON value until VSEN_MUX_EN is 0 */
+	do {
+		pmic_set_register_value(PMIC_RG_ADCIN_VSEN_MUX_EN, 0);
+		pmic_set_register_value(auxadc_channel->channel_rqst, 1);
+		udelay(10);
 
-	while (pmic_get_register_value(auxadc_channel->channel_rdy) != 1) {
-		usleep_range(1300, 1500);
-		if ((count++) > count_time_out) {
-			pr_info("[%s] (%d) Time out!\n", __func__, channel);
-			break;
+		while (pmic_get_register_value(auxadc_channel->channel_rdy) != 1) {
+			usleep_range(1300, 1500);
+			if ((count++) > count_time_out) {
+				pr_notice("[%s] (%d) Time out!\n", __func__, channel);
+				break;
+			}
 		}
-	}
-	reg_val = pmic_get_register_value(auxadc_channel->channel_out);
+		reg_val = pmic_get_register_value(auxadc_channel->channel_out);
+	} while (pmic_get_register_value(PMIC_RG_ADCIN_VSEN_MUX_EN) == 1);
 
 	mutex_unlock(&auxadc_ch3_mutex);
 	mt6355_auxadc_unlock();
@@ -368,11 +359,11 @@ int mt6355_auxadc_recv_batmp(void)
 		all_adc_result += mt6355_auxadc_get_auxadc_value_batmp();
 
 	if (all_adc_result < 1000) {
-		pr_info("adc_recv_batmp\n");
+		pr_err("adc_recv_batmp\n");
 		pmic_set_register_value(PMIC_RG_STRUP_AUXADC_RSTB_SW, 0);
 		pmic_set_register_value(PMIC_RG_STRUP_AUXADC_RSTB_SW, 1);
 		adc_result = mt6355_auxadc_get_auxadc_value_batmp();
-		pr_info("adc_recv_batmp %d\n", adc_result);
+		pr_err("adc_recv_batmp %d\n", adc_result);
 		return adc_result;
 	} else
 		return (all_adc_result/5);
@@ -385,8 +376,7 @@ void mt6355_auxadc_monitor_mts_regs(void)
 	int mts_adc_tmp = 0;
 
 	mts_adc_tmp = pmic_get_register_value(PMIC_AUXADC_ADC_OUT_MDRT);
-	pr_debug("[MTS_ADC] OLD = 0x%x, NOW = 0x%x, CNT = %d\n"
-		 , mts_adc, mts_adc_tmp, mts_count);
+	pr_debug("[MTS_ADC] OLD = 0x%x, NOW = 0x%x, CNT = %d\n", mts_adc, mts_adc_tmp, mts_count);
 
 	if (mts_adc ==  mts_adc_tmp)
 		mts_count++;
@@ -394,43 +384,27 @@ void mt6355_auxadc_monitor_mts_regs(void)
 		mts_count = 0;
 
 	if ((mts_count > 15)) {
-		pr_info("DEW_READ_TEST = 0x%x\n"
-			, pmic_get_register_value(PMIC_DEW_READ_TEST));
+		pr_err("DEW_READ_TEST = 0x%x\n", pmic_get_register_value(PMIC_DEW_READ_TEST));
 		/*--AUXADC MDRT--*/
-		pr_info("AUXADC_ADC36  = 0x%x\n"
-			, upmu_get_reg_value(MT6355_AUXADC_ADC36));
-		pr_info("AUXADC_ADC42  = 0x%x\n"
-			, upmu_get_reg_value(MT6355_AUXADC_ADC42));
-		pr_info("AUXADC_MDRT_0 = 0x%x\n"
-			, upmu_get_reg_value(MT6355_AUXADC_MDRT_0));
-		pr_info("AUXADC_MDRT_1 = 0x%x\n"
-			, upmu_get_reg_value(MT6355_AUXADC_MDRT_1));
-		pr_info("AUXADC_MDRT_2 = 0x%x\n"
-			, upmu_get_reg_value(MT6355_AUXADC_MDRT_2));
-		pr_info("AUXADC_MDRT_3 = 0x%x\n"
-			, upmu_get_reg_value(MT6355_AUXADC_MDRT_3));
-		pr_info("AUXADC_MDRT_4 = 0x%x\n"
-			, upmu_get_reg_value(MT6355_AUXADC_MDRT_4));
+		pr_err("AUXADC_ADC36  = 0x%x\n", upmu_get_reg_value(MT6355_AUXADC_ADC36));
+		pr_err("AUXADC_ADC42  = 0x%x\n", upmu_get_reg_value(MT6355_AUXADC_ADC42));
+		pr_err("AUXADC_MDRT_0 = 0x%x\n", upmu_get_reg_value(MT6355_AUXADC_MDRT_0));
+		pr_err("AUXADC_MDRT_1 = 0x%x\n", upmu_get_reg_value(MT6355_AUXADC_MDRT_1));
+		pr_err("AUXADC_MDRT_2 = 0x%x\n", upmu_get_reg_value(MT6355_AUXADC_MDRT_2));
+		pr_err("AUXADC_MDRT_3 = 0x%x\n", upmu_get_reg_value(MT6355_AUXADC_MDRT_3));
+		pr_err("AUXADC_MDRT_4 = 0x%x\n", upmu_get_reg_value(MT6355_AUXADC_MDRT_4));
 		/*--AUXADC SPI AVG SEL--*/
-		pr_info("AUXADC_CON2  = 0x%x\n"
-			, upmu_get_reg_value(MT6355_AUXADC_CON2));
-		pr_info("AUXADC_CON5  = 0x%x\n"
-			, upmu_get_reg_value(MT6355_AUXADC_CON5));
-		pr_info("AUXADC_CON8  = 0x%x\n"
-			, upmu_get_reg_value(MT6355_AUXADC_CON8));
-		pr_info("AUXADC_CON9  = 0x%x\n"
-			, upmu_get_reg_value(MT6355_AUXADC_CON9));
+		pr_err("AUXADC_CON2  = 0x%x\n", upmu_get_reg_value(MT6355_AUXADC_CON2));
+		pr_err("AUXADC_CON5  = 0x%x\n", upmu_get_reg_value(MT6355_AUXADC_CON5));
+		pr_err("AUXADC_CON8  = 0x%x\n", upmu_get_reg_value(MT6355_AUXADC_CON8));
+		pr_err("AUXADC_CON9  = 0x%x\n", upmu_get_reg_value(MT6355_AUXADC_CON9));
 		/*--AUXADC CLK--*/
-		pr_info("TOP_CKPDN_CON0  = 0x%x\n"
-			, upmu_get_reg_value(MT6355_TOP_CKPDN_CON0));
-		pr_info("TOP_CKHWEN_CON0 = 0x%x\n"
-			, upmu_get_reg_value(MT6355_TOP_CKHWEN_CON0));
-		pr_info("TOP_CKHWEN_CON1 = 0x%x\n"
-			, upmu_get_reg_value(MT6355_TOP_CKHWEN_CON1));
+		pr_err("TOP_CKPDN_CON0  = 0x%x\n", upmu_get_reg_value(MT6355_TOP_CKPDN_CON0));
+		pr_err("TOP_CKHWEN_CON0 = 0x%x\n", upmu_get_reg_value(MT6355_TOP_CKHWEN_CON0));
+		pr_err("TOP_CKHWEN_CON1 = 0x%x\n", upmu_get_reg_value(MT6355_TOP_CKHWEN_CON1));
 
 		/*--AUXADC CH7--*/
-		pr_info("AUXADC_LIST_TSX = %d\n"
-			, mt_get_auxadc_value(AUXADC_LIST_TSX));
+		pr_err("AUXADC_LIST_TSX = %d\n", mt6355_get_auxadc_value(AUXADC_LIST_TSX));
 		mts_count = 0;
 	}
 	mts_adc = mts_adc_tmp;
@@ -449,7 +423,7 @@ int mt6355_auxadc_kthread(void *x)
 		mt6355_auxadc_monitor_mts_regs();
 
 		mutex_unlock(&adc_monitor_mutex);
-		__pm_relax(&adc_monitor_wake_lock);
+		wake_unlock(&adc_monitor_wake_lock);
 
 		set_current_state(TASK_INTERRUPTIBLE);
 		schedule();
@@ -460,24 +434,23 @@ int mt6355_auxadc_kthread(void *x)
 
 void mt6355_auxadc_thread_init(void)
 {
-	adc_thread_handle = kthread_create(mt6355_auxadc_kthread
-					   , (void *)NULL, "adc_thread");
+	adc_thread_handle = kthread_create(mt6355_auxadc_kthread, (void *)NULL, "adc_thread");
 	if (IS_ERR(adc_thread_handle)) {
 		adc_thread_handle = NULL;
-		pr_info(PMICTAG "[adc_kthread] creation fails\n");
+		pr_err(PMICTAG "[adc_kthread] creation fails\n");
 	} else {
 		PMICLOG("[adc_kthread] kthread_create Done\n");
 	}
 }
 /*--Monitor MTS Thread End--*/
 
-void pmic_auxadc_init(void)
+void mt6355_auxadc_init(void)
 {
-	pr_info("%s\n", __func__);
-	wakeup_source_init(&mt6355_auxadc_wake_lock
-			   , "MT6355 AuxADC wakelock");
-	wakeup_source_init(&adc_monitor_wake_lock
-			   , "MT6355 AuxADC Monitor wakelock");
+	pr_err("%s\n", __func__);
+	wake_lock_init(&mt6355_auxadc_wake_lock,
+			WAKE_LOCK_SUSPEND, "MT6355 AuxADC wakelock");
+	wake_lock_init(&adc_monitor_wake_lock,
+			WAKE_LOCK_SUSPEND, "MT6355 AuxADC Monitor wakelock");
 	mutex_init(&mt6355_adc_mutex);
 	mutex_init(&adc_monitor_mutex);
 
@@ -499,77 +472,51 @@ void pmic_auxadc_init(void)
 	pmic_set_register_value(PMIC_AUXADC_DATA_REUSE_SEL, 0);
 	pmic_set_register_value(PMIC_AUXADC_DATA_REUSE_EN, 1);
 	pmic_set_register_value(PMIC_AUXADC_TRIM_CH0_SEL, 0);
-	/*IMP DCM WK Peter-SW 12/21--*/
-	pmic_config_interface(0x3370, 0x1, 0x1, 0);
+	pmic_config_interface(0x3370, 0x1, 0x1, 0); /*IMP DCM WK Peter-SW 12/21--*/
 
 	mt6355_auxadc_thread_init();
 
 	pr_info("****[%s] DONE\n", __func__);
 
 	/* update VBIF28 by AUXADC */
-	g_pmic_pad_vbif28_vol = mt_get_auxadc_value(AUXADC_LIST_VBIF);
+	g_pmic_pad_vbif28_vol = mt6355_get_auxadc_value(AUXADC_LIST_VBIF);
 	/* update TSX by AUXADC */
 	mts_adc = pmic_get_register_value(PMIC_AUXADC_ADC_OUT_MDRT);
-	pr_info("****[%s] VBIF28 = %d, MTS_ADC = 0x%x\n"
-		, __func__, pmic_get_vbif28_volt(), mts_adc);
+	pr_info("****[%s] VBIF28 = %d, MTS_ADC = 0x%x\n", __func__, pmic_get_vbif28_volt(), mts_adc);
 }
-EXPORT_SYMBOL(pmic_auxadc_init);
+EXPORT_SYMBOL(mt6355_auxadc_init);
 
 #define MT6355_AUXADC_DEBUG(_reg)                                       \
 {                                                                       \
 	value = pmic_get_register_value(_reg);				\
 	snprintf(buf+strlen(buf), 1024, "%s = 0x%x\n", #_reg, value);	\
-	pr_info("[%s] %s = 0x%x\n", __func__, #_reg,			\
+	pr_err("[%s] %s = 0x%x\n", __func__, #_reg,			\
 		pmic_get_register_value(_reg));			\
 }
 
 void mt6355_auxadc_dump_setting_regs(void)
 {
-	pr_info("Dump Basic RG\n");
-	pr_info("[0x%x] 0x%x\n"
-		, MT6355_STRUP_CON6
-		, upmu_get_reg_value(MT6355_STRUP_CON6));
-	pr_info("[0x%x] 0x%x\n"
-		, MT6355_AUXADC_MDRT_0
-		, upmu_get_reg_value(MT6355_AUXADC_MDRT_0));
-	pr_info("[0x%x] 0x%x\n"
-		, MT6355_AUXADC_MDRT_2
-		, upmu_get_reg_value(MT6355_AUXADC_MDRT_2));
-	pr_info("[0x%x] 0x%x\n"
-		, MT6355_AUXADC_CON0
-		, upmu_get_reg_value(MT6355_AUXADC_CON0));
-	pr_info("[0x%x] 0x%x\n"
-		, MT6355_AUXADC_CON23
-		, upmu_get_reg_value(MT6355_AUXADC_CON23));
-	pr_info("[0x%x] 0x%x\n"
-		, MT6355_AUXADC_CON11
-		, upmu_get_reg_value(MT6355_AUXADC_CON11));
-	pr_info("Done\n");
+	pr_err("Dump Basic RG\n");
+	pr_err("[0x%x] 0x%x\n", MT6355_STRUP_CON6, upmu_get_reg_value(MT6355_STRUP_CON6));
+	pr_err("[0x%x] 0x%x\n", MT6355_AUXADC_MDRT_0, upmu_get_reg_value(MT6355_AUXADC_MDRT_0));
+	pr_err("[0x%x] 0x%x\n", MT6355_AUXADC_MDRT_2, upmu_get_reg_value(MT6355_AUXADC_MDRT_2));
+	pr_err("[0x%x] 0x%x\n", MT6355_AUXADC_CON0, upmu_get_reg_value(MT6355_AUXADC_CON0));
+	pr_err("[0x%x] 0x%x\n", MT6355_AUXADC_CON23, upmu_get_reg_value(MT6355_AUXADC_CON23));
+	pr_err("[0x%x] 0x%x\n", MT6355_AUXADC_CON11, upmu_get_reg_value(MT6355_AUXADC_CON11));
+	pr_err("Done\n");
 }
 EXPORT_SYMBOL(mt6355_auxadc_dump_setting_regs);
 
 void mt6355_auxadc_dump_clk_regs(void)
 {
-	pr_info("Dump Clk RG\n");
-	pr_info("[0x%x] 0x%x\n"
-		, MT6355_TOP_CKPDN_CON0
-		, upmu_get_reg_value(MT6355_TOP_CKPDN_CON0));
-	pr_info("[0x%x] 0x%x\n"
-		, MT6355_TOP_CKPDN_CON3
-		, upmu_get_reg_value(MT6355_TOP_CKPDN_CON3));
-	pr_info("[0x%x] 0x%x\n"
-		, MT6355_TOP_CKHWEN_CON0
-		, upmu_get_reg_value(MT6355_TOP_CKHWEN_CON0));
-	pr_info("[0x%x] 0x%x\n"
-		, MT6355_TOP_CKHWEN_CON1
-		, upmu_get_reg_value(MT6355_TOP_CKHWEN_CON1));
-	pr_info("[0x%x] 0x%x\n"
-		, MT6355_TOP_CKTST_CON1
-		, upmu_get_reg_value(MT6355_TOP_CKTST_CON1));
-	pr_info("[0x%x] 0x%x\n"
-		, MT6355_TOP_CKDIVSEL_CON0
-		, upmu_get_reg_value(MT6355_TOP_CKDIVSEL_CON0));
-	pr_info("Done\n");
+	pr_err("Dump Clk RG\n");
+	pr_err("[0x%x] 0x%x\n", MT6355_TOP_CKPDN_CON0, upmu_get_reg_value(MT6355_TOP_CKPDN_CON0));
+	pr_err("[0x%x] 0x%x\n", MT6355_TOP_CKPDN_CON3, upmu_get_reg_value(MT6355_TOP_CKPDN_CON3));
+	pr_err("[0x%x] 0x%x\n", MT6355_TOP_CKHWEN_CON0, upmu_get_reg_value(MT6355_TOP_CKHWEN_CON0));
+	pr_err("[0x%x] 0x%x\n", MT6355_TOP_CKHWEN_CON1, upmu_get_reg_value(MT6355_TOP_CKHWEN_CON1));
+	pr_err("[0x%x] 0x%x\n", MT6355_TOP_CKTST_CON1, upmu_get_reg_value(MT6355_TOP_CKTST_CON1));
+	pr_err("[0x%x] 0x%x\n", MT6355_TOP_CKDIVSEL_CON0, upmu_get_reg_value(MT6355_TOP_CKDIVSEL_CON0));
+	pr_err("Done\n");
 }
 EXPORT_SYMBOL(mt6355_auxadc_dump_clk_regs);
 
@@ -579,16 +526,14 @@ void mt6355_auxadc_dump_channel_regs(void)
 #if 0
 	u8 list = 0;
 
-	for (list = AUXADC_LIST_START;
-	     list <= AUXADC_LIST_END; list++)
-		pr_notice("[auxadc list %d] %d\n"
-			  , list, mt_get_auxadc_value(list));
+	for (list = AUXADC_LIST_MT6355_START; list <= AUXADC_LIST_MT6355_END; list++)
+		pr_notice("[auxadc list %d] %d\n", list, mt6355_get_auxadc_value(list));
 #endif
 }
 EXPORT_SYMBOL(mt6355_auxadc_dump_channel_regs);
 
 
-void pmic_auxadc_dump_regs(char *buf)
+void mt6355_auxadc_dump_regs(char *buf)
 {
 	int value;
 
@@ -605,4 +550,4 @@ void pmic_auxadc_dump_regs(char *buf)
 	MT6355_AUXADC_DEBUG(PMIC_AUXADC_DATA_REUSE_EN);
 	MT6355_AUXADC_DEBUG(PMIC_AUXADC_TRIM_CH0_SEL);
 }
-EXPORT_SYMBOL(pmic_auxadc_dump_regs);
+EXPORT_SYMBOL(mt6355_auxadc_dump_regs);

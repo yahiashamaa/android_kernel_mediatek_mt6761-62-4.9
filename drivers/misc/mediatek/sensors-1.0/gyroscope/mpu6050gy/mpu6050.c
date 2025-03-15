@@ -254,9 +254,9 @@ static ssize_t inv_gyro_power_state_show(struct device *dev,
 	return sprintf(buf, "%d\n", inv_gyro_power_state);
 }
 
-static DEVICE_ATTR(inv_mpl_motion, 0644, inv_mpl_motion_show, inv_mpl_motion_store);
-static DEVICE_ATTR(inv_gyro_data_ready, 0644, inv_gyro_data_ready_show, inv_gyro_data_ready_store);
-static DEVICE_ATTR(inv_gyro_power_state, 0644, inv_gyro_power_state_show, inv_gyro_power_state_store);
+static DEVICE_ATTR(inv_mpl_motion, S_IRUGO | S_IWUSR, inv_mpl_motion_show, inv_mpl_motion_store);
+static DEVICE_ATTR(inv_gyro_data_ready, S_IRUGO | S_IWUSR, inv_gyro_data_ready_show, inv_gyro_data_ready_store);
+static DEVICE_ATTR(inv_gyro_power_state, S_IRUGO | S_IWUSR, inv_gyro_power_state_show, inv_gyro_power_state_store);
 
 static struct device_attribute *inv_daemon_dev_attributes[] = {
 	&dev_attr_inv_mpl_motion,
@@ -388,7 +388,7 @@ static int MPU6050_ReadStart(struct i2c_client *client, bool enable)
 		GYRO_ERR(" enable xyz gyro in FIFO error,enable: 0x%x!\n", databuf[0]);
 		return res;
 	}
-	GYRO_DBG("%s: enable xyz gyro in FIFO: 0x%x\n", __func__, databuf[0]);
+	GYRO_DBG("MPU6050_ReadStart: enable xyz gyro in FIFO: 0x%x\n", databuf[0]);
 	return 0;
 }
 #endif
@@ -639,7 +639,7 @@ static int MPU6050_FIFOConfig(struct i2c_client *client, u8 clk)
 		GYRO_ERR("write FIFO CTRL register err!\n");
 		return res;
 	}
-	GYRO_DBG("%s OK!\n", __func__);
+	GYRO_DBG("MPU6050_FIFOConfig OK!\n");
 	return 0;
 }
 
@@ -1106,10 +1106,10 @@ static ssize_t show_status_value(struct device_driver *ddri, char *buf)
 	return len;
 }
 /*----------------------------------------------------------------------------*/
-static DRIVER_ATTR(chipinfo,             0444, show_chipinfo_value,      NULL);
-static DRIVER_ATTR(sensordata,           0444, show_sensordata_value,    NULL);
-static DRIVER_ATTR(trace,      0644, show_trace_value,         store_trace_value);
-static DRIVER_ATTR(status,               0444, show_status_value,        NULL);
+static DRIVER_ATTR(chipinfo,             S_IRUGO, show_chipinfo_value,      NULL);
+static DRIVER_ATTR(sensordata,           S_IRUGO, show_sensordata_value,    NULL);
+static DRIVER_ATTR(trace,      S_IWUSR | S_IRUGO, show_trace_value,         store_trace_value);
+static DRIVER_ATTR(status,               S_IRUGO, show_status_value,        NULL);
 /*----------------------------------------------------------------------------*/
 static struct driver_attribute *MPU6050_attr_list[] = {
 	&driver_attr_chipinfo,     /*chip information*/
@@ -1205,7 +1205,7 @@ static int mpu6050_init_client(struct i2c_client *client, bool enable)
 		return res;
 
 
-	GYRO_DBG("%s OK!\n", __func__);
+	GYRO_DBG("mpu6050_init_client OK!\n");
 
 #ifdef CONFIG_MPU6050_LOWPASS
 	memset(&obj->fir, 0x00, sizeof(obj->fir));

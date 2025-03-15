@@ -26,8 +26,7 @@
 
 #define MT_DEBUG_ENTRY(name) \
 static int mt_##name##_show(struct seq_file *m, void *v);\
-static ssize_t mt_##name##_write(struct file *filp,\
-		const char *ubuf, size_t cnt, loff_t *data);\
+static ssize_t mt_##name##_write(struct file *filp, const char *ubuf, size_t cnt, loff_t *data);\
 static int mt_##name##_open(struct inode *inode, struct file *file) \
 { \
 	return single_open(file, mt_##name##_show, inode->i_private); \

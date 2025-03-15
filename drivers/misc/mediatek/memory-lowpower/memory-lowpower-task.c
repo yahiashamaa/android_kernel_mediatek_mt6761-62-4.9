@@ -49,11 +49,10 @@
 #ifdef CONFIG_MLPT_PROFILE
 static unsigned long long start_ns, end_ns;
 #define MLPT_START_PROFILE()		{start_ns = sched_clock(); }
-#define MLPT_END_PROFILE() \
-	do {\
-		end_ns = sched_clock();\
-		MLPT_PRINT(" {{{Elapsed[%llu]ns}}}\n", (end_ns - start_ns));\
-	} while (0)
+#define MLPT_END_PROFILE()	do {\
+					end_ns = sched_clock();\
+					MLPT_PRINT(" {{{Elapsed[%llu]ns}}}\n", (end_ns - start_ns));\
+				} while (0)
 #else	/* !CONFIG_MLPT_PROFILE */
 #define MLPT_START_PROFILE()	do {} while (0)
 #define MLPT_END_PROFILE()	do {} while (0)
@@ -126,8 +125,18 @@ void set_memory_lowpower_aligned(int aligned)
 	/* Check whether size is a multiple of num */
 	size = (memory_lowpower_size() >> PAGE_SHIFT);
 	num = size >> aligned;
-	if (size != (num << aligned))
-		return;
+	if (size != (num << aligned)) {
+		/**********************************************************
+		 * based on -						  *
+		 * 1. zone-movable-cma-memory in dts with 4MB unoccupied. *
+		 *    ex. size = <0 0xffc00000>;			  *
+		 * 2. grab_lastsize is 0, when no/failed fullness in mlp. *
+		 **********************************************************/
+		if (memory_lowpower_get_grab_lastsize() == 0)
+			size = num << aligned;
+		else
+			return;
+	}
 
 	/* Update aligned allocation */
 	get_cma_aligned = aligned;
@@ -140,15 +149,12 @@ void set_memory_lowpower_aligned(int aligned)
 
 	/* If it is page-aligned, cma_aligned_pages is not needed */
 	if (num != size) {
-		cma_aligned_pages = kcalloc(num,
-				sizeof(*cma_aligned_pages),
-				GFP_KERNEL);
+		cma_aligned_pages = kcalloc(num, sizeof(*cma_aligned_pages), GFP_KERNEL);
 		BUG_ON(!cma_aligned_pages);
 	}
 
 	MLPT_PRINT("%s: aligned[%d] size[%lu] num[%d] array[%p]\n",
-			__func__, get_cma_aligned, get_cma_size,
-			get_cma_num, cma_aligned_pages);
+			__func__, get_cma_aligned, get_cma_size, get_cma_num, cma_aligned_pages);
 }
 
 static int inser_buffer_cmp(const void *a, const void *b)
@@ -204,14 +210,11 @@ static int acquire_memory(void)
 
 	/* Aligned allocation */
 	while (i < get_cma_num) {
-		ret = get_memory_lowpower_cma_aligned(get_cma_size,
-					get_cma_aligned, &page,
-					i == (get_cma_num - 1));
+		ret = get_memory_lowpower_cma_aligned(get_cma_size, get_cma_aligned, &page, i == (get_cma_num - 1));
 		if (ret)
 			break;
 
-		MLPT_PRINT("%s: PFN[%lx] allocated for [%d]\n",
-				__func__, page_to_pfn(page), i);
+		MLPT_PRINT("%s: PFN[%lx] allocated for [%d]\n", __func__, page_to_pfn(page), i);
 		insert_buffer(page, i);
 		++i;
 
@@ -228,12 +231,9 @@ static int acquire_memory(void)
 	while (i < get_cma_num) {
 		if (cma_aligned_pages[i])
 			MLPT_PRINT("%s:@@@ PFN[%lx] allocated for [%d] @@@\n",
-					__func__,
-					page_to_pfn(cma_aligned_pages[i]),
-					i);
+					__func__, page_to_pfn(cma_aligned_pages[i]), i);
 		else
-			MLPT_PRINT("%s:@@@ NULL allocated for [%d] @@@\n",
-					__func__, i);
+			MLPT_PRINT("%s:@@@ NULL allocated for [%d] @@@\n", __func__, i);
 		++i;
 	}
 
@@ -277,11 +277,9 @@ static int release_memory(void)
 	do {
 		if (pages[i] == NULL)
 			break;
-		ret = put_memory_lowpower_cma_aligned(get_cma_size, pages[i],
-							i == (get_cma_num - 1));
+		ret = put_memory_lowpower_cma_aligned(get_cma_size, pages[i], i == (get_cma_num - 1));
 		if (!ret) {
-			MLPT_PRINT("%s: PFN[%lx] released for [%d]\n",
-					__func__, page_to_pfn(pages[i]), i);
+			MLPT_PRINT("%s: PFN[%lx] released for [%d]\n", __func__, page_to_pfn(pages[i]), i);
 			pages[i] = NULL;
 		} else
 			BUG();
@@ -309,8 +307,7 @@ static void memory_range(int which, unsigned long *spfn, unsigned long *epfn)
 	if (cma_aligned_pages == NULL) {
 		if (get_cma_num == 1) {
 			*spfn = __phys_to_pfn(memory_lowpower_base());
-			*epfn = __phys_to_pfn(memory_lowpower_base() +
-						memory_lowpower_size());
+			*epfn = __phys_to_pfn(memory_lowpower_base() + memory_lowpower_size());
 		}
 		goto out;
 	}
@@ -322,8 +319,7 @@ static void memory_range(int which, unsigned long *spfn, unsigned long *epfn)
 	}
 
 out:
-	MLPT_PRINT("%s: [%d] spfn[%lx] epfn[%lx]\n",
-			__func__, which, *spfn, *epfn);
+	MLPT_PRINT("%s: [%d] spfn[%lx] epfn[%lx]\n", __func__, which, *spfn, *epfn);
 }
 
 /* Check whether memory_lowpower_task is initialized */
@@ -333,8 +329,7 @@ bool memory_lowpower_task_inited(void)
 }
 
 /* Register API for memory lowpower operation */
-void register_memory_lowpower_operation(
-		struct memory_lowpower_operation *handler)
+void register_memory_lowpower_operation(struct memory_lowpower_operation *handler)
 {
 	struct list_head *pos;
 
@@ -351,8 +346,7 @@ void register_memory_lowpower_operation(
 }
 
 /* Unregister API for memory lowpower operation */
-void unregister_memory_lowpower_operation(
-		struct memory_lowpower_operation *handler)
+void unregister_memory_lowpower_operation(struct memory_lowpower_operation *handler)
 {
 	mutex_lock(&memory_lowpower_lock);
 	list_del(&handler->link);
@@ -372,8 +366,7 @@ static void __go_to_mlp_disable(void)
 			ret = pos->disable();
 			if (ret) {
 				disabled[pos->level] += ret;
-				MLPT_PRERR("Fail disable: level[%d] ret[%d]\n",
-						pos->level, ret);
+				MLPT_PRERR("Fail disable: level[%d] ret[%d]\n", pos->level, ret);
 				ret = 0;
 			}
 		}
@@ -385,8 +378,7 @@ static void __go_to_mlp_disable(void)
 			ret = pos->restore();
 			if (ret) {
 				disabled[pos->level] += ret;
-				MLPT_PRERR("Fail restore: level[%d] ret[%d]\n",
-						pos->level, ret);
+				MLPT_PRERR("Fail restore: level[%d] ret[%d]\n", pos->level, ret);
 				ret = 0;
 			}
 		}
@@ -431,8 +423,7 @@ static void __go_to_mlp_enable(void)
 			ret = pos->config(get_cma_num, memory_range);
 			if (ret) {
 				enabled[pos->level] += ret;
-				MLPT_PRERR("Fail config: level[%d] ret[%d]\n",
-						pos->level, ret);
+				MLPT_PRERR("Fail config: level[%d] ret[%d]\n", pos->level, ret);
 				ret = 0;
 			}
 		}
@@ -444,8 +435,7 @@ static void __go_to_mlp_enable(void)
 			ret = pos->enable();
 			if (ret) {
 				enabled[pos->level] += ret;
-				MLPT_PRERR("Fail enable: level[%d] ret[%d]\n",
-						pos->level, ret);
+				MLPT_PRERR("Fail enable: level[%d] ret[%d]\n", pos->level, ret);
 				ret = 0;
 			}
 		}
@@ -509,10 +499,9 @@ static int memory_lowpower_entry(void *p)
 	freezer_do_not_count();
 
 	/*
-	 * Memory lowpower thread tries to collect memory
-	 * and do page migration for better power saving under
-	 * some scenarios. Add PF_MEMALLOC_NOIO to tell relateive
-	 * flows to avoid possible I/O ops which will discount its
+	 * Memory lowpower thread tries to collect memory and do page migration
+	 * for better power saving under some scenarios. Add PF_MEMALLOC_NOIO to
+	 * tell relateive flows to avoid possible I/O ops which will discount its
 	 * benefit and bring bad UX.
 	 */
 	memalloc_noio_save();
@@ -530,8 +519,7 @@ static int memory_lowpower_entry(void *p)
 		acquire_wakelock();
 
 		/* Check whether there is any action */
-		while (atomic_xchg(&mlp_take_action, MLPT_CLEAR_ACTION)
-				== MLPT_SET_ACTION) {
+		while (atomic_xchg(&mlp_take_action, MLPT_CLEAR_ACTION) == MLPT_SET_ACTION) {
 			atomic_set(&mlp_process_state, MLPT_PROCESSING);
 			current_action = mlp_action;
 			switch (current_action) {
@@ -542,8 +530,7 @@ static int memory_lowpower_entry(void *p)
 				go_to_mlp_disable();
 				break;
 			default:
-				MLPT_PRINT("%s: Invalid action[%d]\n",
-						__func__, current_action);
+				MLPT_PRINT("%s: Invalid action[%d]\n", __func__, current_action);
 			}
 			atomic_set(&mlp_process_state, MLPT_NO_PROCESS);
 		}
@@ -600,8 +587,7 @@ static int periodic_dc_entry(void *p)
  * FB event notifier -
  * Taking action for SCREENOFF/SCREENON.
  */
-int memory_lowpower_fb_event(struct notifier_block *notifier,
-		unsigned long event, void *data)
+int memory_lowpower_fb_event(struct notifier_block *notifier, unsigned long event, void *data)
 {
 	struct fb_event *fb_event = data;
 	int new_status;
@@ -639,7 +625,7 @@ retry:
 	if (!wake_up_process(memory_lowpower_task)) {
 		pr_notice_ratelimited("It was already running.\n");
 		if (IS_ACTION_LEAVE(mlp_action) &&
-			atomic_read(&mlp_take_action) == MLPT_SET_ACTION) {
+				atomic_read(&mlp_take_action) == MLPT_SET_ACTION) {
 
 			/* It was disable already, no retry to wake it up */
 			if (MlpsDisable(&memory_lowpower_state))
@@ -695,8 +681,7 @@ int __init memory_lowpower_task_init(void)
 #endif
 
 	/* Start a kernel thread */
-	memory_lowpower_task = kthread_run(memory_lowpower_entry,
-			NULL, "memory_lowpower_task");
+	memory_lowpower_task = kthread_run(memory_lowpower_entry, NULL, "memory_lowpower_task");
 	if (IS_ERR(memory_lowpower_task)) {
 		MLPT_PRERR("Failed to start memory_lowpower_task!\n");
 		ret = PTR_ERR(memory_lowpower_task);
@@ -704,8 +689,7 @@ int __init memory_lowpower_task_init(void)
 	}
 
 #ifdef CONFIG_MTK_PERIODIC_DATA_COLLECTION
-	periodic_dc_task = kthread_run(periodic_dc_entry,
-					NULL, "periodic_dc_task");
+	periodic_dc_task = kthread_run(periodic_dc_entry, NULL, "periodic_dc_task");
 	if (IS_ERR(periodic_dc_task)) {
 		MLPT_PRERR("Failed to start periodic_dc_task!\n");
 		ret = PTR_ERR(periodic_dc_task);
@@ -721,8 +705,7 @@ int __init memory_lowpower_task_init(void)
 	atomic_set(&mlp_take_action, MLPT_CLEAR_ACTION);
 	atomic_set(&mlp_process_state, MLPT_NO_PROCESS);
 out:
-	MLPT_PRINT("%s: memory_power_state[0x%lx]\n",
-			__func__, memory_lowpower_state);
+	MLPT_PRINT("%s: memory_power_state[0x%lx]\n", __func__, memory_lowpower_state);
 	return ret;
 }
 
@@ -732,8 +715,8 @@ late_initcall(memory_lowpower_task_init);
 static int memory_lowpower_task_show(struct seq_file *m, void *v)
 {
 	/*
-	 * At SCREEN-ON, nr_release_memory may be larger than
-	 * nr_acquire_memory by 1 due to boot-up flow with FB operations.
+	 * At SCREEN-ON, nr_release_memory may be larger than nr_acquire_memory by 1
+	 * due to boot-up flow with FB operations.
 	 */
 	seq_printf(m, "memory lowpower statistics: %lld, %lld, %lld, %lld, %lld\n",
 			memory_lowpower_statistics.nr_acquire_memory,
@@ -754,14 +737,14 @@ static int memory_lowpower_open(struct inode *inode, struct file *file)
 	return single_open(file, &memory_lowpower_task_show, NULL);
 }
 
-static ssize_t memory_lowpower_write(struct file *file,
-		const char __user *buffer, size_t count, loff_t *ppos)
+static ssize_t memory_lowpower_write(struct file *file, const char __user *buffer,
+					size_t count, loff_t *ppos)
 {
 	static char state;
 	struct fb_event fb_event;
 	int blank;
 
-	if (count > 0) {
+	if (memory_lowpower_task_inited() && count > 0) {
 		if (get_user(state, buffer))
 			return -EFAULT;
 		state -= '0';
@@ -770,13 +753,11 @@ static ssize_t memory_lowpower_write(struct file *file,
 		if (!state) {
 			/* collect cma */
 			blank = 1;
-			memory_lowpower_fb_event(NULL, FB_EVENT_BLANK,
-						&fb_event);
+			memory_lowpower_fb_event(NULL, FB_EVENT_BLANK, &fb_event);
 		} else {
 			/* undo collection */
 			blank = 0;
-			memory_lowpower_fb_event(NULL, FB_EVENT_BLANK,
-						&fb_event);
+			memory_lowpower_fb_event(NULL, FB_EVENT_BLANK, &fb_event);
 		}
 	}
 
@@ -794,8 +775,7 @@ static int __init memory_lowpower_task_debug_init(void)
 {
 	struct dentry *dentry;
 
-	dentry = debugfs_create_file("memory-lowpower-task",
-					0444, NULL, NULL,
+	dentry = debugfs_create_file("memory-lowpower-task", S_IRUGO, NULL, NULL,
 					&memory_lowpower_task_fops);
 	if (!dentry)
 		pr_notice("Failed to create debugfs memory_lowpower_debug_init file\n");

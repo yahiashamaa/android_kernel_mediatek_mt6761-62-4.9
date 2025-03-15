@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2016 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -11,18 +11,41 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-#include <linux/device.h>
+#include <generated/autoconf.h>
+#include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/module.h>
+#include <linux/sched.h>
+#include <linux/spinlock.h>
+#include <linux/interrupt.h>
+#include <linux/list.h>
 #include <linux/mutex.h>
+#include <linux/kthread.h>
+#include <linux/wakelock.h>
+#include <linux/device.h>
+#include <linux/kdev_t.h>
+#include <linux/cdev.h>
+#include <linux/delay.h>
+#include <linux/platform_device.h>
+#include <linux/syscalls.h>
+#include <linux/sched.h>
+#include <linux/writeback.h>
+#include <linux/seq_file.h>
 #include <linux/power_supply.h>
-#include <linux/workqueue.h>
+#include <linux/time.h>
+#include <linux/uaccess.h>
 
-#include <mt-plat/charger_type.h>
-#include <mt-plat/mtk_boot.h>
+#include <mt-plat/mtk_battery.h>
 #include <mt-plat/upmu_common.h>
 #include <mach/upmu_sw.h>
 #include <mach/upmu_hw.h>
+#include <mt-plat/mtk_boot.h>
+#include <mt-plat/charger_type.h>
+#include <mt-plat/mtk_boot.h>
+
+#ifdef CONFIG_MTK_USB2JTAG_SUPPORT
+#include <mt-plat/mtk_usb2jtag.h>
+#endif
 
 /* #define __FORCE_USB_TYPE__ */
 #define __SW_CHRDET_IN_PROBE_PHASE__
@@ -31,53 +54,40 @@ static enum charger_type g_chr_type;
 #ifdef __SW_CHRDET_IN_PROBE_PHASE__
 static struct work_struct chr_work;
 #endif
+
 static DEFINE_MUTEX(chrdet_lock);
+
 static struct power_supply *chrdet_psy;
-
-
-bool __attribute__((weak)) mt_usb_is_device(void)
-{
-	pr_notice("%s is not defined, return true\n", __func__);
-	return true;
-}
-
-static int chrdet_inform_psy_changed(enum charger_type chg_type,
-				bool chg_online)
+static int chrdet_inform_psy_changed(enum charger_type chg_type, bool chg_online)
 {
 	int ret = 0;
 	union power_supply_propval propval;
 
-	pr_info("charger type: %s: online = %d, type = %d\n", __func__,
-		chg_online, chg_type);
+	pr_info("charger type: %s: online = %d, type = %d\n", __func__, chg_online, chg_type);
 
 	/* Inform chg det power supply */
 	if (chg_online) {
 		propval.intval = chg_online;
-		ret = power_supply_set_property(chrdet_psy,
-				POWER_SUPPLY_PROP_ONLINE, &propval);
+		ret = power_supply_set_property(chrdet_psy, POWER_SUPPLY_PROP_ONLINE, &propval);
 		if (ret < 0)
-			pr_notice("%s: psy online failed, ret = %d\n",
-				__func__, ret);
+			pr_notice("%s: psy online failed, ret = %d\n", __func__, ret);
 
 		propval.intval = chg_type;
-		ret = power_supply_set_property(chrdet_psy,
-				POWER_SUPPLY_PROP_CHARGE_TYPE, &propval);
+		ret = power_supply_set_property(chrdet_psy, POWER_SUPPLY_PROP_CHARGE_TYPE, &propval);
 		if (ret < 0)
-			pr_notice("%s: psy type failed, ret = %d\n",
-				__func__, ret);
+			pr_notice("%s: psy type failed, ret = %d\n", __func__, ret);
 
 		return ret;
 	}
 
 	propval.intval = chg_type;
-	ret = power_supply_set_property(chrdet_psy,
-				POWER_SUPPLY_PROP_CHARGE_TYPE, &propval);
+	ret = power_supply_set_property(chrdet_psy, POWER_SUPPLY_PROP_CHARGE_TYPE, &propval);
 	if (ret < 0)
 		pr_notice("%s: psy type failed, ret(%d)\n", __func__, ret);
 
 	propval.intval = chg_online;
 	ret = power_supply_set_property(chrdet_psy, POWER_SUPPLY_PROP_ONLINE,
-				&propval);
+		&propval);
 	if (ret < 0)
 		pr_notice("%s: psy online failed, ret(%d)\n", __func__, ret);
 	return ret;
@@ -87,21 +97,22 @@ int hw_charging_get_charger_type(void)
 {
 	/* Force Standard USB Host */
 	g_chr_type = STANDARD_HOST;
-	chrdet_inform_psy_changed(g_chr_type, 1);
 	return g_chr_type;
 }
 
-/* Charger Detection */
+/*****************************************************************************
+ * Charger Detection
+ ******************************************************************************/
 void do_charger_detect(void)
 {
 	if (!mt_usb_is_device()) {
 		g_chr_type = CHARGER_UNKNOWN;
-		pr_info("charger type: Now is usb host mode. Skip detection\n");
+		pr_info("charger type: UNKNOWN, Now is usb host mode. Skip detection!!!\n");
 		return;
 	}
 
 	if (is_meta_mode()) {
-		/* Skip charger type detection to speed up meta boot */
+		/* Skip charger type detection to speed up meta boot.*/
 		pr_notice("charger type: force Standard USB Host in meta\n");
 		g_chr_type = STANDARD_HOST;
 		chrdet_inform_psy_changed(g_chr_type, 1);
@@ -125,11 +136,13 @@ void do_charger_detect(void)
 
 
 
-/* PMIC Int Handler */
+/*****************************************************************************
+ * PMIC Int Handler
+ ******************************************************************************/
 void chrdet_int_handler(void)
 {
 	/*
-	 * pr_notice("[chrdet_int_handler]CHRDET status = %d....\n",
+	 * pr_info("[chrdet_int_handler]CHRDET status = %d....\n",
 	 *	pmic_get_register_value(PMIC_RGS_CHRDET));
 	 */
 #ifdef CONFIG_MTK_KERNEL_POWER_OFF_CHARGING
@@ -140,7 +153,7 @@ void chrdet_int_handler(void)
 
 		if (boot_mode == KERNEL_POWER_OFF_CHARGING_BOOT
 		    || boot_mode == LOW_POWER_OFF_CHARGING_BOOT) {
-			pr_info("[%s] Unplug Charger/USB\n", __func__);
+			pr_info("[chrdet_int_handler] Unplug Charger/USB\n");
 #ifndef CONFIG_TCPC_CLASS
 			mt_power_off();
 #else
@@ -153,7 +166,9 @@ void chrdet_int_handler(void)
 }
 
 
-/* Charger Probe Related */
+/************************************************/
+/* Charger Probe Related
+*************************************************/
 #ifdef __SW_CHRDET_IN_PROBE_PHASE__
 static void do_charger_detection_work(struct work_struct *data)
 {
@@ -161,6 +176,7 @@ static void do_charger_detection_work(struct work_struct *data)
 		do_charger_detect();
 }
 #endif
+
 
 static int __init pmic_chrdet_init(void)
 {

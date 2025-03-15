@@ -160,8 +160,8 @@ void mtk_audit_hook(char *data)
 	/*check scontext is in warning list */
 	ret = mtk_check_filter(scontext);
 	if (ret >= 0) {
-		pr_debug("[%s]Enforce: %d, In AEE Warning List scontext: %s\n",
-			MOD, selinux_enforcing, scontext);
+		pr_debug("[%s]Enforce: %d, In AEE Warning List scontext: %s\n", MOD,
+			selinux_enforcing, scontext);
 
 		if (!IS_ENABLED(CONFIG_MTK_AEE_FEATURE))
 			return;
@@ -183,8 +183,7 @@ void mtk_audit_hook(char *data)
 				int err = kstrtol(selinux_ne, 10, &ne_option);
 
 				if (err || (ne_option != 1)) {
-					pr_debug("[%s] ne_opt:%ld, err:%d\n",
-						MOD, ne_option, err);
+					pr_debug("[%s] invalid ne option:%ld, err:%d\n", MOD, ne_option, err);
 					return;
 				}
 			} else {
@@ -200,14 +199,13 @@ void mtk_audit_hook(char *data)
 			atomic_inc(&ne_warning_count);
 			#endif
 
-			snprintf(printbuf, PRINT_BUF_LEN-1,
-				"[%s][WARNING]\nCR_DISPATCH_PROCESSNAME:%s\n",
+			snprintf(printbuf, PRINT_BUF_LEN-1, "[%s][WARNING]\nCR_DISPATCH_PROCESSNAME:%s\n",
 				MOD, pname);
 
 			if (selinux_enforcing) {
 				aee_kernel_warning_api(__FILE__, __LINE__,
-				  DB_OPT_DEFAULT | DB_OPT_NATIVE_BACKTRACE,
-				  printbuf, data);
+						       DB_OPT_DEFAULT | DB_OPT_NATIVE_BACKTRACE,
+						       printbuf, data);
 			}
 
 			#ifdef ENABLE_CURRENT_NE_CORE_DUMP
@@ -219,12 +217,11 @@ void mtk_audit_hook(char *data)
 				rcu_read_unlock();
 
 				if (task == NULL) {
-					pr_debug("[%s] pid: %d exist.\n",
-						 MOD, pid);
+					pr_debug("[%s] pid: %d exist.\n", MOD, pid);
 					break;  /* pid exit, safe to return */
 				}
 				/* wait two more seconds */
-				pr_debug("[%s] pid: %d, tgid: %d, wait(%ds)\n",
+				pr_debug("[%s] pid: %d , tgid: %d still exist, wait for two secs. (%d)\n",
 					MOD, pid, tgid, count);
 				msleep(2000);
 				count++;

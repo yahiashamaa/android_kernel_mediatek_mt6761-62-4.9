@@ -1,10 +1,10 @@
 /*
- * Copyright (C) 2018 MediaTek Inc.
- *
+ * Copyright (C) 2017 MediaTek Inc.
+
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
- *
+
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -79,8 +79,7 @@ int PMIC_check_battery(void)
 int PMIC_POWER_HOLD(unsigned int hold)
 {
 	if (hold > 1) {
-		pr_notice("[PMIC_KERNEL] PMIC_POWER_HOLD hold = %d only 0 or 1\n"
-			  , hold);
+		pr_notice("[PMIC_KERNEL] PMIC_POWER_HOLD hold = %d only 0 or 1\n", hold);
 		return -1;
 	}
 
@@ -89,11 +88,9 @@ int PMIC_POWER_HOLD(unsigned int hold)
 	else
 		PMICLOG("[PMIC_KERNEL] PMIC_POWER_HOLD OFF\n");
 
-	pmic_config_interface_nolock(PMIC_RG_PWRHOLD_ADDR, hold,
-				     PMIC_RG_PWRHOLD_MASK,
-				     PMIC_RG_PWRHOLD_SHIFT);
-	PMICLOG("[PMIC_KERNEL] PowerHold = 0x%x\n"
-		, pmic_get_register_value(PMIC_RG_PWRHOLD));
+	pmic_config_interface_nolock(PMIC_RG_PWRHOLD_ADDR, hold, PMIC_RG_PWRHOLD_MASK,
+		PMIC_RG_PWRHOLD_SHIFT);
+	PMICLOG("[PMIC_KERNEL] PowerHold = 0x%x\n", pmic_get_register_value(PMIC_RG_PWRHOLD));
 
 	return 0;
 }
@@ -110,6 +107,34 @@ unsigned int PMIC_CHIP_VER(void)
 	return ret;
 }
 
+void PMIC_CUST_SETTING(void)
+{
+	struct device_node *np;
+	int i, idx = 0;
+	unsigned int reg_value[4] = {0}, ret;
+
+	/* check customer setting */
+	np = of_find_compatible_node(NULL, NULL, "mediatek,mt-pmic-custom-setting");
+	if (!np) {
+		PMICLOG("[%s]Failed to find device-tree node\n", __func__);
+		return;
+	}
+
+	while (!of_property_read_u32_index(np, "custom-reg", idx++, &reg_value[0])) {
+		for (i = 1; i < 4; i++) {
+			if (of_property_read_u32_index(np, "custom-reg", idx++, &reg_value[i]))
+				break;
+
+			if (i == 3)
+				ret = pmic_config_interface(reg_value[0],
+					reg_value[1], reg_value[2], reg_value[3]);
+		}
+	}
+	of_node_put(np);
+
+	PMICLOG("[%s] Done\n", __func__);
+}
+
 void PMIC_LP_INIT_SETTING(void)
 {
 	g_pmic_chip_version = PMIC_CHIP_VER();
@@ -124,11 +149,11 @@ void PMIC_LP_INIT_SETTING(void)
 	pmic_buck_vpa_lp(SW, 1, SW_OFF);
 	pmic_buck_vdram1_lp(SRCLKEN0, 1, HW_LP);
 	pmic_buck_vproc12_lp(SW, 1, SW_OFF);
-	pmic_ldo_vsram_gpu_lp(SRCLKEN0, 1, HW_LP);
+	pmic_ldo_vsram_gpu_lp(SW, 1, SW_OFF);
 	pmic_ldo_vsram_others_lp(SRCLKEN0, 1, HW_LP);
 	pmic_ldo_vsram_proc11_lp(SW, 1, SW_OFF);
 	pmic_ldo_vxo22_lp(SRCLKEN0, 1, HW_LP);
-	pmic_ldo_vrf18_lp(SW, 1, SW_ON);
+	pmic_ldo_vrf18_lp(SRCLKEN1, 1, HW_OFF);
 	pmic_ldo_vrf12_lp(SRCLKEN1, 1, HW_OFF);
 	pmic_ldo_vefuse_lp(SW, 1, SW_OFF);
 	pmic_ldo_vcn33_lp(SW, 1, SW_OFF);
@@ -166,11 +191,11 @@ void PMIC_LP_INIT_SETTING(void)
 	pmic_buck_vpa_lp(SW, 1, SW_OFF);
 	pmic_buck_vdram1_lp(SRCLKEN2, 1, HW_LP);
 	pmic_buck_vproc12_lp(SW, 1, SW_OFF);
-	pmic_ldo_vsram_gpu_lp(SRCLKEN2, 1, HW_LP);
+	pmic_ldo_vsram_gpu_lp(SW, 1, SW_OFF);
 	pmic_ldo_vsram_others_lp(SRCLKEN2, 1, HW_LP);
 	pmic_ldo_vsram_proc11_lp(SW, 1, SW_OFF);
 	pmic_ldo_vxo22_lp(SRCLKEN2, 1, HW_LP);
-	pmic_ldo_vrf18_lp(SW, 1, SW_ON);
+	pmic_ldo_vrf18_lp(SRCLKEN1, 1, HW_OFF);
 	pmic_ldo_vrf12_lp(SRCLKEN1, 1, HW_OFF);
 	pmic_ldo_vefuse_lp(SW, 1, SW_OFF);
 	pmic_ldo_vcn33_lp(SW, 1, SW_OFF);
@@ -201,4 +226,5 @@ void PMIC_LP_INIT_SETTING(void)
 	pr_info("[%s] Chip Ver = %d\n", __func__, g_pmic_chip_version);
 #endif /*LP_INIT_SETTING_VERIFIED*/
 
+	PMIC_CUST_SETTING();
 }

@@ -29,15 +29,29 @@
 #include <linux/delay.h>
 #include <linux/types.h>
 
+#include <mach/mtk_rtc_hal.h>
 #include <mtk_rtc_hal_common.h>
 #include "mtk_rtc_hw.h"
-#include <mach/mtk_pmic_wrap.h>
+#include <mtk_pmic_wrap.h>
 #include <mtk_boot.h>
 
+#include <mtk_gpio.h>
+#ifdef CONFIG_MTK_SMART_BATTERY
+#include <mt-plat/charging.h>
+#endif
 #include "include/pmic.h"
 
 #define hal_rtc_xinfo(fmt, args...)		\
 	pr_notice(fmt, ##args)
+
+#define hal_rtc_xerror(fmt, args...)	\
+	pr_err(fmt, ##args)
+
+#define hal_rtc_xfatal(fmt, args...)	\
+	pr_emerg(fmt, ##args)
+
+/* Causion, for SRCLKENA drop speed too slow (align VIO18) to cause current leakage for 32K less */
+#define GPIO_SRCLKEN_PIN (148 | 0x80000000)
 
 /*TODO extern bool pmic_chrdet_status(void);*/
 
@@ -59,7 +73,7 @@
  *	RTC_LP_DET,
  *	RTC_SPAR_NUM
  *
- */
+*/
 /*
  * RTC_PDN1:
  *     bit 0 - 3  : Android bits
@@ -110,7 +124,7 @@ u16 rtc_spare_reg[RTC_SPAR_NUM][3] = {
 };
 
 static int rtc_eosc_cali_td = 8;
-module_param(rtc_eosc_cali_td, int, 0664);
+module_param(rtc_eosc_cali_td, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 void hal_rtc_set_abb_32k(u16 enable)
 {
@@ -160,23 +174,19 @@ void hal_rtc_set_gpio_32k_status(u16 user, bool enable)
 		rtc_write(RTC_PDN1, pdn1);
 		rtc_write_trigger();
 	}
-	hal_rtc_xinfo("RTC_GPIO user %d enable = %d 32k (0x%x), RTC_CON = %x\n",
-		user, enable, pdn1, rtc_read(RTC_CON));
+	hal_rtc_xinfo("RTC_GPIO user %d enable = %d 32k (0x%x), RTC_CON = %x\n", user, enable, pdn1, rtc_read(RTC_CON));
 }
 
 void rtc_enable_k_eosc(void)
 {
 	u16 osc32;
 
-	pmic_config_interface_nolock(PMIC_RG_SRCLKEN_IN0_HW_MODE_ADDR, 1,
-		PMIC_RG_SRCLKEN_IN0_HW_MODE_MASK,
+	pmic_config_interface_nolock(PMIC_RG_SRCLKEN_IN0_HW_MODE_ADDR, 1, PMIC_RG_SRCLKEN_IN0_HW_MODE_MASK,
 		PMIC_RG_SRCLKEN_IN0_HW_MODE_SHIFT);
-	pmic_config_interface_nolock(PMIC_RG_SRCLKEN_IN1_HW_MODE_ADDR, 1,
-		PMIC_RG_SRCLKEN_IN1_HW_MODE_MASK,
+	pmic_config_interface_nolock(PMIC_RG_SRCLKEN_IN1_HW_MODE_ADDR, 1, PMIC_RG_SRCLKEN_IN1_HW_MODE_MASK,
 		PMIC_RG_SRCLKEN_IN1_HW_MODE_SHIFT);
 	pmic_config_interface_nolock(PMIC_RG_RTC_EOSC32_CK_PDN_ADDR, 0,
-		PMIC_RG_RTC_EOSC32_CK_PDN_MASK,
-		PMIC_RG_RTC_EOSC32_CK_PDN_SHIFT);
+		PMIC_RG_RTC_EOSC32_CK_PDN_MASK, PMIC_RG_RTC_EOSC32_CK_PDN_SHIFT);
 
 	switch (rtc_eosc_cali_td) {
 	case 1:
@@ -200,19 +210,19 @@ void rtc_enable_k_eosc(void)
 			PMIC_EOSC_CALI_TD_MASK, PMIC_EOSC_CALI_TD_SHIFT);
 		break;
 	}
-	/* Switch the DCXO from 32k-less mode to RTC mode */
-	/* otherwise, EOSC cali will fail */
-	/* RTC mode will have only OFF mode and FPM */
-	pmic_config_interface_nolock(PMIC_XO_EN32K_MAN_ADDR, 0,
-		PMIC_XO_EN32K_MAN_MASK, PMIC_XO_EN32K_MAN_SHIFT);
+	/*Switch the DCXO from 32k-less mode to RTC mode, otherwise, EOSC cali will fail*/
+	/*RTC mode will have only OFF mode and FPM */
+	pmic_config_interface_nolock(PMIC_XO_EN32K_MAN_ADDR, 0, PMIC_XO_EN32K_MAN_MASK, PMIC_XO_EN32K_MAN_SHIFT);
 
-	rtc_write(RTC_BBPU, rtc_read(RTC_BBPU) |
-		RTC_BBPU_KEY | RTC_BBPU_RELOAD);
+	rtc_write(RTC_BBPU, rtc_read(RTC_BBPU) | RTC_BBPU_KEY | RTC_BBPU_RELOAD);
+	rtc_write_trigger();
+	/* Enable K EOSC mode for normal power off and then plug out battery */
+	rtc_write(RTC_AL_YEA, ((rtc_read(RTC_AL_YEA) | RTC_K_EOSC_RSV_0) & (~RTC_K_EOSC_RSV_1)) | RTC_K_EOSC_RSV_2);
 	rtc_write_trigger();
 
 	osc32 = rtc_read(RTC_OSC32CON);
-	rtc_xosc_write((osc32 & ~RTC_EMBCK_SEL_EOSC) |
-		RTC_EMBCK_SEL_K_EOSC | RTC_EMBCK_SRC_SEL, true);
+	/* Set RTC_EMBCK_SEL_EOSC setting but RTC_EMBCK_SEL_K_EOSC is for HW hard code bug*/
+	rtc_xosc_write((osc32 & ~RTC_EMBCK_SEL_MODE) | RTC_EMBCK_SEL_EOSC | RTC_EMBCK_SRC_SEL, true);
 	hal_rtc_xinfo("RTC_enable_k_eosc\n");
 }
 
@@ -220,8 +230,7 @@ void rtc_disable_2sec_reboot(void)
 {
 	u16 reboot;
 
-	reboot = (rtc_read(RTC_AL_SEC) & ~RTC_BBPU_2SEC_EN) &
-		~RTC_BBPU_AUTO_PDN_SEL;
+	reboot = (rtc_read(RTC_AL_SEC) & ~RTC_BBPU_2SEC_EN) & ~RTC_BBPU_AUTO_PDN_SEL;
 	rtc_write(RTC_AL_SEC, reboot);
 	rtc_write_trigger();
 }
@@ -263,10 +272,8 @@ void hal_rtc_get_pwron_alarm(struct rtc_time *tm, struct rtc_wkalrm *alm)
 	pdn1 = rtc_read(RTC_PDN1);
 	pdn2 = rtc_read(RTC_PDN2);
 
-	alm->enabled = (pdn1 & RTC_PDN1_PWRON_TIME ?
-		(pdn2 & RTC_PDN2_PWRON_LOGO ? 3 : 2) : 0);
-	/* return Power-On Alarm bit */
-	alm->pending = !!(pdn2 & RTC_PDN2_PWRON_ALARM);
+	alm->enabled = (pdn1 & RTC_PDN1_PWRON_TIME ? (pdn2 & RTC_PDN2_PWRON_LOGO ? 3 : 2) : 0);
+	alm->pending = !!(pdn2 & RTC_PDN2_PWRON_ALARM);	/* return Power-On Alarm bit */
 
 	hal_rtc_get_alarm_time(tm);
 }
@@ -299,9 +306,9 @@ bool hal_rtc_is_pwron_alarm(struct rtc_time *nowtm, struct rtc_time *tm)
 		hal_rtc_xinfo("pdn1 = 0x%4x\n", pdn1);
 		hal_rtc_get_tick_time(nowtm);
 		hal_rtc_xinfo("pdn1 = 0x%4x\n", pdn1);
-		/* SEC has carried */
-		if (rtc_read(RTC_TC_SEC) < nowtm->tm_sec)
+		if (rtc_read(RTC_TC_SEC) < nowtm->tm_sec) {	/* SEC has carried */
 			hal_rtc_get_tick_time(nowtm);
+		}
 
 		hal_rtc_get_pwron_alarm_time(tm);
 
@@ -319,8 +326,7 @@ void hal_rtc_get_alarm(struct rtc_time *tm, struct rtc_wkalrm *alm)
 	hal_rtc_get_alarm_time(tm);
 	pdn2 = rtc_read(RTC_PDN2);
 	alm->enabled = !!(irqen & RTC_IRQ_EN_AL);
-	/* return Power-On Alarm bit */
-	alm->pending = !!(pdn2 & RTC_PDN2_PWRON_ALARM);
+	alm->pending = !!(pdn2 & RTC_PDN2_PWRON_ALARM);	/* return Power-On Alarm bit */
 }
 
 void hal_rtc_set_alarm(struct rtc_time *tm)
@@ -382,3 +388,64 @@ void hal_rtc_save_pwron_time(bool enable, struct rtc_time *tm, bool logo)
 	rtc_write_trigger();
 }
 
+#ifdef VRTC_PWM_ENABLE
+void hal_rtc_pwm_enable(void)
+{
+	rtc_write(MT_VRTC_PWM_CON0, 0);	/*clear*/
+
+	hal_rtc_xinfo("hal_rtc_pwm_enable(), RTC_CAP_SEL=%d\n", RTC_CAP_SEL);
+
+	switch (RTC_CAP_SEL) {
+	case 0:		/*0.1uF only*/
+		rtc_write(MT_VRTC_PWM_CON0,
+			  VRTC_PWM_H_DUTY_0_64_MS | VRTC_PWM_L_DUTY_6_4_MS | VRTC_PWM_MODE);
+		hal_rtc_xinfo("H=0.64ms,L=6.4ms, VRTC_PWM=%x\n", rtc_read(MT_VRTC_PWM_CON0));
+		break;
+	case 1:		/*0.1uF + 1uF + 1.5Kohm*/
+		rtc_write(MT_VRTC_PWM_CON0,
+			  VRTC_PWM_H_DUTY_5_12_MS | VRTC_PWM_L_DUTY_51_2_MS | VRTC_PWM_MODE);
+		hal_rtc_xinfo("H=5.12ms,L=51.2ms, VRTC_PWM=%x\n", rtc_read(MT_VRTC_PWM_CON0));
+		break;
+	case 2:		/*0.1uF + 2.2uF + 1.5Kohm*/
+		rtc_write(MT_VRTC_PWM_CON0,
+			  VTRC_CAP_SEL | VRTC_PWM_H_DUTY_25_6_MS | VRTC_PWM_L_DUTY_128_0_MS |
+			  VRTC_PWM_MODE);
+		hal_rtc_xinfo("H=25.6ms,L=128ms, VRTC_PWM=%x\n", rtc_read(MT_VRTC_PWM_CON0));
+		break;
+	case 3:		/*0.1uF + 4.7uF + 1.5Kohm*/
+		rtc_write(MT_VRTC_PWM_CON0,
+			  VTRC_CAP_SEL | VRTC_PWM_H_DUTY_51_2_MS | VRTC_PWM_L_DUTY_256_0_MS |
+			  VRTC_PWM_MODE);
+		hal_rtc_xinfo("H=51.2ms,L=256ms, VRTC_PWM=%x\n", rtc_read(MT_VRTC_PWM_CON0));
+		break;
+	case 4:		/*0.1uF + 10uF + 1.5Kohm*/
+		rtc_write(MT_VRTC_PWM_CON0,
+			  VTRC_CAP_SEL | VRTC_PWM_H_DUTY_102_4_MS | VRTC_PWM_L_DUTY_512_0_MS |
+			  VRTC_PWM_MODE);
+		hal_rtc_xinfo("H=102.4ms,L=512ms, VRTC_PWM=%x\n", rtc_read(MT_VRTC_PWM_CON0));
+		break;
+	case 5:		/*0.1uF + 22uF + 1.5Kohm*/
+		rtc_write(MT_VRTC_PWM_CON0,
+			  VTRC_CAP_SEL | VRTC_PWM_H_DUTY_204_8_MS | VRTC_PWM_L_DUTY_1024_0_MS |
+			  VRTC_PWM_MODE);
+		hal_rtc_xinfo("H=204.8ms,L=1024ms, VRTC_PWM=%x\n", rtc_read(MT_VRTC_PWM_CON0));
+		break;
+	case 6:		/*0.1uF + super cap(>>22uF) + 1.5Kohm*/
+		rtc_write(MT_VRTC_PWM_CON0,
+			  VTRC_CAP_SEL | VRTC_PWM_H_DUTY_204_8_MS | VRTC_PWM_L_DUTY_1024_0_MS |
+			  VRTC_PWM_MODE);
+		hal_rtc_xinfo("H=204.8ms,L=1024ms, VRTC_PWM=%x\n", rtc_read(MT_VRTC_PWM_CON0));
+		break;
+	case 7:		/*0.1uF + little Li battery + 1.5Kohm*/
+		rtc_write(MT_VRTC_PWM_CON0,
+			  VTRC_CAP_SEL | VRTC_PWM_H_DUTY_204_8_MS | VRTC_PWM_L_DUTY_512_0_MS |
+			  VRTC_PWM_MODE);
+		hal_rtc_xinfo("H=204.8ms,L=512ms, VRTC_PWM=%x\n", rtc_read(MT_VRTC_PWM_CON0));
+		break;
+	default:
+		hal_rtc_xinfo("RTC CAP SEL is wrong !!!!");
+		break;
+	}
+
+}
+#endif

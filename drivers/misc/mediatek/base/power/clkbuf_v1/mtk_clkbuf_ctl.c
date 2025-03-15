@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2015 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -54,7 +54,7 @@ void __attribute__((weak)) clk_buf_dump_clkbuf_log(void)
 
 int __attribute__((weak)) clk_buf_fs_init(void)
 {
-	pr_info("%s: dummy func\n", __func__);
+	clk_buf_pr_info("%s: dummy func\n", __func__);
 	return 0;
 }
 
@@ -124,6 +124,15 @@ void clk_buf_save_afc_val(unsigned int afcdac)
 }
 
 /* Called by suspend driver to write afcdac into SPM register */
+void clk_buf_write_afcdac(void)
+{
+	if (!is_clkbuf_initiated)
+		return;
+
+	if (is_pmic_clkbuf)
+		return;
+}
+
 bool is_clk_buf_from_pmic(void)
 {
 	return true;
@@ -141,7 +150,7 @@ int clk_buf_init(void)
 		return -1;
 
 	if (clk_buf_dts_map()) {
-		pr_err("%s: failed due to DTS failed\n", __func__);
+		clk_buf_pr_err("%s: failed due to DTS failed\n", __func__);
 		return -1;
 	}
 

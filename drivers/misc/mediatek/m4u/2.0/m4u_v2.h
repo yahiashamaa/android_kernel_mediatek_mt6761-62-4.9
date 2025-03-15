@@ -53,19 +53,15 @@ m4u_client_t *m4u_create_client(void);
 int m4u_destroy_client(m4u_client_t *client);
 
 int m4u_dump_reg_for_smi_hang_issue(void);
-int m4u_display_fake_engine_test(unsigned long ulFakeReadAddr,
-				 unsigned long ulFakeWriteAddr);
+int m4u_display_fake_engine_test(unsigned long ulFakeReadAddr, unsigned long ulFakeWriteAddr);
 
 void m4u_larb_backup(int larb_idx);
 void m4u_larb_restore(int larb_idx);
 
 
-typedef m4u_callback_ret_t(m4u_reclaim_mva_callback_t) (int alloc_port,
-							unsigned int mva,
-							unsigned int size,
-							void *data);
-int m4u_register_reclaim_callback(int port, m4u_reclaim_mva_callback_t *fn,
-				  void *data);
+typedef m4u_callback_ret_t (m4u_reclaim_mva_callback_t)(int alloc_port, unsigned int mva,
+							unsigned int size, void *data);
+int m4u_register_reclaim_callback(int port, m4u_reclaim_mva_callback_t *fn, void *data);
 int m4u_unregister_reclaim_callback(int port);
 
 

@@ -18,7 +18,7 @@
 #include <linux/of_address.h>
 
 #include <mt-plat/mtk_secure_api.h>
-#include <mt-plat/mtk_wd_api.h>
+#include <mach/wd_api.h>
 #include <mt-plat/mtk_platform_debug.h>
 #include "dfd.h"
 
@@ -32,13 +32,13 @@ int dfd_setup(void)
 
 	if (drv && (drv->enabled == 1) && (drv->base_addr > 0)) {
 		/* check support or not first */
-		if (check_dfd_support() == 0)
+		if (check_dfd_support && check_dfd_support() == 0)
 			return -1;
 
 		/* get watchdog api */
 		ret = get_wd_api(&wd_api);
 		if (ret < 0) {
-			//pr_notice("[dfd] get_wd_api error\n");
+			pr_err("[dfd] get_wd_api error\n");
 			return ret;
 		}
 		wd_api->wd_dfd_count_en(1);
@@ -47,7 +47,7 @@ int dfd_setup(void)
 		wd_api->wd_dfd_timeout(drv->rg_dfd_timeout);
 
 		ret = mt_secure_call(MTK_SIP_KERNEL_DFD, DFD_SMC_MAGIC_SETUP,
-				(u64) drv->base_addr, drv->chain_length, 0);
+				(u64) drv->base_addr, drv->chain_length);
 
 		if (ret < 0)
 			return ret;
@@ -60,11 +60,9 @@ int dfd_setup(void)
 		return -1;
 }
 
-static int __init fdt_get_chosen(unsigned long node, const char *uname,
-		int depth, void *data)
+static int __init fdt_get_chosen(unsigned long node, const char *uname, int depth, void *data)
 {
-	if (depth != 1 || (strcmp(uname, "chosen") != 0
-				&& strcmp(uname, "chosen@0") != 0))
+	if (depth != 1 || (strcmp(uname, "chosen") != 0 && strcmp(uname, "chosen@0") != 0))
 		return 0;
 
 	*(unsigned long *)data = node;
@@ -90,19 +88,19 @@ static int __init dfd_init(void)
 		else
 			drv->enabled = val;
 
-		if (of_property_read_u32(dev_node,
-					"mediatek,chain_length", &val))
+		if (of_property_read_u32(dev_node, "mediatek,chain_length", &val))
 			drv->chain_length = 0;
 		else
 			drv->chain_length = val;
 
-		if (of_property_read_u32(dev_node,
-					"mediatek,rg_dfd_timeout", &val))
+		if (of_property_read_u32(dev_node, "mediatek,rg_dfd_timeout", &val))
 			drv->rg_dfd_timeout = 0;
 		else
 			drv->rg_dfd_timeout = val;
-	} else
+	} else {
+		pr_err("cannot find node \"mediatek,dfd\" for dfd\n");
 		return -ENODEV;
+	}
 
 	if (drv->enabled == 0)
 		return 0;
@@ -115,16 +113,16 @@ static int __init dfd_init(void)
 		drv->base_addr_msb = 0;
 	}
 
-	infra_node = of_find_compatible_node(NULL, NULL,
-			"mediatek,infracfg_ao");
+	infra_node = of_find_compatible_node(NULL, NULL, "mediatek,infracfg_ao");
 	if (infra_node) {
 		void __iomem *infra = of_iomap(infra_node, 0);
 
 		if (infra && drv->base_addr_msb) {
-			infra += dfd_infra_base();
-			writel(readl(infra)
-				| (drv->base_addr_msb >> dfd_ap_addr_offset()),
-				infra);
+			if (dfd_infra_base) {
+				infra += dfd_infra_base();
+				writel(readl(infra) | (drv->base_addr_msb >> 24),
+				       infra);
+			}
 		}
 	}
 
@@ -133,8 +131,10 @@ static int __init dfd_init(void)
 	if (node) {
 		prop = of_get_flat_dt_prop(node, "dfd,base_addr", NULL);
 		drv->base_addr = (prop) ? (u64) of_read_number(prop, 2) : 0;
-	} else
+	} else {
+		pr_err("cannot find node \"chosen\" for dfd\n");
 		return -ENODEV;
+	}
 
 	return 0;
 }

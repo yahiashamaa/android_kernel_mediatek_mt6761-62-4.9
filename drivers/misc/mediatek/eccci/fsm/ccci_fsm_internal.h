@@ -1,15 +1,15 @@
 /*
- * Copyright (C) 2016 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
- */
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 
 #ifndef __CCCI_FSM_INTERNAL_H__
 #define __CCCI_FSM_INTERNAL_H__
@@ -105,8 +105,7 @@ typedef enum {
 } CCCI_MD_MSG;
 
 enum {
-	/* also used to check EE flow done */
-	MD_EE_FLOW_START	= (1 << 0),
+	MD_EE_FLOW_START	= (1 << 0), /* also used to check EE flow done */
 	MD_EE_MSG_GET		= (1 << 1),
 	MD_EE_OK_MSG_GET	= (1 << 2),
 	MD_EE_PASS_MSG_GET	= (1 << 3),
@@ -118,10 +117,8 @@ enum {
 
 enum {
 	/*
-	 * we assume every valid EE is started with CCIF EX interrupt,
-	 * and ignore EX messages without one.
-	 * if we get EX_OK, then we can parse out valid EE info anyway,
-	 * so no need to distinguish EX_OK only case.
+	 * we assume every valid EE is started with CCIF EX interrupt, and ignore EX messages without one.
+	 * if we get EX_OK, then we can parse out valid EE info anyway, so no need to distinguish EX_OK only case.
 	 * and we never encountered EX_PASS only case~
 	 */
 	MD_EE_CASE_NORMAL = 0,
@@ -158,7 +155,7 @@ enum ccci_ipi_op_id {
 #define FSM_CMD_FLAG_FLIGHT_MODE (1 << 1)
 
 #define EVENT_POLL_INTEVAL 20 /* ms */
-#define BOOT_TIMEOUT (300*1000)
+#define BOOT_TIMEOUT (30*1000)
 #define MD_EX_CCIF_TIMEOUT 10000
 #define MD_EX_REC_OK_TIMEOUT 10000
 #define MD_EX_PASS_TIMEOUT 10000
@@ -200,8 +197,7 @@ struct ccci_fsm_poller {
 struct ccci_fsm_ee;
 struct md_ee_ops {
 	 void (*set_ee_pkg)(struct ccci_fsm_ee *ee_ctl, char *data, int len);
-	 void (*dump_ee_info)(struct ccci_fsm_ee *ee_ctl,
-				MDEE_DUMP_LEVEL level, int more_info);
+	 void (*dump_ee_info)(struct ccci_fsm_ee *ee_ctl, MDEE_DUMP_LEVEL level, int more_info);
 };
 
 struct ccci_fsm_ee {
@@ -242,7 +238,7 @@ struct ccci_fsm_ctl {
 	struct task_struct *fsm_thread;
 	atomic_t fs_ongoing;
 	char wakelock_name[32];
-	struct wakeup_source wakelock;
+	struct wake_lock wakelock;
 
 	unsigned long boot_count; /* for throttling feature */
 
@@ -270,8 +266,7 @@ struct ccci_fsm_command {
 
 /************ APIs ************/
 
-int fsm_append_command(struct ccci_fsm_ctl *ctl,
-	CCCI_FSM_COMMAND cmd_id, unsigned int flag);
+int fsm_append_command(struct ccci_fsm_ctl *ctl, CCCI_FSM_COMMAND cmd_id, unsigned int flag);
 int fsm_append_event(struct ccci_fsm_ctl *ctl, CCCI_FSM_EVENT event_id,
 	unsigned char *data, unsigned int length);
 
@@ -299,7 +294,6 @@ extern void inject_md_status_event(int md_id, int event_type, char reason[]);
 #ifdef SET_EMI_STEP_BY_STAGE
 extern void ccci_set_mem_access_protection_second_stage(int md_id);
 #endif
-extern void mdee_set_ex_start_str(struct ccci_fsm_ee *ee_ctl,
-	unsigned int type, char *str);
+extern void mdee_set_ex_start_str(struct ccci_fsm_ee *ee_ctl, unsigned int type, char *str);
 #endif /* __CCCI_FSM_INTERNAL_H__ */
 

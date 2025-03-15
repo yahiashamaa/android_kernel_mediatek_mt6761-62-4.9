@@ -82,7 +82,7 @@ static void mld_destroy(const void *mem_ptr)
 	MLD_LOCK();
 
 	list_for_each_entry_safe(mem_item, tmp, &g_mld_context.tcore_list.list,
-				 list) {
+				  list) {
 		if (mem_item->mem_ptr == mem_ptr) {
 			list_del(&mem_item->list);
 			if (g_mld_context.malloc_total_size

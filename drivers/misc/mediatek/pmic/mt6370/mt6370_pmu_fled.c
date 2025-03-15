@@ -572,22 +572,26 @@ static struct rt_fled_hal mt6370_fled_hal = {
 	.rt_hal_fled_torch_current_list = mt6370_fled_torch_current_list,
 	.rt_hal_fled_strobe_current_list = mt6370_fled_strobe_current_list,
 	.rt_hal_fled_timeout_level_list = mt6370_fled_timeout_level_list,
-	/* .fled_lv_protection_list = mt6370_fled_lv_protection_list, */
-	.rt_hal_fled_strobe_timeout_list = mt6370_fled_strobe_timeout_list,
+	/* .rt_hal_fled_lv_protection_list = mt6370_fled_lv_protection_list, */
+	.rt_hal_fled_strobe_timeout_list =
+					mt6370_fled_strobe_timeout_list,
 	/* method to set */
-	.rt_hal_fled_set_torch_current_sel = mt6370_fled_set_torch_current_sel,
+	.rt_hal_fled_set_torch_current_sel =
+					mt6370_fled_set_torch_current_sel,
 	.rt_hal_fled_set_strobe_current_sel =
 					mt6370_fled_set_strobe_current_sel,
-	.rt_hal_fled_set_timeout_level_sel = mt6370_fled_set_timeout_level_sel,
-
+	.rt_hal_fled_set_timeout_level_sel =
+					mt6370_fled_set_timeout_level_sel,
 	.rt_hal_fled_set_strobe_timeout_sel =
 					mt6370_fled_set_strobe_timeout_sel,
 
 	/* method to get */
-	.rt_hal_fled_get_torch_current_sel = mt6370_fled_get_torch_current_sel,
+	.rt_hal_fled_get_torch_current_sel =
+					mt6370_fled_get_torch_current_sel,
 	.rt_hal_fled_get_strobe_current_sel =
 					mt6370_fled_get_strobe_current_sel,
-	.rt_hal_fled_get_timeout_level_sel = mt6370_fled_get_timeout_level_sel,
+	.rt_hal_fled_get_timeout_level_sel =
+					mt6370_fled_get_timeout_level_sel,
 	.rt_hal_fled_get_strobe_timeout_sel =
 					mt6370_fled_get_strobe_timeout_sel,
 	/* PM shutdown, optional */
@@ -636,8 +640,7 @@ static int mt6370_pmu_fled_probe(struct platform_device *pdev)
 	bool use_dt = pdev->dev.of_node;
 	int ret;
 
-	pr_info("%s (%s) id = %d\n", __func__, MT6370_PMU_FLED_DRV_VERSION,
-						pdev->id);
+	pr_info("%s (%s) id = %d\n", __func__, MT6370_PMU_FLED_DRV_VERSION, pdev->id);
 	fled_data = mt6370_find_info(pdev->id);
 	if (fled_data == NULL) {
 		dev_err(&pdev->dev, "invalid fled ID Specified\n");

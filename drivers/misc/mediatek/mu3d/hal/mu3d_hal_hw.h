@@ -115,7 +115,6 @@
 
 extern void __iomem *u3_base;
 extern void __iomem *u3_ippc_base;
-extern void __iomem *u3_sif2_base;
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
 extern void __iomem *i2c_base;

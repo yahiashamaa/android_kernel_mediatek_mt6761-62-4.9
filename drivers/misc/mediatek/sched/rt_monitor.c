@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2015 MediaTek Inc.
  *
- * This program is free software; you can redistribute it and/or modify
+ * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/slab.h>
@@ -56,8 +56,7 @@ static DEFINE_SPINLOCK(mt_rt_mon_lock);
 static struct mt_rt_mon_struct buffer[MAX_THROTTLE_COUNT];
 static int rt_mon_cpu_buffer;
 static int rt_mon_count_buffer;
-static unsigned long long rt_start_ts_buffer, rt_end_ts_buffer;
-static unsigned long long rt_dur_ts_buffer;
+static unsigned long long rt_start_ts_buffer, rt_end_ts_buffer, rt_dur_ts_buffer;
 char rt_monitor_print_at_AEE_buffer[124];
 unsigned long rt_mon_map[BITS_TO_LONGS(MAX_RT_TASK_COUNT)];
 static struct mt_rt_mon_struct memory_base[MAX_RT_TASK_COUNT];
@@ -123,9 +122,9 @@ static void store_rt_mon_info(int cpu, u64 delta_exec, struct task_struct *p)
 				p->pid, cpu);
 		return;
 	}
-
 	memset(mtmon, 0, sizeof(struct mt_rt_mon_struct));
 	INIT_LIST_HEAD(&(mtmon->list));
+
 	per_cpu(rt_mon_count, cpu)++;
 
 	mtmon->pid = p->pid;
@@ -167,8 +166,7 @@ void stop_rt_mon_task(int cpu)
 
 	per_cpu(mt_rt_mon_enabled, cpu) = 0;
 	per_cpu(rt_end_ts, cpu) = sched_clock();
-	per_cpu(rt_dur_ts, cpu) = per_cpu(rt_end_ts, cpu) -
-				  per_cpu(rt_start_ts, cpu);
+	per_cpu(rt_dur_ts, cpu) = per_cpu(rt_end_ts, cpu) - per_cpu(rt_start_ts, cpu);
 	dur_ts = per_cpu(rt_dur_ts, cpu);
 	do_div(dur_ts, 1000000);	/* put prof_dur_ts to ms */
 	list_head = &(__raw_get_cpu_var(mt_rt_mon_head).list);
@@ -265,14 +263,11 @@ void mt_rt_mon_print_task(int cpu)
 	rt_dur_ts_buffer = __raw_get_cpu_var(rt_dur_ts);
 
 	printk_deferred(
-	"[name:rt_monitor&]sched: mon_count=%d, start[%lld.%06lu] end[%lld.%06lu] dur[%lld.%06lu]\n",
+		"[name:rt_monitor&]sched: mon_count = %d monitor start[%lld.%06lu ms] end[%lld.%06lu ms] dur[%lld.%06lu ms]\n",
 		per_cpu(rt_mon_count, cpu),
-		SPLIT_NS_H(per_cpu(rt_start_ts, cpu)),
-		SPLIT_NS_L(per_cpu(rt_start_ts, cpu)),
-		SPLIT_NS_H(per_cpu(rt_end_ts, cpu)),
-		SPLIT_NS_L(per_cpu(rt_end_ts, cpu)),
-		SPLIT_NS_H(per_cpu(rt_dur_ts, cpu)),
-		SPLIT_NS_L(per_cpu(rt_dur_ts, cpu)));
+		SPLIT_NS_H(per_cpu(rt_start_ts, cpu)), SPLIT_NS_L(per_cpu(rt_start_ts, cpu)),
+		SPLIT_NS_H(per_cpu(rt_end_ts, cpu)), SPLIT_NS_L(per_cpu(rt_end_ts, cpu)),
+		SPLIT_NS_H(per_cpu(rt_dur_ts, cpu)), SPLIT_NS_L(per_cpu(rt_dur_ts, cpu)));
 
 	spin_lock_irqsave(&mt_rt_mon_lock, irq_flags);
 	list_head = &(__raw_get_cpu_var(mt_rt_mon_head).list);
@@ -282,17 +277,11 @@ void mt_rt_mon_print_task(int cpu)
 		memcpy(&buffer[count], tmp, sizeof(struct mt_rt_mon_struct));
 		count++;
 		printk_deferred(
-		"[name:rt_monitor&]sched:[%s] pid:%d prio:%d old:%d exec[%lld.%06lu ms] per[%d.%04d%%] isr[%lld.%06lu ms]\n",
-			tmp->comm,
-			tmp->pid,
-			tmp->prio,
-			tmp->old_prio,
-			SPLIT_NS_H(tmp->cost_cputime),
-			SPLIT_NS_L(tmp->cost_cputime),
-			tmp->cputime_percen_6 / 10000,
-			tmp->cputime_percen_6 % 10000,
-			SPLIT_NS_H(tmp->cost_isrtime),
-			SPLIT_NS_L(tmp->cost_isrtime));
+			"[name:rt_monitor&]sched:[%s] pid:%d prio:%d old:%d exec[%lld.%06lu ms] per[%d.%04d%%] isr[%lld.%06lu ms]\n",
+			tmp->comm, tmp->pid, tmp->prio, tmp->old_prio,
+			SPLIT_NS_H(tmp->cost_cputime), SPLIT_NS_L(tmp->cost_cputime),
+			tmp->cputime_percen_6 / 10000, tmp->cputime_percen_6 % 10000,
+			SPLIT_NS_H(tmp->cost_isrtime), SPLIT_NS_L(tmp->cost_isrtime));
 
 		if (count == MAX_THROTTLE_COUNT)
 			break;
@@ -301,8 +290,7 @@ void mt_rt_mon_print_task(int cpu)
 }
 #define printf_at_AEE(x...)			\
 do {						\
-	snprintf(rt_monitor_print_at_AEE_buffer, \
-		sizeof(rt_monitor_print_at_AEE_buffer), x);	\
+	snprintf(rt_monitor_print_at_AEE_buffer, sizeof(rt_monitor_print_at_AEE_buffer), x);	\
 	aee_sram_fiq_log(rt_monitor_print_at_AEE_buffer);	\
 } while (0)
 
@@ -312,27 +300,17 @@ void mt_rt_mon_print_task_from_buffer(void)
 
 	printf_at_AEE("last throttle information start\n");
 	printf_at_AEE("sched: cpu=%d mon_count=%d start[%lld.%06lu] end[%lld.%06lu] dur[%lld.%06lu]\n",
-			rt_mon_cpu_buffer,
-			rt_mon_count_buffer,
-			SPLIT_NS_H(rt_start_ts_buffer),
-			SPLIT_NS_L(rt_start_ts_buffer),
-			SPLIT_NS_H(rt_end_ts_buffer),
-			SPLIT_NS_L(rt_end_ts_buffer),
+			rt_mon_cpu_buffer, rt_mon_count_buffer,
+			SPLIT_NS_H(rt_start_ts_buffer), SPLIT_NS_L(rt_start_ts_buffer),
+			SPLIT_NS_H(rt_end_ts_buffer), SPLIT_NS_L(rt_end_ts_buffer),
 			SPLIT_NS_H((rt_end_ts_buffer - rt_start_ts_buffer)),
 			SPLIT_NS_L((rt_end_ts_buffer - rt_start_ts_buffer)));
 	for (i = 0 ; i < MAX_THROTTLE_COUNT ; i++)  {
-		printf_at_AEE(
-		"sched:[%s] pid:%d prio:%d old:%d exec[%lld.%06lu] percen[%d.%04d%%] isr[%lld.%06lu]\n",
-			buffer[i].comm,
-			buffer[i].pid,
-			buffer[i].prio,
-			buffer[i].old_prio,
-			SPLIT_NS_H(buffer[i].cost_cputime),
-			SPLIT_NS_L(buffer[i].cost_cputime),
-			buffer[i].cputime_percen_6 / 10000,
-			buffer[i].cputime_percen_6 % 10000,
-			SPLIT_NS_H(buffer[i].cost_isrtime),
-			SPLIT_NS_L(buffer[i].cost_isrtime));
+		printf_at_AEE("sched:[%s] pid:%d prio:%d old:%d exec[%lld.%06lu] percen[%d.%04d%%] isr[%lld.%06lu]\n",
+				buffer[i].comm, buffer[i].pid, buffer[i].prio, buffer[i].old_prio,
+				SPLIT_NS_H(buffer[i].cost_cputime), SPLIT_NS_L(buffer[i].cost_cputime),
+				buffer[i].cputime_percen_6 / 10000, buffer[i].cputime_percen_6 % 10000,
+				SPLIT_NS_H(buffer[i].cost_isrtime), SPLIT_NS_L(buffer[i].cost_isrtime));
 	}
 	printf_at_AEE("last throttle information end\n");
 }

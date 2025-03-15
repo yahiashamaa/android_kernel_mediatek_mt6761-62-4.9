@@ -13,25 +13,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-MTK_TOP = $(srctree)/drivers/misc/mediatek/
-FPSGO_TOP = $(srctree)/drivers/misc/mediatek/performance/fpsgo/
-BASE_TOP = $(FPSGO_TOP)/base
-FBT_TOP = $(FPSGO_TOP)/fbt
-FSTB_TOP = $(FPSGO_TOP)/fstb
-COM_TOP = $(FPSGO_TOP)/composer
 
-obj-y += fpsgo_main.o
-obj-y += base/
-obj-y += composer/
+obj-y += fpsgo_common.o
 
-obj-$(CONFIG_MTK_FPSGO) += fbt/
-obj-$(CONFIG_MTK_FPSGO) += fstb/
+obj-y += notifier/
 
-ccflags-y += \
-        -I$(srctree)/include/ \
-        -I$(MTK_TOP)/include/ \
-	-I$(MTK_TOP)/dfrc/ \
-	-I$(BASE_TOP)/include/ \
-        -I$(FBT_TOP)/include/ \
-        -I$(FSTB_TOP)/ \
-        -I$(COM_TOP)/include/ \
+# TODO: re-factory with fbt ux
+obj-$(CONFIG_MTK_FPSGO_FBT_GAME) += fbt/
+obj-$(CONFIG_MTK_FPSGO_FSTB) += fstb/

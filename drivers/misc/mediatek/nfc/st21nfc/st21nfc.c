@@ -109,7 +109,7 @@ static u32 nfc_irq;
 static bool irqIsAttached;
 
 static bool device_open; /* Is device open? */
-static bool enable_debug_log;
+static bool enable_debug_log; /* set to true for bringup phase */
 
 struct st21nfc_dev {
 	wait_queue_head_t read_wq;

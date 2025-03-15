@@ -16,7 +16,7 @@
  */
 #include "mmdvfs_internal.h"
 
-#define MMDVFS_BRINGUP_MSG(func_name) MMDVFSMSG("%s for bringup.\n", func_name)
+#define MMDVFS_BRINGUP_MSG(func_name) MMDVFSMSG("This is %s bringup version, do nothing\n", func_name)
 
 void mmdvfs_init(struct MTK_SMI_BWC_MM_INFO *info)
 {
@@ -61,14 +61,12 @@ int mmdvfs_lower_mmsys_by_mux(void)
 	MMDVFS_BRINGUP_MSG(__func__);
 	return 0;
 }
-int register_mmclk_switch_cb(
-	clk_switch_cb notify_cb, clk_switch_cb notify_cb_nolock)
+int register_mmclk_switch_cb(clk_switch_cb notify_cb, clk_switch_cb notify_cb_nolock)
 {
 	MMDVFS_BRINGUP_MSG(__func__);
 	return 0;
 }
-int mmdvfs_register_mmclk_switch_cb(
-	clk_switch_cb notify_cb, int mmdvfs_client_id)
+int mmdvfs_register_mmclk_switch_cb(clk_switch_cb notify_cb, int mmdvfs_client_id)
 {
 	MMDVFS_BRINGUP_MSG(__func__);
 	return 0;
@@ -77,8 +75,7 @@ void dump_mmdvfs_info(void)
 {
 	MMDVFS_BRINGUP_MSG(__func__);
 }
-int mmdvfs_set_step(
-	enum MTK_SMI_BWC_SCEN scenario, enum mmdvfs_voltage_enum step)
+int mmdvfs_set_step(enum MTK_SMI_BWC_SCEN scenario, enum mmdvfs_voltage_enum step)
 {
 	MMDVFS_BRINGUP_MSG(__func__);
 	return 0;
@@ -119,8 +116,7 @@ void mmdvfs_debug_set_mmdvfs_clks_enabled(int clk_enable_request)
 {
 	MMDVFS_BRINGUP_MSG(__func__);
 }
-void mmdvfs_internal_notify_vcore_calibration(
-	struct mmdvfs_prepare_action_event *event)
+void mmdvfs_internal_notify_vcore_calibration(struct mmdvfs_prepare_action_event *event)
 {
 	MMDVFS_BRINGUP_MSG(__func__);
 }

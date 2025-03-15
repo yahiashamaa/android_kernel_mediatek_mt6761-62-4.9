@@ -28,11 +28,11 @@
 #include "include/pmic_throttling_dlpt.h"
 #include <linux/proc_fs.h>
 #include <linux/math64.h>
-
-#include <mtk_gauge_class.h>
+#include "mtk_gauge_class.h"
 #include <mtk_battery_internal.h>
 #include <mt-plat/mtk_auxadc_intf.h>
 #include "aee.h"
+
 
 /*********************** MT6358 setting *********************/
 #define UNIT_FGCURRENT     (381470)
@@ -52,6 +52,7 @@
 /* 3600 * 1000 * 1000 / CHARGE_LSB */
 #define CAR_TO_REG_SHIFT (5)
 /*coulomb interrupt lsb might be different with coulomb lsb */
+
 
 static signed int g_hw_ocv_tune_value;
 static bool g_fg_is_charger_exist;
@@ -91,6 +92,7 @@ static int MV_to_REG_12_temp_value(signed int _reg)
 
 static signed int REG_to_MV_value(signed int _reg)
 {
+	/*int ret = (_reg * VOLTAGE_FULL_RANGES * 10 * R_VAL_TEMP_3) / ADC_PRECISE;*/
 	long long _reg64 = _reg;
 	int ret;
 
@@ -411,8 +413,7 @@ static signed int fg_get_current_iavg(
 		fg_iavg_ma = fg_iavg_reg * UNIT_FG_IAVG *
 			gauge_dev->fg_cust_data->car_tune_value;
 
-		bm_trace(
-			"[fg_get_current_iavg] fg_iavg_ma %lld fg_iavg_reg %lld fg_iavg_reg_tmp %lld\n",
+		bm_trace("[fg_get_current_iavg] fg_iavg_ma %lld fg_iavg_reg %lld fg_iavg_reg_tmp %lld\n",
 			fg_iavg_ma, fg_iavg_reg, fg_iavg_reg_tmp);
 
 		do_div(fg_iavg_ma, 1000000);
@@ -869,8 +870,7 @@ static int fgauge_get_average_current(
 		fg_iavg_ma = fg_iavg_reg * UNIT_FG_IAVG *
 			gauge_dev->fg_cust_data->car_tune_value;
 
-		bm_trace(
-			"[fg_get_current_iavg] fg_iavg_ma %lld fg_iavg_reg %lld fg_iavg_reg_tmp %lld\n",
+		bm_trace("[fg_get_current_iavg] fg_iavg_ma %lld fg_iavg_reg %lld fg_iavg_reg_tmp %lld\n",
 			fg_iavg_ma, fg_iavg_reg, fg_iavg_reg_tmp);
 
 		do_div(fg_iavg_ma, 1000000);
@@ -973,8 +973,7 @@ static int fgauge_get_coulomb(struct gauge_device *gauge_dev, int *data)
 
 	uvalue32_CAR_MSB = (temp_CAR_31_16 & 0x8000) >> 15;
 
-	bm_trace(
-		"[fgauge_read_columb_internal] temp_CAR_15_0 = 0x%x temp_CAR_31_16 = 0x%x\n",
+	bm_trace("[fgauge_read_columb_internal] temp_CAR_15_0 = 0x%x temp_CAR_31_16 = 0x%x\n",
 		 temp_CAR_15_0, temp_CAR_31_16);
 
 	bm_trace("[fgauge_read_columb_internal] FG_CAR = 0x%x\r\n",
@@ -1264,8 +1263,7 @@ int read_hw_ocv(struct gauge_device *gauge_dev, int *data)
 
 	/* final chance to check hwocv */
 	if (_hw_ocv < 28000 && (is_fg_disabled() == 0)) {
-		bm_err("[read_hw_ocv] ERROR, _hw_ocv=%d  src:%d, force use swocv\n",
-		_hw_ocv, _hw_ocv_src);
+		bm_err("[read_hw_ocv] ERROR, _hw_ocv=%d  src:%d, force use swocv\n", _hw_ocv, _hw_ocv_src);
 		_hw_ocv = _sw_ocv;
 		_hw_ocv_src = FROM_SW_OCV;
 	}
@@ -1395,8 +1393,7 @@ int fgauge_set_coulomb_interrupt1_ht(
 
 	upperbound = value32_CAR;
 
-	bm_trace(
-		"[fgauge_set_coulomb_interrupt1_ht] upper = 0x%x:%d diff_car=0x%llx:%lld\r\n",
+	bm_trace("[fgauge_set_coulomb_interrupt1_ht] upper = 0x%x:%d diff_car=0x%llx:%lld\r\n",
 		 upperbound, upperbound, car, car);
 
 	upperbound = upperbound + car;
@@ -1405,12 +1402,10 @@ int fgauge_set_coulomb_interrupt1_ht(
 	upperbound_15_00 = (upperbound & 0xffff);
 
 
-	bm_trace(
-		"[fgauge_set_coulomb_interrupt1_ht] final upper = 0x%x:%d car=0x%llx:%lld\r\n",
+	bm_trace("[fgauge_set_coulomb_interrupt1_ht] final upper = 0x%x:%d car=0x%llx:%lld\r\n",
 		 upperbound, upperbound, car, car);
 
-	bm_trace(
-		"[fgauge_set_coulomb_interrupt1_ht] final upper 0x%x 0x%x 0x%x car=0x%llx\n",
+	bm_trace("[fgauge_set_coulomb_interrupt1_ht] final upper 0x%x 0x%x 0x%x car=0x%llx\n",
 		 upperbound, upperbound_31_16, upperbound_15_00, car);
 
 	pmic_enable_interrupt(FG_BAT1_INT_H_NO, 0, "GM30");
@@ -1518,8 +1513,7 @@ int fgauge_set_coulomb_interrupt1_lt(
 
 	lowbound = value32_CAR;
 
-	bm_trace(
-		"[fgauge_set_coulomb_interrupt1_lt]low=0x%x:%d diff_car=0x%llx:%lld\r\n",
+	bm_trace("[fgauge_set_coulomb_interrupt1_lt]low=0x%x:%d diff_car=0x%llx:%lld\r\n",
 		 lowbound, lowbound, car, car);
 
 	lowbound = lowbound - car;
@@ -1527,12 +1521,10 @@ int fgauge_set_coulomb_interrupt1_lt(
 	lowbound_31_16 = (lowbound & 0xffff0000) >> 16;
 	lowbound_15_00 = (lowbound & 0xffff);
 
-	bm_trace(
-		"[fgauge_set_coulomb_interrupt1_lt]final low=0x%x:%d car=0x%llx:%lld\r\n",
+	bm_trace("[fgauge_set_coulomb_interrupt1_lt]final low=0x%x:%d car=0x%llx:%lld\r\n",
 		 lowbound, lowbound, car, car);
 
-	bm_trace(
-		"[fgauge_set_coulomb_interrupt1_lt] final low 0x%x 0x%x 0x%x car=0x%llx\n",
+	bm_trace("[fgauge_set_coulomb_interrupt1_lt] final low 0x%x 0x%x 0x%x car=0x%llx\n",
 		 lowbound, lowbound_31_16, lowbound_15_00, car);
 
 	pmic_enable_interrupt(FG_BAT1_INT_L_NO, 0, "GM30");
@@ -1886,6 +1878,7 @@ static void fgauge_set_zcv_intr_internal(
 	long long fg_zcv_car_th_reg = fg_zcv_car_th;
 
 
+	/*fg_zcv_car_th_reg = (fg_zcv_car_th * 100 * 3600 * 1000) / UNIT_FGCAR_ZCV;*/
 	fg_zcv_car_th_reg = (fg_zcv_car_th_reg * 100 * 3600 * 1000);
 	do_div(fg_zcv_car_th_reg, UNIT_FGCAR_ZCV);
 
@@ -1961,8 +1954,9 @@ void battery_dump_nag(void)
 	vbat_val = nag_vbat_reg & 0x7fff;
 	nag_vbat_mv = REG_to_MV_value(vbat_val);
 
-	bm_err("[read_nafg_vbat] i:%d nag_vbat_reg 0x%x nag_vbat_mv %d:%d, nag_zcv:%d,_zcv_reg:0x%x,thr:%d,_thr_reg:0x%x\n",
+	bm_err("[read_nafg_vbat] i:%d nag_vbat_reg 0x%x nag_vbat_mv %d:%d %d, nag_zcv:%d,_zcv_reg:0x%x,thr:%d,_thr_reg:0x%x\n",
 		i, nag_vbat_reg, nag_vbat_mv, vbat_val,
+		pmic_get_battery_voltage(),
 		nag_zcv_mv, _zcv_reg, nag_c_dltv_mv, _thr_reg
 		);
 
@@ -2011,7 +2005,7 @@ static int fgauge_get_nag_vbat(struct gauge_device *gauge_dev, int *vbat)
 	vbat_val = nag_vbat_reg & 0x7fff;
 	nag_vbat_mv = REG_to_MV_value(vbat_val);
 	*vbat = nag_vbat_mv;
-
+	battery_dump_nag();
 	return 0;
 }
 
@@ -2415,8 +2409,7 @@ int fgauge_get_hw_status(
 		pmic_set_register_value(PMIC_RG_INT_EN_FG_IAVG_L, 0);
 		pmic_enable_interrupt(FG_IAVG_H_NO, 0, "GM30");
 		pmic_enable_interrupt(FG_IAVG_L_NO, 0, "GM30");
-		bm_trace(
-			"[read_fg_hw_info] doublecheck first fg_set_iavg_intr %d %d\n",
+		bm_trace("[read_fg_hw_info] doublecheck first fg_set_iavg_intr %d %d\n",
 			is_iavg_valid, gauge_status->iavg_intr_flag);
 	}
 	bm_trace("[read_fg_hw_info] thirdcheck first fg_set_iavg_intr %d %d\n",
@@ -2804,7 +2797,7 @@ int fgauge_set_reset_status(struct gauge_device *gauge_dev, int reset)
 
 }
 
-static void fgauge_dump_type0(struct seq_file *m)
+static int fgauge_dump(struct gauge_device *gauge_dev, struct seq_file *m)
 {
 	int vbif28;
 
@@ -2908,17 +2901,6 @@ static void fgauge_dump_type0(struct seq_file *m)
 		"chr_zcv:%d pmic_zcv:%d %d pmic_in_zcv:%d swocv:%d zcv_from:%d tmp:%d\n",
 		charger_zcv, pmic_rdy, pmic_zcv, pmic_in_zcv,
 		swocv, zcv_from, zcv_tmp);
-
-}
-
-static int fgauge_dump(
-	struct gauge_device *gauge_dev, struct seq_file *m, int type)
-{
-	if (type == 0)
-		fgauge_dump_type0(m);
-	else if (type == 1)
-		battery_dump_nag();
-
 	return 0;
 }
 

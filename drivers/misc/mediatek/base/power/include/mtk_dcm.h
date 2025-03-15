@@ -14,9 +14,7 @@
 #ifndef _MTK_DCM_H_
 #define _MTK_DCM_H_
 
-#if defined(CONFIG_MACH_MT6735)		\
-	|| defined(CONFIG_MACH_MT6735M) \
-	|| defined(CONFIG_MACH_MT6753)
+#if defined(CONFIG_MACH_MT6735) || defined(CONFIG_MACH_MT6735M) || defined(CONFIG_MACH_MT6753)
 
 #include "../mt6735/mtk_dcm.h"
 
@@ -56,13 +54,9 @@
 
 #include "../../../include/mt-plat/mt8127/include/mach/mtk_dcm.h"
 
-#elif defined(CONFIG_MACH_ELBRUS)	\
-	|| defined(CONFIG_MACH_MT6799)	\
-	|| defined(CONFIG_MACH_MT6759)	\
-	|| defined(CONFIG_MACH_MT6761)	\
-	|| defined(CONFIG_MACH_MT6763)	\
-	|| defined(CONFIG_MACH_MT6765)	\
-	|| defined(CONFIG_MACH_MT6739)
+#elif defined(CONFIG_MACH_ELBRUS) || defined(CONFIG_MACH_MT6799) || \
+	defined(CONFIG_MACH_MT6759) || defined(CONFIG_MACH_MT6763) || \
+	defined(CONFIG_MACH_MT6739)
 
 #include "dcm_v1/mtk_dcm.h"
 

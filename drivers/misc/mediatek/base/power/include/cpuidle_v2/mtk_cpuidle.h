@@ -145,8 +145,7 @@ int read_cntpctl(void);
 extern unsigned long *aee_rr_rec_mtk_cpuidle_footprint_va(void);
 extern unsigned long *aee_rr_rec_mtk_cpuidle_footprint_pa(void);
 
-unsigned long * __weak
-	mt_save_dbg_regs(unsigned long *p, unsigned int cpuid) { return 0; }
+unsigned long * __weak mt_save_dbg_regs(unsigned long *p, unsigned int cpuid) { return 0; }
 void __weak mt_restore_dbg_regs(unsigned long *p, unsigned int cpuid) { }
 void __weak mt_copy_dbg_regs(int to, int from) { }
 

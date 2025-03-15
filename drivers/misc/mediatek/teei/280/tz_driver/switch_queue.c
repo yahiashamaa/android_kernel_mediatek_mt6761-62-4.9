@@ -101,9 +101,9 @@ static int ut_smc_call(void *buff)
 		.data = buff,
 	};
 
-	if (!kthread_queue_work(&ut_fastcall_worker, &usc_work.work))
+	if (!queue_kthread_work(&ut_fastcall_worker, &usc_work.work))
 		return -1;
-	kthread_flush_work(&usc_work.work);
+	flush_kthread_work(&usc_work.work);
 	return 0;
 }
 

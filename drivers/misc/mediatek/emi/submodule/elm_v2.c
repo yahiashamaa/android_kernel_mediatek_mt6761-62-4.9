@@ -34,11 +34,9 @@ static struct dentry *dump_buf;
 static void __iomem *mbw_dram_buf;
 static bool elm_enabled;
 
-static ssize_t dump_buf_read
-	(struct file *file, char __user *data, size_t len, loff_t *ppos)
+static ssize_t dump_buf_read(struct file *file, char __user *data, size_t len, loff_t *ppos)
 {
-	ssize_t bytes = len < (MBW_BUF_LEN - *ppos) ?
-		len : (MBW_BUF_LEN - *ppos);
+	ssize_t bytes = len < (MBW_BUF_LEN - *ppos) ? len : (MBW_BUF_LEN - *ppos);
 
 	if (!mbw_dram_buf)
 		return 0;
@@ -98,7 +96,7 @@ void elm_init(struct platform_driver *emi_ctrl, struct platform_device *pdev)
 		return;
 	}
 
-	dump_buf = debugfs_create_file("dump_buf", 0444,
+	dump_buf = debugfs_create_file("dump_buf", S_IFREG | S_IRUGO,
 		emi_mbw_dir, NULL, &dump_buf_fops);
 	if (!dump_buf) {
 		pr_err("[ELM] create dump_buf fail\n");

@@ -18,10 +18,6 @@
 #include <linux/kernel.h>
 #endif
 
-#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
-#include "data_hw_roundedpattern.h"
-#endif
-
 #include "lcm_drv.h"
 
 
@@ -46,8 +42,18 @@
 #endif
 #endif
 
+
+#ifdef BUILD_LK
+#define LCM_LOGI(string, args...)  dprintf(0, "[LK/"LOG_TAG"]"string, ##args)
+#define LCM_LOGD(string, args...)  dprintf(1, "[LK/"LOG_TAG"]"string, ##args)
+#else
+#define LCM_LOGI(fmt, args...)  pr_debug("[KERNEL/"LOG_TAG"]"fmt, ##args)
+#define LCM_LOGD(fmt, args...)  pr_debug("[KERNEL/"LOG_TAG"]"fmt, ##args)
+#endif
+
+
 static const unsigned int BL_MIN_LEVEL = 20;
-static struct LCM_UTIL_FUNCS lcm_util;
+static LCM_UTIL_FUNCS lcm_util;
 
 #define SET_RESET_PIN(v)	(lcm_util.set_reset_pin((v)))
 #define MDELAY(n)		(lcm_util.mdelay(n))
@@ -95,17 +101,14 @@ static struct LCM_UTIL_FUNCS lcm_util;
 /*****************************************************************************
  * GLobal Variable
  *****************************************************************************/
-static struct i2c_board_info tps65132_board_info __initdata = {
-						I2C_BOARD_INFO(I2C_ID_NAME,
-								TPS_ADDR) };
+static struct i2c_board_info tps65132_board_info __initdata = { I2C_BOARD_INFO(I2C_ID_NAME, TPS_ADDR) };
 
 static struct i2c_client *tps65132_i2c_client;
 
 /*****************************************************************************
  * Function Prototype
  *****************************************************************************/
-static int tps65132_probe(struct i2c_client *client,
-			const struct i2c_device_id *id);
+static int tps65132_probe(struct i2c_client *client, const struct i2c_device_id *id);
 static int tps65132_remove(struct i2c_client *client);
 /*****************************************************************************
  * Data Structure
@@ -135,19 +138,17 @@ static struct i2c_driver tps65132_iic_driver = {
 		   },
 };
 
-static int tps65132_probe(struct i2c_client *client,
-						const struct i2c_device_id *id)
+static int tps65132_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
-	pr_debug("[LCM]tps65132_iic_probe\n");
-	pr_debug("[LCM]TPS: info==>name=%s addr=0x%x\n",
-		client->name, client->addr);
+	LCM_LOGI("tps65132_iic_probe\n");
+	LCM_LOGI("TPS: info==>name=%s addr=0x%x\n", client->name, client->addr);
 	tps65132_i2c_client = client;
 	return 0;
 }
 
 static int tps65132_remove(struct i2c_client *client)
 {
-	pr_debug("[LCM]tps65132_remove\n");
+	LCM_LOGI("tps65132_remove\n");
 	tps65132_i2c_client = NULL;
 	i2c_unregister_device(client);
 	return 0;
@@ -163,23 +164,23 @@ static int tps65132_write_bytes(unsigned char addr, unsigned char value)
 	write_data[1] = value;
 	ret = i2c_master_send(client, write_data, 2);
 	if (ret < 0)
-		pr_debug("[LCM]tps65132 write data fail !!\n");
+		LCM_LOGI("tps65132 write data fail !!\n");
 	return ret;
 }
 
 static int __init tps65132_iic_init(void)
 {
-	pr_debug("[LCM]tps65132_iic_init\n");
+	LCM_LOGI("tps65132_iic_init\n");
 	i2c_register_board_info(TPS_I2C_BUSNUM, &tps65132_board_info, 1);
-	pr_debug("[LCM]tps65132_iic_init2\n");
+	LCM_LOGI("tps65132_iic_init2\n");
 	i2c_add_driver(&tps65132_iic_driver);
-	pr_debug("[LCM]tps65132_iic_init success\n");
+	LCM_LOGI("tps65132_iic_init success\n");
 	return 0;
 }
 
 static void __exit tps65132_iic_exit(void)
 {
-	pr_debug("[LCM]tps65132_iic_exit\n");
+	LCM_LOGI("tps65132_iic_exit\n");
 	i2c_del_driver(&tps65132_iic_driver);
 }
 
@@ -211,7 +212,7 @@ static const unsigned char LCD_MODULE_ID = 0x01;
 #define REGFLAG_RESET_LOW	0xFFFE
 #define REGFLAG_RESET_HIGH	0xFFFF
 
-static struct LCM_DSI_MODE_SWITCH_CMD lcm_switch_mode_cmd;
+static LCM_DSI_MODE_SWITCH_CMD lcm_switch_mode_cmd;
 
 #ifndef TRUE
 #define TRUE 1
@@ -829,12 +830,10 @@ static struct LCM_setting_table bl_level[] = {
 	{REGFLAG_END_OF_TABLE, 0x00, {} }
 };
 
-static void push_table(struct LCM_setting_table *table,
-				unsigned int count,
-				unsigned char force_update)
+static void push_table(struct LCM_setting_table *table, unsigned int count, unsigned char force_update)
 {
 	unsigned int i;
-	unsigned int cmd;
+	unsigned cmd;
 
 	for (i = 0; i < count; i++) {
 		cmd = table[i].cmd;
@@ -856,22 +855,21 @@ static void push_table(struct LCM_setting_table *table,
 			break;
 
 		default:
-			dsi_set_cmdq_V2(cmd, table[i].count,
-				table[i].para_list, force_update);
+			dsi_set_cmdq_V2(cmd, table[i].count, table[i].para_list, force_update);
 		}
 	}
 }
 
 
-static void lcm_set_util_funcs(const struct LCM_UTIL_FUNCS *util)
+static void lcm_set_util_funcs(const LCM_UTIL_FUNCS *util)
 {
-	memcpy(&lcm_util, util, sizeof(struct LCM_UTIL_FUNCS));
+	memcpy(&lcm_util, util, sizeof(LCM_UTIL_FUNCS));
 }
 
 
-static void lcm_get_params(struct LCM_PARAMS *params)
+static void lcm_get_params(LCM_PARAMS *params)
 {
-	memset(params, 0, sizeof(struct LCM_PARAMS));
+	memset(params, 0, sizeof(LCM_PARAMS));
 
 	params->type = LCM_TYPE_DSI;
 
@@ -911,12 +909,12 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	params->dsi.horizontal_backporch = 20;
 	params->dsi.horizontal_frontporch = 40;
 	params->dsi.horizontal_active_pixel = FRAME_WIDTH;
-	params->dsi.ssc_disable = 1;
+	/* params->dsi.ssc_disable                                                      = 1; */
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #if (LCM_DSI_CMD_MODE)
-	params->dsi.PLL_CLOCK = 500;
+	params->dsi.PLL_CLOCK = 500;	/* this value must be in MTK suggested table */
 #else
-	params->dsi.PLL_CLOCK = 450;
+	params->dsi.PLL_CLOCK = 450;	/* this value must be in MTK suggested table */
 #endif
 #else
 	params->dsi.pll_div1 = 0;
@@ -931,19 +929,6 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	params->dsi.lcm_esd_check_table[0].count = 1;
 	params->dsi.lcm_esd_check_table[0].para_list[0] = 0x24;
 
-#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
-	params->round_corner_en = 1;
-	params->corner_pattern_width = FRAME_WIDTH;
-	params->corner_pattern_height = ROUND_CORNER_H;
-
-	params->round_corner_params.w = ROUND_CORNER_W;
-	params->round_corner_params.h = ROUND_CORNER_H;
-	params->round_corner_params.tp_size = sizeof(top_rc_pattern);
-	params->round_corner_params.lt_addr = (void *)top_rc_pattern;
-	params->round_corner_params.rt_addr = NULL;
-	params->round_corner_params.lb_addr = NULL;
-	params->round_corner_params.rb_addr = NULL;
-#endif
 }
 
 #ifdef BUILD_LK
@@ -961,8 +946,7 @@ static int TPS65132_write_byte(kal_uint8 addr, kal_uint8 value)
 	write_data[1] = value;
 
 	TPS65132_i2c.id = I2C_I2C_LCD_BIAS_CHANNEL;	/* I2C2; */
-	/* Since i2c will left shift 1 bit, */
-	/* we need to set FAN5405 I2C address to >>1 */
+	/* Since i2c will left shift 1 bit, we need to set FAN5405 I2C address to >>1 */
 	TPS65132_i2c.addr = (TPS65132_SLAVE_ADDR_WRITE >> 1);
 	TPS65132_i2c.mode = ST_MODE;
 	TPS65132_i2c.speed = 100;
@@ -993,9 +977,9 @@ static void lcm_init_power(void)
 #ifdef BUILD_LK
 	mt6325_upmu_set_rg_vgp1_en(1);
 #else
-	pr_debug("[LCM]%s, begin\n", __func__);
+	LCM_LOGI("%s, begin\n", __func__);
 	hwPowerOn(MT6325_POWER_LDO_VGP1, VOL_DEFAULT, "LCM_DRV");
-	pr_debug("[LCM]%s, end\n", __func__);
+	LCM_LOGI("%s, end\n", __func__);
 #endif
 #endif
 #endif
@@ -1008,9 +992,9 @@ static void lcm_suspend_power(void)
 #ifdef BUILD_LK
 	mt6325_upmu_set_rg_vgp1_en(0);
 #else
-	pr_debug("[LCM]%s, begin\n", __func__);
+	LCM_LOGI("%s, begin\n", __func__);
 	hwPowerDown(MT6325_POWER_LDO_VGP1, "LCM_DRV");
-	pr_debug("[LCM]%s, end\n", __func__);
+	LCM_LOGI("%s, end\n", __func__);
 #endif
 #endif
 #endif
@@ -1023,9 +1007,9 @@ static void lcm_resume_power(void)
 #ifdef BUILD_LK
 	mt6325_upmu_set_rg_vgp1_en(1);
 #else
-	pr_debug("[LCM]%s, begin\n", __func__);
+	LCM_LOGI("%s, begin\n", __func__);
 	hwPowerOn(MT6325_POWER_LDO_VGP1, VOL_DEFAULT, "LCM_DRV");
-	pr_debug("[LCM]%s, end\n", __func__);
+	LCM_LOGI("%s, end\n", __func__);
 #endif
 #endif
 #endif
@@ -1055,11 +1039,9 @@ static void lcm_init(void)
 #endif
 
 	if (ret < 0)
-		pr_debug("[LCM]nt35595--tps6132--cmd=%0x--i2c write error--\n",
-		cmd);
+		LCM_LOGI("nt35595----tps6132----cmd=%0x--i2c write error----\n", cmd);
 	else
-		pr_debug("[LCM]nt35595--tps6132--cmd=%0x--i2c write success--\n",
-		cmd);
+		LCM_LOGI("nt35595----tps6132----cmd=%0x--i2c write success----\n", cmd);
 
 	cmd = 0x01;
 	data = 0x0E;
@@ -1071,11 +1053,9 @@ static void lcm_init(void)
 #endif
 
 	if (ret < 0)
-		pr_debug("[LCM]nt35595--tps6132--cmd=%0x--i2c write error--\n",
-		cmd);
+		LCM_LOGI("nt35595----tps6132----cmd=%0x--i2c write error----\n", cmd);
 	else
-		pr_debug("[LCM]nt35595--tps6132--cmd=%0x--i2c write success--\n",
-		cmd);
+		LCM_LOGI("nt35595----tps6132----cmd=%0x--i2c write success----\n", cmd);
 
 #endif
 	SET_RESET_PIN(1);
@@ -1086,8 +1066,7 @@ static void lcm_init(void)
 	SET_RESET_PIN(1);
 	MDELAY(10);
 
-	push_table(init_setting,
-		sizeof(init_setting) / sizeof(struct LCM_setting_table), 1);
+	push_table(init_setting, sizeof(init_setting) / sizeof(struct LCM_setting_table), 1);
 }
 
 static void lcm_suspend(void)
@@ -1099,9 +1078,7 @@ static void lcm_suspend(void)
 	mt_set_gpio_out(GPIO_65132_EN, GPIO_OUT_ZERO);
 #endif
 #endif
-	push_table(lcm_suspend_setting,
-		sizeof(lcm_suspend_setting) / sizeof(struct LCM_setting_table),
-		1);
+	push_table(lcm_suspend_setting, sizeof(lcm_suspend_setting) / sizeof(struct LCM_setting_table), 1);
 	/* SET_RESET_PIN(0); */
 	MDELAY(10);
 }
@@ -1111,8 +1088,7 @@ static void lcm_resume(void)
 	lcm_init();
 }
 
-static void lcm_update(unsigned int x, unsigned int y, unsigned int width,
-	unsigned int height)
+static void lcm_update(unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
 #if LCM_DSI_CMD_MODE
 	unsigned int x0 = x;
@@ -1167,7 +1143,7 @@ static unsigned int lcm_compare_id(void)
 	read_reg_v2(0xF4, buffer, 2);
 	id = buffer[0];		/* we only need ID */
 
-	pr_debug("[LCM]%s,nt35595 debug: nt35595 id = 0x%08x\n", __func__, id);
+	LCM_LOGI("%s,nt35595 debug: nt35595 id = 0x%08x\n", __func__, id);
 
 	if (id == LCM_ID_NT35595)
 		return 1;
@@ -1191,10 +1167,10 @@ static unsigned int lcm_esd_check(void)
 	read_reg_v2(0x53, buffer, 1);
 
 	if (buffer[0] != 0x24) {
-		pr_debug("[LCM][LCM ERROR] [0x53]=0x%02x\n", buffer[0]);
+		LCM_LOGI("[LCM ERROR] [0x53]=0x%02x\n", buffer[0]);
 		return TRUE;
 	}
-	pr_debug("[LCM][LCM NORMAL] [0x53]=0x%02x\n", buffer[0]);
+	LCM_LOGI("[LCM NORMAL] [0x53]=0x%02x\n", buffer[0]);
 	return FALSE;
 #else
 	return FALSE;
@@ -1217,15 +1193,13 @@ static unsigned int lcm_ata_check(unsigned char *buffer)
 	unsigned int data_array[3];
 	unsigned char read_buf[4];
 
-	pr_debug("[LCM]ATA check size = 0x%x,0x%x,0x%x,0x%x\n",
-		x0_MSB, x0_LSB, x1_MSB, x1_LSB);
+	LCM_LOGI("ATA check size = 0x%x,0x%x,0x%x,0x%x\n", x0_MSB, x0_LSB, x1_MSB, x1_LSB);
 	data_array[0] = 0x0005390A;	/* HS packet */
 	data_array[1] = (x1_MSB << 24) | (x0_LSB << 16) | (x0_MSB << 8) | 0x2a;
 	data_array[2] = (x1_LSB);
 	dsi_set_cmdq(data_array, 3, 1);
 
-	/* read id return two byte,version and id */
-	data_array[0] = 0x00043700;
+	data_array[0] = 0x00043700;	/* read id return two byte,version and id */
 	dsi_set_cmdq(data_array, 1, 1);
 
 	read_reg_v2(0x2A, read_buf, 4);
@@ -1257,44 +1231,37 @@ static unsigned int lcm_ata_check(unsigned char *buffer)
 static void lcm_setbacklight_cmdq(void *handle, unsigned int level)
 {
 
-	pr_debug("[LCM]%s,nt35595 backlight: level = %d\n", __func__, level);
+	LCM_LOGI("%s,nt35595 backlight: level = %d\n", __func__, level);
 
 	bl_level[0].para_list[0] = level;
 
-	push_table(bl_level,
-		sizeof(bl_level) / sizeof(struct LCM_setting_table), 1);
+	push_table(bl_level, sizeof(bl_level) / sizeof(struct LCM_setting_table), 1);
 }
 
 #if 0 /* defined but not used */
 static void lcm_setbacklight(unsigned int level)
 {
-	pr_debug("[LCM]%s,nt35595 backlight: level = %d\n", __func__, level);
+	LCM_LOGI("%s,nt35595 backlight: level = %d\n", __func__, level);
 
 	bl_level[0].para_list[0] = level;
 
-	push_table(bl_level,
-		sizeof(bl_level) / sizeof(struct LCM_setting_table), 1);
+	push_table(bl_level, sizeof(bl_level) / sizeof(struct LCM_setting_table), 1);
 }
 #endif
 
 static void *lcm_switch_mode(int mode)
 {
 #ifndef BUILD_LK
-/* customization: 1. V2C config 2 values, */
-/* C2V config 1 value; 2. config mode control register */
+/* customization: 1. V2C config 2 values, C2V config 1 value; 2. config mode control register */
 	if (mode == 0) {	/* V2C */
 		lcm_switch_mode_cmd.mode = CMD_MODE;
-		/* mode control addr */
-		lcm_switch_mode_cmd.addr = 0xBB;
-		/* enabel GRAM firstly, ensure writing one frame to GRAM */
-		lcm_switch_mode_cmd.val[0] = 0x13;
-		/* disable video mode secondly */
-		lcm_switch_mode_cmd.val[1] = 0x10;
+		lcm_switch_mode_cmd.addr = 0xBB;	/* mode control addr */
+		lcm_switch_mode_cmd.val[0] = 0x13;	/* enabel GRAM firstly, ensure writing one frame to GRAM */
+		lcm_switch_mode_cmd.val[1] = 0x10;	/* disable video mode secondly */
 	} else {		/* C2V */
 		lcm_switch_mode_cmd.mode = SYNC_PULSE_VDO_MODE;
 		lcm_switch_mode_cmd.addr = 0xBB;
-		/* disable GRAM and enable video mode */
-		lcm_switch_mode_cmd.val[0] = 0x03;
+		lcm_switch_mode_cmd.val[0] = 0x03;	/* disable GRAM and enable video mode */
 	}
 	return (void *)(&lcm_switch_mode_cmd);
 #else
@@ -1303,7 +1270,7 @@ static void *lcm_switch_mode(int mode)
 }
 
 
-struct LCM_DRIVER nt35595_fhd_dsi_cmd_truly_nt50358_lcm_drv = {
+LCM_DRIVER nt35595_fhd_dsi_cmd_truly_nt50358_lcm_drv = {
 	.name = "nt35595_fhd_dsi_cmd_truly_nt50358_drv",
 	.set_util_funcs = lcm_set_util_funcs,
 	.get_params = lcm_get_params,

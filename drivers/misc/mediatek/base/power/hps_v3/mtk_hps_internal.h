@@ -20,13 +20,14 @@
 #include <linux/timer.h>
 #include <linux/sched/rt.h>	/* MAX_RT_PRIO */
 
-#include "mtk_ppm_api.h"
-#include "mtk_idle.h"
+#include <mach/mtk_ppm_api.h>
+#include <mtk_idle_profile.h>
 
 /*
  * CONFIG - compile time
  */
-#ifdef CONFIG_MACH_MT6799
+#if defined(CONFIG_MACH_MT6799) || defined(CONFIG_MACH_MT6771) \
+|| defined(CONFIG_MACH_MT6775)
 #define CPU_BUCK_CTRL   (1)
 #else
 #define CPU_BUCK_CTRL   (0)
@@ -86,11 +87,11 @@
 /*
  * LOG
  */
-#define hps_emerg(fmt, args...)             pr_notice("[HPS] " fmt, ##args)
-#define hps_alert(fmt, args...)             pr_notice("[HPS] " fmt, ##args)
-#define hps_crit(fmt, args...)              pr_notice("[HPS] " fmt, ##args)
-#define hps_error(fmt, args...)             pr_notice("[HPS] " fmt, ##args)
-#define hps_warn(fmt, args...)              pr_notice("[HPS] " fmt, ##args)
+#define hps_emerg(fmt, args...)             pr_emerg("[HPS] " fmt, ##args)
+#define hps_alert(fmt, args...)             pr_alert("[HPS] " fmt, ##args)
+#define hps_crit(fmt, args...)              pr_crit("[HPS] " fmt, ##args)
+#define hps_error(fmt, args...)             pr_info("[HPS] " fmt, ##args)
+#define hps_warn(fmt, args...)              pr_info("[HPS] " fmt, ##args)
 #define hps_notice(fmt, args...)            pr_notice("[HPS] " fmt, ##args)
 #define hps_info(fmt, args...)              pr_info("[HPS] " fmt, ##args)
 #define hps_debug(fmt, args...)             pr_debug("[HPS] " fmt, ##args)
@@ -118,16 +119,15 @@
  */
 /*
  * #define STEP_BY_STEP_DEBUG
- *	hps_debug("@@@### file:%s, func:%s, line:%d ###@@@\n",
- *	__FILE__, __func__, __LINE__)
+ *	hps_debug("@@@### file:%s, func:%s, line:%d ###@@@\n", __FILE__, __func__, __LINE__)
  */
 
-enum hps_init_state_e {
+enum hps_init_state {
 	INIT_STATE_NOT_READY = 0,
 	INIT_STATE_DONE
 };
 
-enum hps_ctxt_state_e {
+enum hps_ctxt_state {
 	STATE_LATE_RESUME = 0,
 	STATE_EARLY_SUSPEND,
 	STATE_SUSPEND,
@@ -135,7 +135,7 @@ enum hps_ctxt_state_e {
 };
 
 /* TODO: verify do you need action? no use now */
-enum hps_ctxt_action_e {
+enum hps_ctxt_action {
 	ACTION_NONE = 0,
 	ACTION_BASE_LITTLE,	/* bit  1, 0x0002 */
 	ACTION_BASE_BIG,	/* bit  2, 0x0004 */
@@ -154,7 +154,7 @@ enum hps_ctxt_action_e {
 	ACTION_COUNT
 };
 
-enum hps_ctxt_func_ctrl_e {
+enum hps_ctxt_func_ctrl {
 	HPS_FUNC_CTRL_HPS,	/* bit  0, 0x0001 */
 	HPS_FUNC_CTRL_RUSH,	/* bit  1, 0x0002 */
 	HPS_FUNC_CTRL_HVY_TSK,	/* bit  2, 0x0004 */
@@ -234,10 +234,8 @@ struct hps_ctxt_struct {
 	/* enabled */
 	unsigned int enabled;
 	unsigned int early_suspend_enabled;
-	/* default 1, disable all big cores if is_hmp */
-	/*after early suspend stage (aka screen off) */
-	/* default 1, disable hotplug strategy in suspend flow */
-	unsigned int suspend_enabled;
+	/* default 1, disable all big cores if is_hmp after early suspend stage (aka screen off) */
+	unsigned int suspend_enabled;	/* default 1, disable hotplug strategy in suspend flow */
 	unsigned int cur_dump_enabled;
 	unsigned int stats_dump_enabled;
 	unsigned int power_mode;
@@ -352,17 +350,14 @@ extern struct hps_ctxt_struct hps_ctxt;
 extern struct hps_sys_struct hps_sys;
 DECLARE_PER_CPU(struct hps_cpu_ctxt_struct, hps_percpu_ctxt);
 /* forward references */
-/* definition in kernel-3.10/arch/arm/kernel/topology.c */
-extern struct cpumask cpu_domain_big_mask;
-/* definition in kernel-3.10/arch/arm/kernel/topology.c */
-extern struct cpumask cpu_domain_little_mask;
+extern struct cpumask cpu_domain_big_mask;	/* definition in kernel-3.10/arch/arm/kernel/topology.c */
+extern struct cpumask cpu_domain_little_mask;	/* definition in kernel-3.10/arch/arm/kernel/topology.c */
 
 extern int sched_get_nr_running_avg(int *avg, int *iowait_avg);
 	/* definition in mediatek/kernel/kernel/sched/rq_stats.c */
 
 #ifdef CONFIG_MTK_SCHED_RQAVG_KS
-extern int sched_get_cluster_util(int id, unsigned long *util,
-	unsigned long *cap);
+extern int sched_get_cluster_util(int id, unsigned long *util, unsigned long *cap);
 extern void sched_max_util_task(int *cpu, int *pid, int *util, int *boost);
 #endif
 
@@ -375,6 +370,11 @@ extern int sodi_limit;
 
 /* mtk_hps_ops_mtXXXX.c */
 extern int hps_ops_init(void);
+
+/*mtk_hotplug_cb.c*/
+extern bool cpuhp_is_buck_off(int cluster_idx);
+#define MP_BUCK_ON	(0xAA)
+#define MP_BUCK_OFF	(0xDD)
 
 /* mtk_hps_main.c */
 extern void hps_ctxt_reset_stas_nolock(void);
@@ -400,8 +400,7 @@ extern void hps_task_wakeup(void);
 
 /* mtk_hps_algo.c */
 extern void hps_algo_main(void);
-extern int hps_cal_core_num(struct hps_sys_struct *hps_sys, int core_val,
-	int base_val);
+extern int hps_cal_core_num(struct hps_sys_struct *hps_sys, int core_val, int base_val);
 extern unsigned int hps_get_cluster_cpus(unsigned int cluster_id);
 extern void hps_set_break_en(int hps_break_en);
 extern int hps_get_break_en(void);
@@ -410,11 +409,16 @@ extern int hps_get_break_en(void);
 extern int hps_procfs_init(void);
 
 /* mtk_hps_cpu.c */
-#define num_possible_little_cpus()    cpumask_weight(&hps_ctxt.little_cpumask)
-#define num_possible_big_cpus()    cpumask_weight(&hps_ctxt.big_cpumask)
+#define num_possible_little_cpus()          cpumask_weight(&hps_ctxt.little_cpumask)
+#define num_possible_big_cpus()             cpumask_weight(&hps_ctxt.big_cpumask)
 
 extern int hps_cpu_init(void);
 extern int hps_cpu_deinit(void);
+
+#if defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6775)
+extern  struct regulator *cpu_vproc11_id;
+extern  struct regulator *cpu_vsram11_id;
+#endif
 
 /* sched */
 /* extern int hps_cpu_get_arch_type(void); */
@@ -426,8 +430,7 @@ extern unsigned int hps_cpu_get_percpu_load(int cpu, int get_abs);
 extern unsigned int hps_cpu_get_nr_heavy_task(void);
 extern int hps_cpu_get_tlp(unsigned int *avg, unsigned int *iowait_avg);
 #ifdef CONFIG_MTK_SCHED_RQAVG_US
-extern bool sched_max_util_task_info(int *util, int *watershed,
-	int *L_nr, int *B_nr);
+extern bool sched_max_util_task_info(int *util, int *watershed, int *L_nr, int *B_nr);
 extern unsigned int sched_get_nr_heavy_task2(int cluster_id);
 extern int sched_get_cluster_utilization(int cluster_id);
 #endif
@@ -435,23 +438,19 @@ extern void hps_power_off_vproc2(void);
 extern void hps_power_on_vproc2(void);
 extern int get_avg_heavy_task_threshold(void);
 extern int get_heavy_task_threshold(void);
-extern unsigned int sched_get_nr_heavy_task_by_threshold(int cluster_id,
-	unsigned int threshold);
+extern unsigned int sched_get_nr_heavy_task_by_threshold(int cluster_id, unsigned int threshold);
 extern int sched_get_nr_heavy_running_avg(int cid, int *avg);
-extern void sched_get_percpu_load2(int cpu, bool reset,
-	unsigned int *rel_load, unsigned int *abs_load);
+extern void sched_get_percpu_load2(int cpu, bool reset, unsigned int *rel_load, unsigned int *abs_load);
 extern struct cpumask cpu_domain_big_mask;
 extern struct cpumask cpu_domain_little_mask;
 extern int sched_get_nr_running_avg(int *avg, int *iowait_avg);
-extern unsigned int sched_get_percpu_load(int cpu, bool reset,
-	bool use_maxfreq);
+extern unsigned int sched_get_percpu_load(int cpu, bool reset, bool use_maxfreq);
 extern unsigned int sched_get_nr_heavy_task(void);
 extern void armpll_control(int id, int on);
 extern void mp_enter_suspend(int id, int suspend);
 extern void sched_big_task_nr(int *L_nr, int *B_nr);
-extern void __attribute__((weak))mt_smart_update_sysinfo(
-	unsigned int cur_loads, unsigned int cur_tlp,
-	unsigned int btask, unsigned int total_heavy_task);
+extern void __attribute__((weak))mt_smart_update_sysinfo(unsigned int cur_loads,
+	unsigned int cur_tlp, unsigned int btask, unsigned int total_heavy_task);
 #ifdef CONFIG_MTK_ICCS_SUPPORT
 extern int hps_get_iccs_pwr_status(int cluster);
 extern void iccs_cluster_on_off(int cluster, int state);

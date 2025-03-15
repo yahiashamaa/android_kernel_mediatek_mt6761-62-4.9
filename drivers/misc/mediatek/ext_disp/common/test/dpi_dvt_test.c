@@ -48,7 +48,11 @@
 #ifdef CONFIG_MTK_CLKMGR
 #include <mach/mt_clkmgr.h>
 #endif
-
+/*
+*
+#include <mach/m4u.h>
+#include <mach/m4u_port.h>
+*/
 #include "m4u.h"
 #include "ddp_log.h"
 #include "ddp_dump.h"
@@ -56,7 +60,9 @@
 #include "ddp_dpi.h"
 #include "ddp_clkmgr.h"
 #include "ddp_reg.h"
+/* #include "ddp_mutex.h" */
 #include "ddp_reg_ovl.h"
+/* #include "disp_drv_dsi.h" */
 #include "ddp_dsi.h"
 
 #include "hdmi_drv.h"
@@ -74,20 +80,20 @@
 
 
 /*
- *
-	To-do list:
-	1.  Open RDMA_DPI_PATH_SUPPORT or DPI_DVT_TEST_SUPPORT;
-	2.  extern picture data structure and modify Makefile,
-	     e.g.  extern unsigned char kara_1280x720[2764800];
-	3.  Modify sii8348 driver;
- */
+*
+To-do list:
+1.  Open RDMA_DPI_PATH_SUPPORT or DPI_DVT_TEST_SUPPORT;
+2.  extern picture data structure and modify Makefile,
+     e.g.  extern unsigned char kara_1280x720[2764800];
+3.  Modify sii8348 driver;
+*/
 
-/********************************************/
+/***********************************************************************************/
 
-/*****************Resource File***************/
+/**********************************Resource File***************************************/
 /*#define BMP_HEADER_SIZE 54*/
 
-/************DPI DVT Path Control****************/
+/******************************DPI DVT Path Control*************************************/
 struct DPI_DVT_CONTEXT DPI_DVT_Context;
 bool disconnectFlag = true;
 enum PATTERN {
@@ -121,7 +127,7 @@ unsigned long int out_va;
 unsigned int data_mva;
 unsigned int out_mva;
 unsigned int bypass = 1;
-/***************Basic Function Start******************/
+/*****************************Basic Function Start******************************************/
 #ifdef DPI_DVT_TEST_SUPPORT
 enum RDMA_MODE {
 	RDMA_MODE_DIRECT_LINK = 0,
@@ -184,72 +190,63 @@ int dvt_module_action(enum PATH_TYPE test_path, enum ACTION action)
 		for (i = 0; i < mod_num; i++) {
 			cur_mod = module[i];
 			if (ddp_get_module_driver(cur_mod)->init != 0)
-				ddp_get_module_driver(cur_mod)->init(cur_mod,
-								     NULL);
+				ddp_get_module_driver(cur_mod)->init(cur_mod, NULL);
 		}
 		break;
 	case POWER_ON:
 		for (i = 0; i < mod_num; i++) {
 			cur_mod = module[i];
 			if (ddp_get_module_driver(cur_mod)->power_on != 0)
-				ddp_get_module_driver(cur_mod)->
-				    power_on(cur_mod, NULL);
+				ddp_get_module_driver(cur_mod)->power_on(cur_mod, NULL);
 		}
 		break;
 	case POWER_OFF:
 		for (i = 0; i < mod_num; i++) {
 			cur_mod = module[i];
 			if (ddp_get_module_driver(cur_mod)->power_off != 0)
-				ddp_get_module_driver(cur_mod)->
-				    power_off(cur_mod, NULL);
+				ddp_get_module_driver(cur_mod)->power_off(cur_mod, NULL);
 		}
 		break;
 	case START:
 		for (i = 0; i < mod_num; i++) {
 			cur_mod = module[i];
 			if (ddp_get_module_driver(cur_mod)->start != 0)
-				ddp_get_module_driver(cur_mod)->start(cur_mod,
-								      NULL);
+				ddp_get_module_driver(cur_mod)->start(cur_mod, NULL);
 		}
 		break;
 	case STOP:
 		for (i = 0; i < mod_num; i++) {
 			cur_mod = module[i];
 			if (ddp_get_module_driver(cur_mod)->stop != 0)
-				ddp_get_module_driver(cur_mod)->stop(cur_mod,
-								     NULL);
+				ddp_get_module_driver(cur_mod)->stop(cur_mod, NULL);
 		}
 		break;
 	case RESET:
 		for (i = 0; i < mod_num; i++) {
 			cur_mod = module[i];
 			if (ddp_get_module_driver(cur_mod)->reset != 0)
-				ddp_get_module_driver(cur_mod)->reset(cur_mod,
-								      NULL);
+				ddp_get_module_driver(cur_mod)->reset(cur_mod, NULL);
 		}
 		break;
 	case BYPASS:
 		for (i = 0; i < mod_num; i++) {
 			cur_mod = module[i];
 			if (ddp_get_module_driver(cur_mod)->bypass != 0)
-				ddp_get_module_driver(cur_mod)->bypass(cur_mod,
-								       1);
+				ddp_get_module_driver(cur_mod)->bypass(cur_mod, 1);
 		}
 		break;
 	case TRIGGER:
 		for (i = 0; i < mod_num; i++) {
 			cur_mod = module[i];
 			if (ddp_get_module_driver(cur_mod)->trigger != 0)
-				ddp_get_module_driver(cur_mod)->trigger(cur_mod,
-									NULL);
+				ddp_get_module_driver(cur_mod)->trigger(cur_mod, NULL);
 		}
 		break;
 	case DEINIT:
 		for (i = 0; i < mod_num; i++) {
 			cur_mod = module[i];
 			if (ddp_get_module_driver(cur_mod)->deinit != 0)
-				ddp_get_module_driver(cur_mod)->deinit(cur_mod,
-								       NULL);
+				ddp_get_module_driver(cur_mod)->deinit(cur_mod, NULL);
 		}
 		break;
 	default:
@@ -265,8 +262,7 @@ int dvt_init_OVL_param(unsigned int mode)
 		extd_ovl_params.ovl_layer_scanned = 0;
 		extd_ovl_params.dst_dirty = 1;
 		extd_ovl_params.dst_w = extd_dpi_params.dispif_config.dpi.width;
-		extd_ovl_params.dst_h =
-		    extd_dpi_params.dispif_config.dpi.height;
+		extd_ovl_params.dst_h = extd_dpi_params.dispif_config.dpi.height;
 		extd_ovl_params.ovl_dirty = 1;
 
 		extd_ovl_params.ovl_config[0].layer_en = 1;
@@ -282,19 +278,15 @@ int dvt_init_OVL_param(unsigned int mode)
 
 		extd_ovl_params.ovl_config[0].src_x = 0;
 		extd_ovl_params.ovl_config[0].src_y = 0;
-		extd_ovl_params.ovl_config[0].src_w =
-		    extd_dpi_params.dispif_config.dpi.width;
-		extd_ovl_params.ovl_config[0].src_h =
-		    extd_dpi_params.dispif_config.dpi.height;
+		extd_ovl_params.ovl_config[0].src_w = extd_dpi_params.dispif_config.dpi.width;
+		extd_ovl_params.ovl_config[0].src_h = extd_dpi_params.dispif_config.dpi.height;
 		extd_ovl_params.ovl_config[0].src_pitch =
 		    extd_dpi_params.dispif_config.dpi.width * 3;
 
 		extd_ovl_params.ovl_config[0].dst_x = 0;
 		extd_ovl_params.ovl_config[0].dst_y = 0;
-		extd_ovl_params.ovl_config[0].dst_w =
-		    extd_dpi_params.dispif_config.dpi.width;
-		extd_ovl_params.ovl_config[0].dst_h =
-		    extd_dpi_params.dispif_config.dpi.height;
+		extd_ovl_params.ovl_config[0].dst_w = extd_dpi_params.dispif_config.dpi.width;
+		extd_ovl_params.ovl_config[0].dst_h = extd_dpi_params.dispif_config.dpi.height;
 		extd_ovl_params.ovl_config[0].ext_sel_layer = -1;
 
 		extd_ovl_params.ovl_config[0].isDirty = 1;
@@ -303,7 +295,6 @@ int dvt_init_OVL_param(unsigned int mode)
 
 	return 0;
 }
-
 #if 0
 
 int dsi_init_OVL_param(unsigned int mode)
@@ -312,10 +303,8 @@ int dsi_init_OVL_param(unsigned int mode)
 	if (mode == RDMA_MODE_DIRECT_LINK) {
 		extd_ovl_params.ovl_layer_scanned = 0;
 		extd_ovl_params.dst_dirty = 1;
-		extd_ovl_params.dst_w =
-		    extd_dpi_params.dispif_config.dpi.width * 3;
-		extd_ovl_params.dst_h =
-		    extd_dpi_params.dispif_config.dpi.height;
+		extd_ovl_params.dst_w = extd_dpi_params.dispif_config.dpi.width*3;
+		extd_ovl_params.dst_h = extd_dpi_params.dispif_config.dpi.height;
 		extd_ovl_params.ovl_dirty = 1;
 
 		extd_ovl_params.ovl_config[0].layer_en = 1;
@@ -331,19 +320,15 @@ int dsi_init_OVL_param(unsigned int mode)
 
 		extd_ovl_params.ovl_config[0].src_x = 0;
 		extd_ovl_params.ovl_config[0].src_y = 0;
-		extd_ovl_params.ovl_config[0].src_w =
-		    extd_dpi_params.dispif_config.dpi.width * 3;
-		extd_ovl_params.ovl_config[0].src_h =
-		    extd_dpi_params.dispif_config.dpi.height;
+		extd_ovl_params.ovl_config[0].src_w = extd_dpi_params.dispif_config.dpi.width*3;
+		extd_ovl_params.ovl_config[0].src_h = extd_dpi_params.dispif_config.dpi.height;
 		extd_ovl_params.ovl_config[0].src_pitch =
 		    extd_dpi_params.dispif_config.dpi.width * 3 * 3;
 
 		extd_ovl_params.ovl_config[0].dst_x = 0;
 		extd_ovl_params.ovl_config[0].dst_y = 0;
-		extd_ovl_params.ovl_config[0].dst_w =
-		    extd_dpi_params.dispif_config.dpi.width * 3;
-		extd_ovl_params.ovl_config[0].dst_h =
-		    extd_dpi_params.dispif_config.dpi.height;
+		extd_ovl_params.ovl_config[0].dst_w = extd_dpi_params.dispif_config.dpi.width*3;
+		extd_ovl_params.ovl_config[0].dst_h = extd_dpi_params.dispif_config.dpi.height;
 		extd_ovl_params.ovl_config[0].ext_sel_layer = -1;
 
 		extd_ovl_params.ovl_config[0].isDirty = 1;
@@ -361,48 +346,40 @@ int ldvt_init_OVL_param(unsigned int mode)
 	if (mode == RDMA_MODE_DIRECT_LINK) {
 		extd_ovl_params.ovl_layer_scanned = 0;
 		extd_ovl_params.dst_dirty = 1;
-		extd_ovl_params.dst_w =
-		    extd_dpi_params.dispif_config.dpi.width * 3;
-		extd_ovl_params.dst_h =
-		    extd_dpi_params.dispif_config.dpi.height;
+		extd_ovl_params.dst_w = extd_dpi_params.dispif_config.dpi.width*3;
+		extd_ovl_params.dst_h = extd_dpi_params.dispif_config.dpi.height;
 		extd_ovl_params.ovl_dirty = 1;
 
 		for (i = 0; i < 3; i++) {
-			extd_ovl_params.ovl_config[i].layer_en = 1;
+		extd_ovl_params.ovl_config[i].layer_en = 1;
 
-			extd_ovl_params.ovl_config[i].source =
-			    OVL_LAYER_SOURCE_MEM;
-			extd_ovl_params.ovl_config[i].layer = i;
-			extd_ovl_params.ovl_config[i].fmt = UFMT_BGR888;
-			extd_ovl_params.ovl_config[i].addr =
-			    (unsigned long)ldvt_data_mva[i];
-			extd_ovl_params.ovl_config[i].vaddr = ldvt_data_va[i];
+		extd_ovl_params.ovl_config[i].source = OVL_LAYER_SOURCE_MEM;
+		extd_ovl_params.ovl_config[i].layer = i;
+		extd_ovl_params.ovl_config[i].fmt = UFMT_BGR888;
+		extd_ovl_params.ovl_config[i].addr = (unsigned long)ldvt_data_mva[i];
+		extd_ovl_params.ovl_config[i].vaddr = ldvt_data_va[i];
 
-			extd_ovl_params.ovl_config[i].src_x = 0;
-			extd_ovl_params.ovl_config[i].src_y = 0;
-			extd_ovl_params.ovl_config[i].src_w =
-			    extd_dpi_params.dispif_config.dpi.width * 3;
-			extd_ovl_params.ovl_config[i].src_h =
-			    extd_dpi_params.dispif_config.dpi.height;
-			extd_ovl_params.ovl_config[i].src_pitch =
-			    extd_dpi_params.dispif_config.dpi.width * 3 * 3;
+		extd_ovl_params.ovl_config[i].src_x = 0;
+		extd_ovl_params.ovl_config[i].src_y = 0;
+		extd_ovl_params.ovl_config[i].src_w = extd_dpi_params.dispif_config.dpi.width*3;
+		extd_ovl_params.ovl_config[i].src_h = extd_dpi_params.dispif_config.dpi.height;
+		extd_ovl_params.ovl_config[i].src_pitch =
+		    extd_dpi_params.dispif_config.dpi.width * 3 * 3;
 
-			extd_ovl_params.ovl_config[i].dst_x = 0;
-			extd_ovl_params.ovl_config[i].dst_y = 0;
-			extd_ovl_params.ovl_config[i].dst_w =
-			    extd_dpi_params.dispif_config.dpi.width * 3;
-			extd_ovl_params.ovl_config[i].dst_h =
-			    extd_dpi_params.dispif_config.dpi.height;
-			extd_ovl_params.ovl_config[i].ext_sel_layer = -1;
+		extd_ovl_params.ovl_config[i].dst_x = 0;
+		extd_ovl_params.ovl_config[i].dst_y = 0;
+		extd_ovl_params.ovl_config[i].dst_w = extd_dpi_params.dispif_config.dpi.width*3;
+		extd_ovl_params.ovl_config[i].dst_h = extd_dpi_params.dispif_config.dpi.height;
+		extd_ovl_params.ovl_config[i].ext_sel_layer = -1;
 
-			extd_ovl_params.ovl_config[i].isDirty = 1;
-			if (i == 3) {
-				extd_ovl_params.ovl_config[i].aen = 1;
-				extd_ovl_params.ovl_config[i].alpha = 0xff;
-			} else {
-				extd_ovl_params.ovl_config[i].aen = 1;
-				extd_ovl_params.ovl_config[i].alpha = 0x80;
-			}
+		extd_ovl_params.ovl_config[i].isDirty = 1;
+		if (i == 3) {
+			extd_ovl_params.ovl_config[i].aen = 1;
+			extd_ovl_params.ovl_config[i].alpha = 0xff;
+		} else {
+			extd_ovl_params.ovl_config[i].aen = 1;
+			extd_ovl_params.ovl_config[i].alpha = 0x80;
+		}
 		}
 
 		extd_ovl_params.ovl_config[3].layer_en = 1;
@@ -410,25 +387,20 @@ int ldvt_init_OVL_param(unsigned int mode)
 		extd_ovl_params.ovl_config[3].source = OVL_LAYER_SOURCE_MEM;
 		extd_ovl_params.ovl_config[3].layer = 3;
 		extd_ovl_params.ovl_config[3].fmt = UFMT_UYVY;
-		extd_ovl_params.ovl_config[3].addr =
-		    (unsigned long)ldvt_data_mva[3];
+		extd_ovl_params.ovl_config[3].addr = (unsigned long)ldvt_data_mva[3];
 		extd_ovl_params.ovl_config[3].vaddr = ldvt_data_va[3];
 
 		extd_ovl_params.ovl_config[3].src_x = 0;
 		extd_ovl_params.ovl_config[3].src_y = 0;
-		extd_ovl_params.ovl_config[3].src_w =
-		    extd_dpi_params.dispif_config.dpi.width * 3;
-		extd_ovl_params.ovl_config[3].src_h =
-		    extd_dpi_params.dispif_config.dpi.height;
+		extd_ovl_params.ovl_config[3].src_w = extd_dpi_params.dispif_config.dpi.width*3;
+		extd_ovl_params.ovl_config[3].src_h = extd_dpi_params.dispif_config.dpi.height;
 		extd_ovl_params.ovl_config[3].src_pitch =
 		    extd_dpi_params.dispif_config.dpi.width * 3 * 2;
 
 		extd_ovl_params.ovl_config[3].dst_x = 0;
 		extd_ovl_params.ovl_config[3].dst_y = 0;
-		extd_ovl_params.ovl_config[3].dst_w =
-		    extd_dpi_params.dispif_config.dpi.width * 3;
-		extd_ovl_params.ovl_config[3].dst_h =
-		    extd_dpi_params.dispif_config.dpi.height;
+		extd_ovl_params.ovl_config[3].dst_w = extd_dpi_params.dispif_config.dpi.width*3;
+		extd_ovl_params.ovl_config[3].dst_h = extd_dpi_params.dispif_config.dpi.height;
 
 		extd_ovl_params.ovl_config[3].isDirty = 1;
 		extd_ovl_params.ovl_config[3].aen = 1;
@@ -444,10 +416,8 @@ int dvt_init_GAMMA_param(unsigned int mode)
 {
 	if (mode == RDMA_MODE_DIRECT_LINK) {
 		extd_gamma_params.dst_dirty = 1;
-		extd_gamma_params.dst_w =
-		    extd_dpi_params.dispif_config.dpi.width * 3;
-		extd_gamma_params.dst_h =
-		    extd_dpi_params.dispif_config.dpi.height;
+		extd_gamma_params.dst_w = extd_dpi_params.dispif_config.dpi.width*3;
+		extd_gamma_params.dst_h = extd_dpi_params.dispif_config.dpi.height;
 		extd_gamma_params.lcm_bpp = 24;
 	}
 
@@ -460,112 +430,76 @@ int dvt_init_DSC_param(unsigned char arg)
 	case HDMI_VIDEO_2160p_DSC_24Hz:
 	case HDMI_VIDEO_2160p_DSC_30Hz:
 		{
-			memset(&(extd_dpi_params.dispif_config.dpi.dsc_params),
-			       0, sizeof(LCM_DSC_CONFIG_PARAMS));
+			memset(&(extd_dpi_params.dispif_config.dpi.dsc_params), 0,
+				sizeof(LCM_DSC_CONFIG_PARAMS));
 			extd_dpi_params.dispif_config.dpi.dsc_enable = 1;
 			/* width/(slice_mode's slice) */
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    slice_width = 1920;
+			extd_dpi_params.dispif_config.dpi.dsc_params.slice_width = 1920;
 			/* 32  8 */
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    slice_hight = 8;
+			extd_dpi_params.dispif_config.dpi.dsc_params.slice_hight = 8;
 			/* 128: 1/3 compress; 192: 1/2 compress */
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    bit_per_pixel = 128;
+			extd_dpi_params.dispif_config.dpi.dsc_params.bit_per_pixel = 128;
 			/* 0: 1 slice; 1: 2 slice; 2: 3 slice */
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    slice_mode = 1;
-			extd_dpi_params.dispif_config.dpi.dsc_params.rgb_swap =
-			    0;
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    xmit_delay = 0x200;
-			extd_dpi_params.dispif_config.dpi.dsc_params.dec_delay =
-			    0x4c0;
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    scale_value = 0x20;
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    increment_interval = 0x11e;
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    decrement_interval = 0x1a;
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-				nfl_bpg_offset = 0xdb7;
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-				slice_bpg_offset = 0x394;
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    final_offset = 0x10f0;
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    line_bpg_offset = 0xc;
-			extd_dpi_params.dispif_config.dpi.dsc_params.bp_enable =
-			    0x0;
-			extd_dpi_params.dispif_config.dpi.dsc_params.rct_on =
-			    0x0;
+			extd_dpi_params.dispif_config.dpi.dsc_params.slice_mode = 1;
+			extd_dpi_params.dispif_config.dpi.dsc_params.rgb_swap = 0;
+			extd_dpi_params.dispif_config.dpi.dsc_params.xmit_delay = 0x200;
+			extd_dpi_params.dispif_config.dpi.dsc_params.dec_delay = 0x4c0;
+			extd_dpi_params.dispif_config.dpi.dsc_params.scale_value = 0x20;
+			extd_dpi_params.dispif_config.dpi.dsc_params.increment_interval = 0x11e;
+			extd_dpi_params.dispif_config.dpi.dsc_params.decrement_interval = 0x1a;
+			extd_dpi_params.dispif_config.dpi.dsc_params.nfl_bpg_offset = 0xdb7;  /* 0x667 */
+			extd_dpi_params.dispif_config.dpi.dsc_params.slice_bpg_offset = 0x394; /* 0x1ca */
+			extd_dpi_params.dispif_config.dpi.dsc_params.final_offset = 0x10f0;
+			extd_dpi_params.dispif_config.dpi.dsc_params.line_bpg_offset = 0xc;
+			extd_dpi_params.dispif_config.dpi.dsc_params.bp_enable = 0x0;
+			extd_dpi_params.dispif_config.dpi.dsc_params.rct_on = 0x0;
 
-			extd_dpi_params.dst_w = extd_dpi_params.
-				dispif_config.dpi.width * 3;
-			extd_dpi_params.dst_h = extd_dpi_params.
-				dispif_config.dpi.height;
+			extd_dpi_params.dst_w = extd_dpi_params.dispif_config.dpi.width*3;  /*3840*/
+			extd_dpi_params.dst_h = extd_dpi_params.dispif_config.dpi.height;  /*1920*/
 
 			break;
 		}
 	case HDMI_VIDEO_1080p_DSC_60Hz:
 		{
-			memset(&(extd_dpi_params.dispif_config.dpi.dsc_params),
-			       0, sizeof(LCM_DSC_CONFIG_PARAMS));
+			memset(&(extd_dpi_params.dispif_config.dpi.dsc_params), 0,
+				sizeof(LCM_DSC_CONFIG_PARAMS));
 			extd_dpi_params.dispif_config.dpi.dsc_enable = 1;
 			/* width/(slice_mode's slice) */
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    slice_width = 960;
+			extd_dpi_params.dispif_config.dpi.dsc_params.slice_width = 960;
 			/* 32  8 */
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    slice_hight = 8;
+			extd_dpi_params.dispif_config.dpi.dsc_params.slice_hight = 8;
 			/* 128: 1/3 compress; 192: 1/2 compress */
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    bit_per_pixel = 128;
+			extd_dpi_params.dispif_config.dpi.dsc_params.bit_per_pixel = 128;
 			/* 0: 1 slice; 1: 2 slice; 2: 3 slice */
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    slice_mode = 1;
-			extd_dpi_params.dispif_config.dpi.dsc_params.rgb_swap =
-			    0;
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    xmit_delay = 0x200;
-			extd_dpi_params.dispif_config.dpi.dsc_params.dec_delay =
-			    0x2e0;
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    scale_value = 0x20;
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    increment_interval = 0xed;
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    decrement_interval = 0xd;
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-				nfl_bpg_offset = 0xdb7;
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-				slice_bpg_offset = 0x727;
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    final_offset = 0x10f0;
-			extd_dpi_params.dispif_config.dpi.dsc_params.
-			    line_bpg_offset = 0xc;
-			extd_dpi_params.dispif_config.dpi.dsc_params.bp_enable =
-			    0x0;
-			extd_dpi_params.dispif_config.dpi.dsc_params.rct_on =
-			    0x0;
+			extd_dpi_params.dispif_config.dpi.dsc_params.slice_mode = 1;
+			extd_dpi_params.dispif_config.dpi.dsc_params.rgb_swap = 0;
+			extd_dpi_params.dispif_config.dpi.dsc_params.xmit_delay = 0x200;
+			extd_dpi_params.dispif_config.dpi.dsc_params.dec_delay = 0x2e0;
+			extd_dpi_params.dispif_config.dpi.dsc_params.scale_value = 0x20;
+			extd_dpi_params.dispif_config.dpi.dsc_params.increment_interval = 0xed;
+			extd_dpi_params.dispif_config.dpi.dsc_params.decrement_interval = 0xd;
+			extd_dpi_params.dispif_config.dpi.dsc_params.nfl_bpg_offset = 0xdb7;  /* 0x667 */
+			extd_dpi_params.dispif_config.dpi.dsc_params.slice_bpg_offset = 0x727; /* 0x1ca */
+			extd_dpi_params.dispif_config.dpi.dsc_params.final_offset = 0x10f0;
+			extd_dpi_params.dispif_config.dpi.dsc_params.line_bpg_offset = 0xc;
+			extd_dpi_params.dispif_config.dpi.dsc_params.bp_enable = 0x0;
+			extd_dpi_params.dispif_config.dpi.dsc_params.rct_on = 0x0;
 
-			extd_dpi_params.dst_w = extd_dpi_params.
-				dispif_config.dpi.width * 3;
-			extd_dpi_params.dst_h = extd_dpi_params.
-				dispif_config.dpi.height;
+			extd_dpi_params.dst_w = extd_dpi_params.dispif_config.dpi.width*3;  /*1920*/
+			extd_dpi_params.dst_h = extd_dpi_params.dispif_config.dpi.height;  /*1080*/
 
 			break;
 		}
 	default:
-		break;
+			break;
 	}
 
 	return 0;
 }
 #endif
 /*
- * OVL1 -> OVL1_MOUT -> DISP_RDMA1 -> RDMA1_SOUT -> DPI_SEL -> DPI
- */
+* OVL1 -> OVL1_MOUT -> DISP_RDMA1 -> RDMA1_SOUT -> DPI_SEL -> DPI
+*/
 int dvt_start_ovl1_to_dpi(unsigned int resolution, unsigned int timeS)
 {
 	int ret = 0;
@@ -605,9 +539,12 @@ int dvt_start_ovl1_to_dpi(unsigned int resolution, unsigned int timeS)
 	memset(&gset_arg, 0, sizeof(gset_arg));
 	gset_arg.dst_mod_type = DST_MOD_REAL_TIME;
 	gset_arg.is_decouple_mode = 0;
-	ddp_driver_ovl.ioctl(DISP_MODULE_OVL1_2L, NULL, DDP_OVL_GOLDEN_SETTING,
-			     &gset_arg);
-
+	ddp_driver_ovl.ioctl(DISP_MODULE_OVL1_2L, NULL, DDP_OVL_GOLDEN_SETTING, &gset_arg);
+/*
+*
+	if(bypass)
+		dvt_module_action(LONG_PATH1,BYPASS);
+*/
 	DPI_DVT_LOG_W("module reset\n");
 	dvt_mutex_reset(NULL, dvt_acquire_mutex());
 	dvt_module_action(LONG_PATH1, RESET);
@@ -657,8 +594,7 @@ int dvt_start_ovl1_to_dpi(unsigned int resolution, unsigned int timeS)
 
 	DPI_DVT_LOG_W("top clock off\n");
 	dvt_ddp_path_top_clock_off();
-	memcpy(extd_rdma_params.p_golden_setting_context, &temp_golden,
-	       sizeof(temp_golden));
+	memcpy(extd_rdma_params.p_golden_setting_context, &temp_golden, sizeof(temp_golden));
 
 	if (data_va)
 		vfree((void *)data_va);
@@ -666,7 +602,7 @@ int dvt_start_ovl1_to_dpi(unsigned int resolution, unsigned int timeS)
 	return 0;
 }
 
-/**************ROME LONG PATH End*****************/
+/**********************************ROME LONG PATH End*****************************************/
 
 int dpi_dvt_show_pattern(unsigned int pattern, unsigned int timeS)
 {
@@ -685,12 +621,9 @@ int dpi_dvt_show_pattern(unsigned int pattern, unsigned int timeS)
 	DISP_REG_SET_FIELD(NULL, REG_FLD(1, 0), DISPSYS_DPI_BASE + 0xF00, 1);
 
 	if (pattern == 5) {
-		DISP_REG_SET_FIELD(NULL, REG_FLD(8, 8),
-				   DISPSYS_DPI_BASE + 0xF00, 0xca);
-		DISP_REG_SET_FIELD(NULL, REG_FLD(8, 16),
-				   DISPSYS_DPI_BASE + 0xF00, 0xbc);
-		DISP_REG_SET_FIELD(NULL, REG_FLD(8, 24),
-				   DISPSYS_DPI_BASE + 0xF00, 0x3e);
+		DISP_REG_SET_FIELD(NULL, REG_FLD(8, 8), DISPSYS_DPI_BASE + 0xF00, 0xca);
+		DISP_REG_SET_FIELD(NULL, REG_FLD(8, 16), DISPSYS_DPI_BASE + 0xF00, 0xbc);
+		DISP_REG_SET_FIELD(NULL, REG_FLD(8, 24), DISPSYS_DPI_BASE + 0xF00, 0x3e);
 	}
 
 	if (timeS == 100)
@@ -720,12 +653,9 @@ int dpi_dvt_show_pattern(unsigned int pattern, unsigned int timeS)
 
 	return 0;
 }
-
 #if 0
-int dvt_start_4K_rdma_to_dpi(unsigned int resolution, unsigned int timeS,
-			     unsigned int caseNum)
-{
-	int i;
+int dvt_start_4K_rdma_to_dpi(unsigned int resolution, unsigned int timeS, unsigned int caseNum)
+{int i;
 	static int loop = 15;
 	int ret = 0;
 
@@ -735,12 +665,9 @@ int dvt_start_4K_rdma_to_dpi(unsigned int resolution, unsigned int timeS,
 	DPI_DVT_LOG_W("top clock on\n");
 	dvt_ddp_path_top_clock_on();
 	/* set rdma shadow register bypass mode */
-	DISP_REG_SET(NULL,
-		     1 * (DDP_REG_BASE_DISP_RDMA1 - DDP_REG_BASE_DISP_RDMA0)
-		     + DDP_REG_BASE_DISP_RDMA0 + DISP_REG_RDMA_SHADOW_UPDATE,
-		     (0x1 << 1) | (0x1 << 2));
-	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_DSC + DISP_REG_DSC_SHADOW,
-		     (0x1 << 1) | (0x1 << 2));
+	DISP_REG_SET(NULL, 1 * (DDP_REG_BASE_DISP_RDMA1 - DDP_REG_BASE_DISP_RDMA0)
+				+ DDP_REG_BASE_DISP_RDMA0 + DISP_REG_RDMA_SHADOW_UPDATE, (0x1<<1)|(0x1<<2));
+	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_DSC + DISP_REG_DSC_SHADOW, (0x1<<1)|(0x1<<2));
 
 	DPI_DVT_LOG_W("set Mutex and connect path\n");
 	dvt_connect_path(NULL);
@@ -754,41 +681,30 @@ int dvt_start_4K_rdma_to_dpi(unsigned int resolution, unsigned int timeS,
 
 	if (caseNum == 0xA) {
 		loop++;
-		DPI_DVT_LOG_W
-		    ("checksum loop %d sample checksum every %d frame\n",
-		     loop % 2, (loop % 2) + 2);
+		DPI_DVT_LOG_W("checksum loop %d sample checksum every %d frame\n", loop%2, (loop%2)+2);
 		ret = dvt_allocate_buffer(resolution, M4U_FOR_RDMA1);
 		dvt_init_RDMA_param(RDMA_MODE_MEMORY, resolution);
 
 		for (i = 0; i < loop; i++)
-			cmdqRecWait(checksum_cmdq,
-				    CMDQ_EVENT_MUTEX1_STREAM_EOF);
+			cmdqRecWait(checksum_cmdq, CMDQ_EVENT_MUTEX1_STREAM_EOF);
 
 		cmdqRecWait(checksum_cmdq, CMDQ_EVENT_MUTEX1_STREAM_EOF);
-		cmdqRecWrite(checksum_cmdq, DPI_PHY_ADDR + 0x048, 0x80000000,
-			     0x80000000);
+		cmdqRecWrite(checksum_cmdq, DPI_PHY_ADDR + 0x048, 0x80000000, 0x80000000);
 		cmdqRecWait(checksum_cmdq, CMDQ_EVENT_MUTEX1_STREAM_EOF);
-		cmdqRecPoll(checksum_cmdq, DPI_PHY_ADDR + 0x048, 0x40000000,
-			    0x40000000);
-		cmdqRecBackupRegisterToSlot(checksum_cmdq, checksum_record, 0,
-					    DPI_PHY_ADDR + 0x048);
+		cmdqRecPoll(checksum_cmdq, DPI_PHY_ADDR + 0x048, 0x40000000, 0x40000000);
+		cmdqRecBackupRegisterToSlot(checksum_cmdq, checksum_record, 0, DPI_PHY_ADDR + 0x048);
 
 		for (i = 1; i < 3; i++) {
-			if (loop % 2 == 1) {
+			if (loop%2 == 1) {
 /* cmdqRecWait(checksum_cmdq, CMDQ_EVENT_MUTEX1_STREAM_EOF); */
 /* cmdqRecWait(checksum_cmdq, CMDQ_EVENT_MUTEX1_STREAM_EOF); */
 			} else {
 /* cmdqRecWait(checksum_cmdq, CMDQ_EVENT_MUTEX1_STREAM_EOF); */
 			}
-			cmdqRecWrite(checksum_cmdq, DPI_PHY_ADDR + 0x048,
-				     0x80000000, 0x80000000);
-			cmdqRecWait(checksum_cmdq,
-				    CMDQ_EVENT_MUTEX1_STREAM_EOF);
-			cmdqRecPoll(checksum_cmdq, DPI_PHY_ADDR + 0x048,
-				    0x40000000, 0x40000000);
-			cmdqRecBackupRegisterToSlot(checksum_cmdq,
-						    checksum_record, i,
-						    DPI_PHY_ADDR + 0x048);
+			cmdqRecWrite(checksum_cmdq, DPI_PHY_ADDR + 0x048, 0x80000000, 0x80000000);
+			cmdqRecWait(checksum_cmdq, CMDQ_EVENT_MUTEX1_STREAM_EOF);
+			cmdqRecPoll(checksum_cmdq, DPI_PHY_ADDR + 0x048, 0x40000000, 0x40000000);
+			cmdqRecBackupRegisterToSlot(checksum_cmdq, checksum_record, i, DPI_PHY_ADDR + 0x048);
 		}
 	}
 
@@ -831,7 +747,7 @@ int dvt_start_4K_rdma_to_dpi(unsigned int resolution, unsigned int timeS,
 
 	DPI_DVT_LOG_W("module dump_info\n");
 /*
- *
+*
 	ddp_driver_dpi.dump_info(DISP_MODULE_DPI, 1);
 	ddp_driver_rdma.dump_info(DISP_MODULE_RDMA_SHORT, 1);
 	ddp_dump_analysis(DISP_MODULE_CONFIG);
@@ -839,7 +755,7 @@ int dvt_start_4K_rdma_to_dpi(unsigned int resolution, unsigned int timeS,
 	ddp_dump_analysis(DISP_MODULE_MUTEX);
 	ddp_dump_reg(DISP_MODULE_MUTEX);
 	ddp_dump_reg(DISP_MODULE_DSC);
- */
+*/
 	msleep(timeS * 1000);
 
 	DPI_DVT_LOG_W("module stop\n");
@@ -865,7 +781,6 @@ int dvt_start_4K_rdma_to_dpi(unsigned int resolution, unsigned int timeS,
 	bypass = 1;
 	return 0;
 }
-
 /* int init_bw_monitor_timer(void); */
 
 int ldvt_start_4K_ovl_to_dpi(unsigned int resolution, unsigned int timeS)
@@ -879,45 +794,31 @@ int ldvt_start_4K_ovl_to_dpi(unsigned int resolution, unsigned int timeS)
 
 	DPI_DVT_LOG_W("top clock on\n");
 	dvt_ddp_path_top_clock_on();
-	DISP_REG_SET(NULL,
-		     1 * (DDP_REG_BASE_DISP_RDMA1 - DDP_REG_BASE_DISP_RDMA0)
-		     + DDP_REG_BASE_DISP_RDMA0 + DISP_REG_RDMA_SHADOW_UPDATE,
-		     (0x1 << 1) | (0x1 << 2));
-	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_DSC + DISP_REG_DSC_SHADOW,
-		     (0x1 << 1) | (0x1 << 2));
-	DISP_REG_SET(NULL,
-		     DDP_REG_BASE_DISP_GAMMA1 - DDP_REG_BASE_DISP_GAMMA0 +
-		     DISP_REG_GAMMA_DEBUG, (0x1 << 1) | (0x1 << 2));
-	DISP_REG_SET(NULL,
-		     DDP_REG_BASE_DISP_COLOR1 - DDP_REG_BASE_DISP_COLOR0 +
-		     DISP_COLOR_SHADOW_CTRL, (0x1 << 0) | (0x1 << 2));
-	DISP_REG_SET(NULL,
-		     DDP_REG_BASE_DISP_CCORR1 - DDP_REG_BASE_DISP_CCORR0 +
-		     DISP_REG_CCORR_SHADOW, (0x1 << 0) | (0x1 << 2));
-	DISP_REG_SET(NULL,
-		     DDP_REG_BASE_DISP_AAL1 - DDP_REG_BASE_DISP_AAL0 +
-		     DISP_AAL_SHADOW_CTL, (0x1 << 0) | (0x1 << 2));
-	DISP_REG_SET(NULL,
-		     DDP_REG_BASE_DISP_DITHER1 - DDP_REG_BASE_DISP_DITHER0 +
-		     DISP_REG_DITHER_0, (0x1 << 0) | (0x1 << 2));
+	DISP_REG_SET(NULL, 1 * (DDP_REG_BASE_DISP_RDMA1 - DDP_REG_BASE_DISP_RDMA0)
+				+ DDP_REG_BASE_DISP_RDMA0 + DISP_REG_RDMA_SHADOW_UPDATE, (0x1<<1)|(0x1<<2));
+	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_DSC + DISP_REG_DSC_SHADOW, (0x1<<1)|(0x1<<2));
+	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_GAMMA1 - DDP_REG_BASE_DISP_GAMMA0
+					+ DISP_REG_GAMMA_DEBUG, (0x1<<1)|(0x1<<2));
+	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_COLOR1 - DDP_REG_BASE_DISP_COLOR0
+					+ DISP_COLOR_SHADOW_CTRL, (0x1<<0)|(0x1<<2));
+	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_CCORR1 - DDP_REG_BASE_DISP_CCORR0
+					+ DISP_REG_CCORR_SHADOW, (0x1<<0)|(0x1<<2));
+	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_AAL1 - DDP_REG_BASE_DISP_AAL0
+					+ DISP_AAL_SHADOW_CTL, (0x1<<0)|(0x1<<2));
+	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_DITHER1 - DDP_REG_BASE_DISP_DITHER0
+					+ DISP_REG_DITHER_0, (0x1<<0)|(0x1<<2));
 
-	DISP_REG_SET_FIELD(NULL, EN_FLD_BYPASS_SHADOW,
-			   DDP_REG_BASE_DISP_OVL1 + DISP_REG_OVL_EN, 0x1);
-	DISP_REG_SET_FIELD(NULL, EN_FLD_RD_WRK_REG,
-			   DDP_REG_BASE_DISP_OVL1 + DISP_REG_OVL_EN, 0x1);
-	DISP_REG_SET_FIELD(NULL, EN_FLD_BYPASS_SHADOW,
-			   DDP_REG_BASE_DISP_OVL1_2L + DISP_REG_OVL_EN, 0x1);
-	DISP_REG_SET_FIELD(NULL, EN_FLD_RD_WRK_REG,
-			   DDP_REG_BASE_DISP_OVL1_2L + DISP_REG_OVL_EN, 0x1);
+	DISP_REG_SET_FIELD(NULL, EN_FLD_BYPASS_SHADOW, DDP_REG_BASE_DISP_OVL1 + DISP_REG_OVL_EN, 0x1);
+	DISP_REG_SET_FIELD(NULL, EN_FLD_RD_WRK_REG, DDP_REG_BASE_DISP_OVL1 + DISP_REG_OVL_EN, 0x1);
+	DISP_REG_SET_FIELD(NULL, EN_FLD_BYPASS_SHADOW, DDP_REG_BASE_DISP_OVL1_2L + DISP_REG_OVL_EN, 0x1);
+	DISP_REG_SET_FIELD(NULL, EN_FLD_RD_WRK_REG, DDP_REG_BASE_DISP_OVL1_2L + DISP_REG_OVL_EN, 0x1);
 
 
 	DPI_DVT_LOG_W("set Mutex and connect path\n");
 	dvt_connect_ovl1_dpi(NULL);
 	dvt_mutex_set_ovl1_dpi(dvt_acquire_mutex(), NULL);
-	ddp_driver_ovl.connect(DISP_MODULE_OVL1, DISP_MODULE_UNKNOWN,
-			       DISP_MODULE_OVL1_2L, 1, NULL);
-	ddp_driver_ovl.connect(DISP_MODULE_OVL1_2L, DISP_MODULE_OVL1,
-			       DISP_MODULE_UNKNOWN, 1, NULL);
+	ddp_driver_ovl.connect(DISP_MODULE_OVL1, DISP_MODULE_UNKNOWN, DISP_MODULE_OVL1_2L, 1, NULL);
+	ddp_driver_ovl.connect(DISP_MODULE_OVL1_2L, DISP_MODULE_OVL1, DISP_MODULE_UNKNOWN, 1, NULL);
 
 	DPI_DVT_LOG_W("module init\n");
 	dvt_module_action(LONG_PATH1, INIT);
@@ -949,9 +850,7 @@ int ldvt_start_4K_ovl_to_dpi(unsigned int resolution, unsigned int timeS)
 	ddp_driver_color.config(DISP_MODULE_COLOR1, &extd_gamma_params, NULL);
 	ddp_driver_ccorr.config(DISP_MODULE_CCORR1, &extd_gamma_params, NULL);
 	ddp_driver_dither.config(DISP_MODULE_DITHER1, &extd_gamma_params, NULL);
-	DISP_REG_SET(NULL,
-		     DISPSYS_COLOR1_BASE - DISPSYS_COLOR0_BASE +
-		     DISP_COLOR_CK_ON, 0x1);
+	DISP_REG_SET(NULL, DISPSYS_COLOR1_BASE - DISPSYS_COLOR0_BASE + DISP_COLOR_CK_ON, 0x1);
 
 	dvt_init_DSC_param(resolution);
 	ddp_driver_dsc.config(DISP_MODULE_DSC, &extd_dpi_params, NULL);
@@ -966,10 +865,8 @@ int ldvt_start_4K_ovl_to_dpi(unsigned int resolution, unsigned int timeS)
 	memset(&gset_arg, 0, sizeof(gset_arg));
 	gset_arg.dst_mod_type = DST_MOD_REAL_TIME;
 	gset_arg.is_decouple_mode = 0;
-	ddp_driver_ovl.ioctl(DISP_MODULE_OVL1, NULL, DDP_OVL_GOLDEN_SETTING,
-			     &gset_arg);
-	ddp_driver_ovl.ioctl(DISP_MODULE_OVL1_2L, NULL, DDP_OVL_GOLDEN_SETTING,
-			     &gset_arg);
+	ddp_driver_ovl.ioctl(DISP_MODULE_OVL1, NULL, DDP_OVL_GOLDEN_SETTING, &gset_arg);
+	ddp_driver_ovl.ioctl(DISP_MODULE_OVL1_2L, NULL, DDP_OVL_GOLDEN_SETTING, &gset_arg);
 
 	if (bypass)
 		dvt_module_action(LONG_PATH1, BYPASS);
@@ -1011,8 +908,7 @@ int ldvt_start_4K_ovl_to_dpi(unsigned int resolution, unsigned int timeS)
 
 	DPI_DVT_LOG_W("top clock off\n");
 	dvt_ddp_path_top_clock_off();
-	memcpy(extd_rdma_params.p_golden_setting_context, &temp_golden,
-	       sizeof(temp_golden));
+	memcpy(extd_rdma_params.p_golden_setting_context, &temp_golden, sizeof(temp_golden));
 
 	for (i = 0; i < 4; i++) {
 		if (ldvt_data_va[i])
@@ -1028,8 +924,7 @@ int dvt_init_WDMA_param(unsigned int resolution)
 {
 	memset(&extd_rdma_params, 0, sizeof(extd_rdma_params));
 	extd_rdma_params.p_golden_setting_context = get_golden_setting_pgc();
-	memcpy(&temp_golden, extd_rdma_params.p_golden_setting_context,
-	       sizeof(temp_golden));
+	memcpy(&temp_golden, extd_rdma_params.p_golden_setting_context, sizeof(temp_golden));
 
 	extd_rdma_params.dst_dirty = 1;
 	extd_rdma_params.wdma_dirty = 1;
@@ -1037,7 +932,7 @@ int dvt_init_WDMA_param(unsigned int resolution)
 	extd_rdma_params.dst_h = 1080;
 	extd_rdma_params.wdma_config.dstAddress = (unsigned long)out_mva;
 	extd_rdma_params.wdma_config.outputFormat = UFMT_RGB888;
-	extd_rdma_params.wdma_config.dstPitch = 1920 * 4;
+	extd_rdma_params.wdma_config.dstPitch = 1920*4;
 	extd_rdma_params.wdma_config.srcHeight = 1080;
 	extd_rdma_params.wdma_config.srcWidth = 1920;
 	extd_rdma_params.wdma_config.clipX = 0;
@@ -1055,16 +950,13 @@ int dvt_init_RDMA_param(unsigned int mode, unsigned int resolution)
 {
 	memset(&extd_rdma_params, 0, sizeof(extd_rdma_params));
 	extd_rdma_params.p_golden_setting_context = get_golden_setting_pgc();
-	memcpy(&temp_golden, extd_rdma_params.p_golden_setting_context,
-	       sizeof(temp_golden));
+	memcpy(&temp_golden, extd_rdma_params.p_golden_setting_context, sizeof(temp_golden));
 	if (mode == RDMA_MODE_DIRECT_LINK) {
 		DPI_DVT_LOG_W("RDMA_MODE_DIRECT_LINK configure\n");
 		extd_rdma_params.dst_dirty = 1;
 		extd_rdma_params.rdma_dirty = 1;
-		extd_rdma_params.dst_w =
-		    extd_dpi_params.dispif_config.dpi.width;
-		extd_rdma_params.dst_h =
-		    extd_dpi_params.dispif_config.dpi.height;
+		extd_rdma_params.dst_w = extd_dpi_params.dispif_config.dpi.width;
+		extd_rdma_params.dst_h = extd_dpi_params.dispif_config.dpi.height;
 		extd_rdma_params.rdma_config.address = 0;
 		extd_rdma_params.rdma_config.inputFormat = 0;
 		extd_rdma_params.rdma_config.pitch = 0;
@@ -1077,24 +969,17 @@ int dvt_init_RDMA_param(unsigned int mode, unsigned int resolution)
 		DPI_DVT_LOG_W("RDMA_MODE_MEMORY configure\n");
 		extd_rdma_params.dst_dirty = 0;
 		extd_rdma_params.rdma_dirty = 1;
-		extd_rdma_params.dst_w =
-		    extd_dpi_params.dispif_config.dpi.width;
-		extd_rdma_params.dst_h =
-		    extd_dpi_params.dispif_config.dpi.height;
+		extd_rdma_params.dst_w = extd_dpi_params.dispif_config.dpi.width;
+		extd_rdma_params.dst_h = extd_dpi_params.dispif_config.dpi.height;
 		extd_rdma_params.rdma_config.address = (unsigned long)data_mva;
 		extd_rdma_params.rdma_config.inputFormat = UFMT_BGR888;
-		extd_rdma_params.rdma_config.pitch =
-		    extd_dpi_params.dispif_config.dpi.width * 3;
-		extd_rdma_params.rdma_config.width =
-		    extd_dpi_params.dispif_config.dpi.width;
-		extd_rdma_params.rdma_config.height =
-		    extd_dpi_params.dispif_config.dpi.height;
+		extd_rdma_params.rdma_config.pitch = extd_dpi_params.dispif_config.dpi.width * 3;
+		extd_rdma_params.rdma_config.width = extd_dpi_params.dispif_config.dpi.width;
+		extd_rdma_params.rdma_config.height = extd_dpi_params.dispif_config.dpi.height;
 		extd_rdma_params.rdma_config.dst_x = 0;
 		extd_rdma_params.rdma_config.dst_y = 0;
-		extd_rdma_params.rdma_config.dst_w =
-		    extd_dpi_params.dispif_config.dpi.width;
-		extd_rdma_params.rdma_config.dst_h =
-		    extd_dpi_params.dispif_config.dpi.height;
+		extd_rdma_params.rdma_config.dst_w = extd_dpi_params.dispif_config.dpi.width;
+		extd_rdma_params.rdma_config.dst_h = extd_dpi_params.dispif_config.dpi.height;
 		extd_rdma_params.lcm_bpp = 24;
 
 	}
@@ -1116,16 +1001,14 @@ int dvt_init_RDMA_param(unsigned int mode, unsigned int resolution)
 	case HDMI_VIDEO_1920x1080p_30Hz:
 	case HDMI_VIDEO_1920x1080p_60Hz:
 	case HDMI_VIDEO_1920x1080i_60Hz:
-		extd_rdma_params.p_golden_setting_context->ext_dst_height =
-		    1080;
+		extd_rdma_params.p_golden_setting_context->ext_dst_height = 1080;
 		extd_rdma_params.p_golden_setting_context->ext_dst_width = 1920;
 		extd_rdma_params.p_golden_setting_context->dst_height = 1080;
 		extd_rdma_params.p_golden_setting_context->dst_width = 1920;
 		break;
 	case HDMI_VIDEO_2160p_DSC_24Hz:
 	case HDMI_VIDEO_2160p_DSC_30Hz:
-		extd_rdma_params.p_golden_setting_context->ext_dst_height =
-		    2160;
+		extd_rdma_params.p_golden_setting_context->ext_dst_height = 2160;
 		extd_rdma_params.p_golden_setting_context->ext_dst_width = 3840;
 		extd_rdma_params.p_golden_setting_context->dst_height = 2160;
 		extd_rdma_params.p_golden_setting_context->dst_width = 3840;
@@ -1139,13 +1022,11 @@ int dvt_init_RDMA_param(unsigned int mode, unsigned int resolution)
 
 void dpi_dvt_parameters(unsigned char arg)
 {
-	enum DPI_POLARITY clk_pol = DPI_POLARITY_RISING, de_pol =
-	    DPI_POLARITY_RISING, hsync_pol = DPI_POLARITY_RISING, vsync_pol =
-	    DPI_POLARITY_RISING;
+	enum DPI_POLARITY clk_pol = DPI_POLARITY_RISING, de_pol = DPI_POLARITY_RISING, hsync_pol = DPI_POLARITY_RISING,
+		vsync_pol = DPI_POLARITY_RISING;
 	unsigned int dpi_clock = 0;
-	unsigned int dpi_clk_div = 0, hsync_pulse_width = 0, hsync_back_porch =
-	    0, hsync_front_porch = 0, vsync_pulse_width = 0, vsync_back_porch =
-	    0, vsync_front_porch = 0;
+	unsigned int dpi_clk_div = 0, hsync_pulse_width = 0, hsync_back_porch = 0, hsync_front_porch = 0,
+	    vsync_pulse_width = 0, vsync_back_porch = 0, vsync_front_porch = 0;
 
 	switch (arg) {
 	case HDMI_VIDEO_720x480p_60Hz:
@@ -1170,17 +1051,12 @@ void dpi_dvt_parameters(unsigned char arg)
 			vsync_front_porch = 9;
 
 			DPI_DVT_Context.bg_height =
-			    ((480 * DPI_DVT_Context.scaling_factor) /
-			     100 >> 2) << 2;
+			    ((480 * DPI_DVT_Context.scaling_factor) / 100 >> 2) << 2;
 			DPI_DVT_Context.bg_width =
-			    ((720 * DPI_DVT_Context.scaling_factor) /
-			     100 >> 2) << 2;
-			DPI_DVT_Context.hdmi_width =
-			    720 - DPI_DVT_Context.bg_width;
-			DPI_DVT_Context.hdmi_height =
-			    480 - DPI_DVT_Context.bg_height;
-			DPI_DVT_Context.output_video_resolution =
-			    HDMI_VIDEO_720x480p_60Hz;
+			    ((720 * DPI_DVT_Context.scaling_factor) / 100 >> 2) << 2;
+			DPI_DVT_Context.hdmi_width = 720 - DPI_DVT_Context.bg_width;
+			DPI_DVT_Context.hdmi_height = 480 - DPI_DVT_Context.bg_height;
+			DPI_DVT_Context.output_video_resolution = HDMI_VIDEO_720x480p_60Hz;
 			dpi_clock = HDMI_VIDEO_720x480p_60Hz;
 			break;
 		}
@@ -1206,17 +1082,12 @@ void dpi_dvt_parameters(unsigned char arg)
 			vsync_front_porch = 9;
 
 			DPI_DVT_Context.bg_height =
-			    ((480 * DPI_DVT_Context.scaling_factor) /
-			     100 >> 2) << 2;
+			    ((480 * DPI_DVT_Context.scaling_factor) / 100 >> 2) << 2;
 			DPI_DVT_Context.bg_width =
-			    ((1440 / 2 * DPI_DVT_Context.scaling_factor) /
-			     100 >> 2) << 2;
-			DPI_DVT_Context.hdmi_width =
-			    1440 / 2 - DPI_DVT_Context.bg_width;
-			DPI_DVT_Context.hdmi_height =
-			    480 - DPI_DVT_Context.bg_height;
-			DPI_DVT_Context.output_video_resolution =
-			    HDMI_VIDEO_720x480i_60Hz;
+			    ((1440 / 2 * DPI_DVT_Context.scaling_factor) / 100 >> 2) << 2;
+			DPI_DVT_Context.hdmi_width = 1440 / 2 - DPI_DVT_Context.bg_width;
+			DPI_DVT_Context.hdmi_height = 480 - DPI_DVT_Context.bg_height;
+			DPI_DVT_Context.output_video_resolution = HDMI_VIDEO_720x480i_60Hz;
 			dpi_clock = 27027;
 			break;
 		}
@@ -1249,18 +1120,13 @@ void dpi_dvt_parameters(unsigned char arg)
 			dpi_clock = HDMI_VIDEO_1280x720p_60Hz;
 
 			DPI_DVT_Context.bg_height =
-			    ((720 * DPI_DVT_Context.scaling_factor) /
-			     100 >> 2) << 2;
+			    ((720 * DPI_DVT_Context.scaling_factor) / 100 >> 2) << 2;
 			DPI_DVT_Context.bg_width =
-			    ((1280 * DPI_DVT_Context.scaling_factor) /
-			     100 >> 2) << 2;
-			DPI_DVT_Context.hdmi_width =
-			    1280 - DPI_DVT_Context.bg_width;
-			DPI_DVT_Context.hdmi_height =
-			    720 - DPI_DVT_Context.bg_height;
+			    ((1280 * DPI_DVT_Context.scaling_factor) / 100 >> 2) << 2;
+			DPI_DVT_Context.hdmi_width = 1280 - DPI_DVT_Context.bg_width;
+			DPI_DVT_Context.hdmi_height = 720 - DPI_DVT_Context.bg_height;
 
-			DPI_DVT_Context.output_video_resolution =
-			    HDMI_VIDEO_1280x720p_60Hz;
+			DPI_DVT_Context.output_video_resolution = HDMI_VIDEO_1280x720p_60Hz;
 			break;
 		}
 	case HDMI_VIDEO_1920x1080p_30Hz:
@@ -1287,18 +1153,13 @@ void dpi_dvt_parameters(unsigned char arg)
 			vsync_front_porch = 4;
 
 			DPI_DVT_Context.bg_height =
-			    ((1080 * DPI_DVT_Context.scaling_factor) /
-			     100 >> 2) << 2;
+			    ((1080 * DPI_DVT_Context.scaling_factor) / 100 >> 2) << 2;
 			DPI_DVT_Context.bg_width =
-			    ((1920 * DPI_DVT_Context.scaling_factor) /
-			     100 >> 2) << 2;
-			DPI_DVT_Context.hdmi_width =
-			    1920 - DPI_DVT_Context.bg_width;
-			DPI_DVT_Context.hdmi_height =
-			    1080 - DPI_DVT_Context.bg_height;
+			    ((1920 * DPI_DVT_Context.scaling_factor) / 100 >> 2) << 2;
+			DPI_DVT_Context.hdmi_width = 1920 - DPI_DVT_Context.bg_width;
+			DPI_DVT_Context.hdmi_height = 1080 - DPI_DVT_Context.bg_height;
 
-			DPI_DVT_Context.output_video_resolution =
-			    HDMI_VIDEO_1920x1080p_30Hz;
+			DPI_DVT_Context.output_video_resolution = HDMI_VIDEO_1920x1080p_30Hz;
 			dpi_clock = HDMI_VIDEO_1920x1080p_30Hz;
 			break;
 		}
@@ -1326,18 +1187,13 @@ void dpi_dvt_parameters(unsigned char arg)
 			vsync_front_porch = 4;
 
 			DPI_DVT_Context.bg_height =
-			    ((1080 * DPI_DVT_Context.scaling_factor) /
-			     100 >> 2) << 2;
+			    ((1080 * DPI_DVT_Context.scaling_factor) / 100 >> 2) << 2;
 			DPI_DVT_Context.bg_width =
-			    ((1920 * DPI_DVT_Context.scaling_factor) /
-			     100 >> 2) << 2;
-			DPI_DVT_Context.hdmi_width =
-			    1920 - DPI_DVT_Context.bg_width;
-			DPI_DVT_Context.hdmi_height =
-			    1080 - DPI_DVT_Context.bg_height;
+			    ((1920 * DPI_DVT_Context.scaling_factor) / 100 >> 2) << 2;
+			DPI_DVT_Context.hdmi_width = 1920 - DPI_DVT_Context.bg_width;
+			DPI_DVT_Context.hdmi_height = 1080 - DPI_DVT_Context.bg_height;
 
-			DPI_DVT_Context.output_video_resolution =
-			    HDMI_VIDEO_1920x1080p_60Hz;
+			DPI_DVT_Context.output_video_resolution = HDMI_VIDEO_1920x1080p_60Hz;
 			dpi_clock = HDMI_VIDEO_1920x1080p_60Hz;
 			break;
 		}
@@ -1365,18 +1221,13 @@ void dpi_dvt_parameters(unsigned char arg)
 			vsync_front_porch = 4;
 
 			DPI_DVT_Context.bg_height =
-			    ((1080 * DPI_DVT_Context.scaling_factor) /
-			     100 >> 2) << 2;
+			    ((1080 * DPI_DVT_Context.scaling_factor) / 100 >> 2) << 2;
 			DPI_DVT_Context.bg_width =
-			    ((1920 * DPI_DVT_Context.scaling_factor) /
-			     100 >> 2) << 2;
-			DPI_DVT_Context.hdmi_width =
-			    1920 - DPI_DVT_Context.bg_width;
-			DPI_DVT_Context.hdmi_height =
-			    1080 - DPI_DVT_Context.bg_height;
+			    ((1920 * DPI_DVT_Context.scaling_factor) / 100 >> 2) << 2;
+			DPI_DVT_Context.hdmi_width = 1920 - DPI_DVT_Context.bg_width;
+			DPI_DVT_Context.hdmi_height = 1080 - DPI_DVT_Context.bg_height;
 
-			DPI_DVT_Context.output_video_resolution =
-			    HDMI_VIDEO_1920x1080i_60Hz;
+			DPI_DVT_Context.output_video_resolution = HDMI_VIDEO_1920x1080i_60Hz;
 			dpi_clock = 74250;
 			break;
 		}
@@ -1407,13 +1258,12 @@ void dpi_dvt_parameters(unsigned char arg)
 			DPI_DVT_Context.hdmi_width = 1280;
 			DPI_DVT_Context.hdmi_height = 2160;
 
-			DPI_DVT_Context.output_video_resolution =
-			    HDMI_VIDEO_2160p_DSC_24Hz;
+			DPI_DVT_Context.output_video_resolution = HDMI_VIDEO_2160p_DSC_24Hz;
 			dpi_clock = 89100;
 
 			break;
 		}
-	case HDMI_VIDEO_2160p_DSC_30Hz:
+		case HDMI_VIDEO_2160p_DSC_30Hz:
 		{
 #if defined(MHL_SII8338) || defined(MHL_SII8348_)
 /* #if defined(MHL_SII8338) || defined(MHL_SII8348) */
@@ -1440,8 +1290,7 @@ void dpi_dvt_parameters(unsigned char arg)
 			DPI_DVT_Context.hdmi_width = 1280;
 			DPI_DVT_Context.hdmi_height = 2160;
 
-			DPI_DVT_Context.output_video_resolution =
-			    HDMI_VIDEO_2160p_DSC_30Hz;
+			DPI_DVT_Context.output_video_resolution = HDMI_VIDEO_2160p_DSC_30Hz;
 			dpi_clock = 99500;
 
 			break;
@@ -1478,73 +1327,53 @@ void dpi_dvt_parameters(unsigned char arg)
 	DPI_DVT_LOG_W("dpi_dvt_parameters:%d\n", arg);
 }
 
-/***********Basic Function End*********************/
+/*****************************Basic Function End********************************************/
 
 void dvt_dump_ext_dpi_parameters(void)
 {
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.width:			%d\n",
-	     extd_dpi_params.dispif_config.dpi.width);
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.height:			%d\n",
-	     extd_dpi_params.dispif_config.dpi.height);
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.bg_width:		%d\n",
-	     extd_dpi_params.dispif_config.dpi.bg_width);
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.bg_height:		%d\n",
-	     extd_dpi_params.dispif_config.dpi.bg_height);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.width:			%d\n",
+		      extd_dpi_params.dispif_config.dpi.width);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.height:			%d\n",
+		      extd_dpi_params.dispif_config.dpi.height);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.bg_width:			%d\n",
+		      extd_dpi_params.dispif_config.dpi.bg_width);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.bg_height:		%d\n",
+		      extd_dpi_params.dispif_config.dpi.bg_height);
 
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.clk_pol:		%d\n",
-	     extd_dpi_params.dispif_config.dpi.clk_pol);
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.de_pol:			%d\n",
-	     extd_dpi_params.dispif_config.dpi.de_pol);
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.vsync_pol:		%d\n",
-	     extd_dpi_params.dispif_config.dpi.vsync_pol);
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.hsync_pol:		%d\n",
-	     extd_dpi_params.dispif_config.dpi.hsync_pol);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.clk_pol:			%d\n",
+		      extd_dpi_params.dispif_config.dpi.clk_pol);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.de_pol:			%d\n",
+		      extd_dpi_params.dispif_config.dpi.de_pol);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.vsync_pol:		%d\n",
+		      extd_dpi_params.dispif_config.dpi.vsync_pol);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.hsync_pol:		%d\n",
+		      extd_dpi_params.dispif_config.dpi.hsync_pol);
 
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.hsync_pulse_width: %d\n",
-	     extd_dpi_params.dispif_config.dpi.hsync_pulse_width);
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.hsync_back_porch:	%d\n",
-	     extd_dpi_params.dispif_config.dpi.hsync_back_porch);
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.hsync_front_porch: %d\n",
-	     extd_dpi_params.dispif_config.dpi.hsync_front_porch);
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.vsync_pulse_width: %d\n",
-	     extd_dpi_params.dispif_config.dpi.vsync_pulse_width);
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.vsync_back_porch:	%d\n",
-	     extd_dpi_params.dispif_config.dpi.vsync_back_porch);
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.vsync_front_porch: %d\n",
-	     extd_dpi_params.dispif_config.dpi.vsync_front_porch);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.hsync_pulse_width: %d\n",
+		      extd_dpi_params.dispif_config.dpi.hsync_pulse_width);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.hsync_back_porch:	%d\n",
+		      extd_dpi_params.dispif_config.dpi.hsync_back_porch);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.hsync_front_porch: %d\n",
+		      extd_dpi_params.dispif_config.dpi.hsync_front_porch);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.vsync_pulse_width: %d\n",
+		      extd_dpi_params.dispif_config.dpi.vsync_pulse_width);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.vsync_back_porch:	%d\n",
+		      extd_dpi_params.dispif_config.dpi.vsync_back_porch);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.vsync_front_porch: %d\n",
+		      extd_dpi_params.dispif_config.dpi.vsync_front_porch);
 
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.format:			%d\n",
-	     extd_dpi_params.dispif_config.dpi.format);
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.rgb_order:		%d\n",
-	     extd_dpi_params.dispif_config.dpi.rgb_order);
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.i2x_en:			%d\n",
-	     extd_dpi_params.dispif_config.dpi.i2x_en);
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.i2x_edge:		%d\n",
-	     extd_dpi_params.dispif_config.dpi.i2x_edge);
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.embsync:		%d\n",
-	     extd_dpi_params.dispif_config.dpi.embsync);
-	DPI_DVT_LOG_W
-	    ("extd_dpi_params.dispif_config.dpi.dpi_clock:		%d\n",
-	     extd_dpi_params.dispif_config.dpi.dpi_clock);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.format:			%d\n",
+		      extd_dpi_params.dispif_config.dpi.format);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.rgb_order:		%d\n",
+		      extd_dpi_params.dispif_config.dpi.rgb_order);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.i2x_en:			%d\n",
+		      extd_dpi_params.dispif_config.dpi.i2x_en);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.i2x_edge:			%d\n",
+		      extd_dpi_params.dispif_config.dpi.i2x_edge);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.embsync:			%d\n",
+		      extd_dpi_params.dispif_config.dpi.embsync);
+	DPI_DVT_LOG_W("extd_dpi_params.dispif_config.dpi.dpi_clock:		%d\n",
+		      extd_dpi_params.dispif_config.dpi.dpi_clock);
 }
 
 int dvt_copy_file_data(void *ptr, unsigned int resolution)
@@ -1562,12 +1391,10 @@ int dvt_copy_file_data(void *ptr, unsigned int resolution)
 		set_fs(KERNEL_DS);
 		fd = filp_open("/data/Gene_1280x720.bmp", O_RDONLY, 0);
 		if (IS_ERR(fd)) {
-			pr_info
-			    ("EXTD: open Gene_1280x720.bmp fail ! ret %ld\n",
-			     PTR_ERR(fd));
+			pr_err("EXTD: open folder Gene_1280x720.bmp fail !!!!! ret %ld\n", PTR_ERR(fd));
 			set_fs(fs);
 			return -1;
-		}
+			}
 		vfs_read(fd, ptr, 2764800, &pos);
 		filp_close(fd, NULL);
 		fd = NULL;
@@ -1577,25 +1404,20 @@ int dvt_copy_file_data(void *ptr, unsigned int resolution)
 		set_fs(KERNEL_DS);
 		fd = filp_open("/data/PDA0026_720x480.bmp", O_RDONLY, 0);
 		if (IS_ERR(fd)) {
-			pr_info
-			    ("EXTD: open PDA0026_720x480.bmp fail ! ret %ld\n",
-			     PTR_ERR(fd));
+			pr_err("EXTD: open folder PDA0026_720x480.bmp fail !!!!! ret %ld\n", PTR_ERR(fd));
 			set_fs(fs);
 			return -1;
-		}
+			}
 		vfs_read(fd, ptr, 1036800, &pos);
 		filp_close(fd, NULL);
 		fd = NULL;
 		set_fs(fs);
-	} else if (resolution == HDMI_VIDEO_1920x1080p_30Hz
-		   || resolution == HDMI_VIDEO_1920x1080p_60Hz) {
+	} else if (resolution == HDMI_VIDEO_1920x1080p_30Hz || resolution == HDMI_VIDEO_1920x1080p_60Hz) {
 		fs = get_fs();
 		set_fs(KERNEL_DS);
 		fd = filp_open("/data/Venice_1920x1080.bmp", O_RDONLY, 0);
 		if (IS_ERR(fd)) {
-			pr_info
-			    ("EXTD: open Venice_1920x1080.bmp fail ! ret %ld\n",
-			     PTR_ERR(fd));
+			pr_err("EXTD: open folder Venice_1920x1080.bmp fail !!!!! ret %ld\n", PTR_ERR(fd));
 			set_fs(fs);
 			return -1;
 		}
@@ -1603,17 +1425,26 @@ int dvt_copy_file_data(void *ptr, unsigned int resolution)
 		filp_close(fd, NULL);
 		fd = NULL;
 		set_fs(fs);
-	} else if (resolution == HDMI_VIDEO_2160p_DSC_24Hz
-		   || resolution == HDMI_VIDEO_2160p_DSC_30Hz) {
+/*
+*
+		fill = (char *)ptr;
+		for (i = 0; i < 6220800; i++) {
+			if (i % 3 == 1)
+				fill[i] = 0;
+			else if (i % 3 == 2)
+				fill[i] = 0x11;
+			else
+				fill[i] = 0xff;
+		}
+*/
+	} else if (resolution == HDMI_VIDEO_2160p_DSC_24Hz || resolution == HDMI_VIDEO_2160p_DSC_30Hz) {
 #if 0
 		if (buffer_round == 3) {
 			fs = get_fs();
 			set_fs(KERNEL_DS);
 			fd = filp_open("/data/picture_4k.yuv", O_RDONLY, 0);
 			if (IS_ERR(fd)) {
-				pr_info
-				    ("EXTD: open picture_4k.yuv fail ! %ld\n",
-				     PTR_ERR(fd));
+				pr_err("EXTD: open folder picture_4k.yuv fail !!!!! ret %ld\n", PTR_ERR(fd));
 				set_fs(fs);
 				return -1;
 			}
@@ -1628,9 +1459,7 @@ int dvt_copy_file_data(void *ptr, unsigned int resolution)
 			set_fs(KERNEL_DS);
 			fd = filp_open("/data/picture_4k.bmp", O_RDONLY, 0);
 			if (IS_ERR(fd)) {
-				pr_info
-				    ("EXTD: open picture_4k.bmp fail ! %ld\n",
-				     PTR_ERR(fd));
+				pr_err("EXTD: open folder picture_4k.bmp fail !!!!! ret %ld\n", PTR_ERR(fd));
 				set_fs(fs);
 				return -1;
 			}
@@ -1645,7 +1474,6 @@ int dvt_copy_file_data(void *ptr, unsigned int resolution)
 	}
 	return 0;
 }
-
 #if 0
 int dvt_allocate_outbuffer(unsigned int resolution, enum HW_MODULE_Type hw_type)
 {
@@ -1658,14 +1486,13 @@ int dvt_allocate_outbuffer(unsigned int resolution, enum HW_MODULE_Type hw_type)
 	unsigned int hdmiDataSize = 0;
 	unsigned int hdmiBufferSize = 0;
 
-	hdmiPixelSize = 1920 * 1080;
+	hdmiPixelSize = 1920*1080;
 	hdmiDataSize = hdmiPixelSize * 3;
 	hdmiBufferSize = hdmiDataSize;
 
-	DPI_DVT_LOG_W("dvt_allocate_outbuffer, width: %d, height: %d\n", 1920,
-		      1080);
+	DPI_DVT_LOG_W("dvt_allocate_outbuffer, width: %d, height: %d\n", 1920, 1080);
 
-	out_va = (unsigned long int)vmalloc(hdmiBufferSize);
+	out_va = (unsigned long int) vmalloc(hdmiBufferSize);
 	if (((void *)out_va) == NULL) {
 		DDPERR("vmalloc %d bytes fail\n", hdmiBufferSize);
 		return -1;
@@ -1707,9 +1534,8 @@ int dvt_allocate_outbuffer(unsigned int resolution, enum HW_MODULE_Type hw_type)
 	m4uport.Direction = 0;
 	m4u_config_port(&m4uport);
 
-	m4u_alloc_mva(client, M4U_PORT, (unsigned long int)out_va, NULL,
-		      hdmiBufferSize, M4U_PROT_READ | M4U_PROT_WRITE, 0,
-		      &out_mva);
+	m4u_alloc_mva(client, M4U_PORT, (unsigned long int)out_va, NULL, hdmiBufferSize,
+	M4U_PROT_READ | M4U_PROT_WRITE, 0, &out_mva);
 
 	return ret;
 }
@@ -1725,31 +1551,29 @@ int dvt_allocate_buffer(unsigned int resolution, enum HW_MODULE_Type hw_type)
 	unsigned int hdmiDataSize = 0;
 	unsigned int hdmiBufferSize = 0;
 
-	if (resolution == HDMI_VIDEO_2160p_DSC_24Hz
-	    || resolution == HDMI_VIDEO_2160p_DSC_30Hz) {
+	if (resolution == HDMI_VIDEO_2160p_DSC_24Hz || resolution == HDMI_VIDEO_2160p_DSC_30Hz) {
 		hdmiPixelSize =
-		    extd_dpi_params.dispif_config.dpi.width * 3 *
-		    extd_dpi_params.dispif_config.dpi.height;
+		extd_dpi_params.dispif_config.dpi.width * 3 * extd_dpi_params.dispif_config.dpi.height;
+/* 1280*2160	extd_dpi_params.dispif_config.dpi.width * extd_dpi_params.dispif_config.dpi.height; */
 
 		hdmiDataSize = hdmiPixelSize * 3;
 		hdmiBufferSize = hdmiDataSize;
 
 		DPI_DVT_LOG_W("dvt_allocate_buffer, width: %d, height: %d\n",
-			      extd_dpi_params.dispif_config.dpi.width * 3,
-			      extd_dpi_params.dispif_config.dpi.height);
+	    extd_dpi_params.dispif_config.dpi.width * 3,
+	    extd_dpi_params.dispif_config.dpi.height);
 	} else {
 		hdmiPixelSize =
-		    extd_dpi_params.dispif_config.dpi.width *
-		    extd_dpi_params.dispif_config.dpi.height;
+		extd_dpi_params.dispif_config.dpi.width * extd_dpi_params.dispif_config.dpi.height;
 		hdmiDataSize = hdmiPixelSize * 3;
 		hdmiBufferSize = hdmiDataSize;
 
 		DPI_DVT_LOG_W("dvt_allocate_buffer, width: %d, height: %d\n",
-			      extd_dpi_params.dispif_config.dpi.width,
-			      extd_dpi_params.dispif_config.dpi.height);
+	    extd_dpi_params.dispif_config.dpi.width,
+	    extd_dpi_params.dispif_config.dpi.height);
 	}
 
-	data_va = (unsigned long int)vmalloc(hdmiBufferSize);
+	data_va = (unsigned long int) vmalloc(hdmiBufferSize);
 	if (((void *)data_va) == NULL) {
 		DDPERR("vmalloc %d bytes fail\n", hdmiBufferSize);
 		return -1;
@@ -1782,12 +1606,11 @@ int dvt_allocate_buffer(unsigned int resolution, enum HW_MODULE_Type hw_type)
 	m4uport.Direction = 0;
 	m4u_config_port(&m4uport);
 
-	m4u_alloc_mva(client, M4U_PORT, (unsigned long int)data_va, NULL,
-		      hdmiBufferSize, M4U_PROT_READ | M4U_PROT_WRITE, 0,
-		      &data_mva);
+	m4u_alloc_mva(client, M4U_PORT, (unsigned long int)data_va, NULL, hdmiBufferSize,
+	M4U_PROT_READ | M4U_PROT_WRITE, 0, &data_mva);
 	DPI_DVT_LOG_W("data_mva %x\n", data_mva);
 /*
- *
+*
 	memset((void *)&m4uport, 0, sizeof(M4U_PORT_STRUCT));
 	m4uport.ePortID = M4U_PORT_DISP_2L_OVL1_LARB0;
 	m4uport.Virtuality = 1;
@@ -1796,7 +1619,7 @@ int dvt_allocate_buffer(unsigned int resolution, enum HW_MODULE_Type hw_type)
 	m4uport.Distance = 1;
 	m4uport.Direction = 0;
 	m4u_config_port(&m4uport);
- */
+*/
 	return ret;
 }
 
@@ -1811,36 +1634,33 @@ int ldvt_allocate_buffer(unsigned int resolution, enum HW_MODULE_Type hw_type)
 	unsigned int hdmiDataSize = 0;
 	unsigned int hdmiBufferSize = 0;
 
-	if (resolution == HDMI_VIDEO_2160p_DSC_24Hz
-	    || resolution == HDMI_VIDEO_2160p_DSC_30Hz) {
+	if (resolution == HDMI_VIDEO_2160p_DSC_24Hz || resolution == HDMI_VIDEO_2160p_DSC_30Hz) {
 		hdmiPixelSize =
-		    extd_dpi_params.dispif_config.dpi.width * 3 *
-		    extd_dpi_params.dispif_config.dpi.height;
+		extd_dpi_params.dispif_config.dpi.width * 3 * extd_dpi_params.dispif_config.dpi.height;
 		hdmiDataSize = hdmiPixelSize * 3;
 		hdmiBufferSize = hdmiDataSize;
 
 		DPI_DVT_LOG_W("dvt_allocate_buffer, width: %d, height: %d\n",
-			      extd_dpi_params.dispif_config.dpi.width * 3,
-			      extd_dpi_params.dispif_config.dpi.height);
+	    extd_dpi_params.dispif_config.dpi.width * 3,
+	    extd_dpi_params.dispif_config.dpi.height);
 	} else {
 		hdmiPixelSize =
-		    extd_dpi_params.dispif_config.dpi.width *
-		    extd_dpi_params.dispif_config.dpi.height;
+		extd_dpi_params.dispif_config.dpi.width * extd_dpi_params.dispif_config.dpi.height;
 		hdmiDataSize = hdmiPixelSize * 3;
 		hdmiBufferSize = hdmiDataSize;
 
 		DPI_DVT_LOG_W("dvt_allocate_buffer, width: %d, height: %d\n",
-			      extd_dpi_params.dispif_config.dpi.width,
-			      extd_dpi_params.dispif_config.dpi.height);
+	    extd_dpi_params.dispif_config.dpi.width,
+	    extd_dpi_params.dispif_config.dpi.height);
 	}
 
 	for (i = 0; i < 4; i++) {
 		if (i == 3) {
 			hdmiBufferSize =
-			    2 * extd_dpi_params.dispif_config.dpi.width
-			    * 3 * extd_dpi_params.dispif_config.dpi.height;
+				2 * extd_dpi_params.dispif_config.dpi.width
+					* 3 * extd_dpi_params.dispif_config.dpi.height;
 		}
-		ldvt_data_va[i] = (unsigned long int)vmalloc(hdmiBufferSize);
+		ldvt_data_va[i] = (unsigned long int) vmalloc(hdmiBufferSize);
 		if (((void *)ldvt_data_va[i]) == NULL) {
 			DDPERR("vmalloc %d bytes fail\n", hdmiBufferSize);
 			return -1;
@@ -1853,15 +1673,12 @@ int ldvt_allocate_buffer(unsigned int resolution, enum HW_MODULE_Type hw_type)
 			client_ldvt = m4u_create_client();
 		if (IS_ERR_OR_NULL(client_ldvt))
 			DDPERR("create client fail!\n");
-		return -1;
+			return -1;
 
-		DPI_DVT_LOG_W("data_va %lx , client %p\n", ldvt_data_va[i],
-			      client_ldvt);
+		DPI_DVT_LOG_W("data_va %lx , client %p\n", ldvt_data_va[i], client_ldvt);
 
-		m4u_alloc_mva(client_ldvt, M4U_PORT,
-			      (unsigned long int)ldvt_data_va[i], NULL,
-			      hdmiBufferSize, M4U_PROT_READ | M4U_PROT_WRITE, 0,
-			      &ldvt_data_mva[i]);
+		m4u_alloc_mva(client_ldvt, M4U_PORT, (unsigned long int)ldvt_data_va[i], NULL, hdmiBufferSize,
+		M4U_PROT_READ | M4U_PROT_WRITE, 0, &ldvt_data_mva[i]);
 
 		buffer_round = buffer_round % 4;
 	}
@@ -1870,8 +1687,7 @@ int ldvt_allocate_buffer(unsigned int resolution, enum HW_MODULE_Type hw_type)
 }
 #endif
 
-int dvt_start_rdma_to_dpi(unsigned int resolution, unsigned int timeS,
-			  unsigned int caseNum)
+int dvt_start_rdma_to_dpi(unsigned int resolution, unsigned int timeS, unsigned int caseNum)
 {
 	int ret = 0;
 	int i;
@@ -1896,27 +1712,18 @@ int dvt_start_rdma_to_dpi(unsigned int resolution, unsigned int timeS,
 		ret = dvt_allocate_buffer(resolution, M4U_FOR_RDMA1);
 		dvt_init_RDMA_param(RDMA_MODE_MEMORY, resolution);
 		/* RGB Swap: last parameter 0--RGB/1--BGR */
-		DISP_REG_SET_FIELD(NULL, REG_FLD(1, 1),
-				   DISPSYS_DPI_BASE + 0x010, 1);
+		DISP_REG_SET_FIELD(NULL, REG_FLD(1, 1), DISPSYS_DPI_BASE + 0x010, 1);
 		break;
 	case 2:
-		ret =
-		    dvt_allocate_buffer(HDMI_VIDEO_1280x720p_60Hz,
-					M4U_FOR_RDMA1);
-		dvt_init_RDMA_param(RDMA_MODE_MEMORY,
-				    HDMI_VIDEO_1280x720p_60Hz);
-		DISP_REG_SET_FIELD(NULL, REG_FLD(1, 0),
-				   DISPSYS_DPI_BASE + 0x010, 1);
-		DISP_REG_SET_FIELD(NULL, REG_FLD(13, 16),
-				   DISPSYS_DPI_BASE + 0x030, 0x140);
-		DISP_REG_SET_FIELD(NULL, REG_FLD(13, 0),
-				   DISPSYS_DPI_BASE + 0x030, 0x140);
-		DISP_REG_SET_FIELD(NULL, REG_FLD(13, 16),
-				   DISPSYS_DPI_BASE + 0x034, 0xB4);
-		DISP_REG_SET_FIELD(NULL, REG_FLD(13, 0),
-				   DISPSYS_DPI_BASE + 0x034, 0xB4);
-		DISP_REG_SET_FIELD(NULL, REG_FLD(24, 0),
-				   DISPSYS_DPI_BASE + 0x038, 0x3ebcca);
+		ret = dvt_allocate_buffer(HDMI_VIDEO_1280x720p_60Hz, M4U_FOR_RDMA1);
+		dvt_init_RDMA_param(RDMA_MODE_MEMORY, HDMI_VIDEO_1280x720p_60Hz);
+		/* set background left right top bottom, and enable background*/
+		DISP_REG_SET_FIELD(NULL, REG_FLD(1, 0), DISPSYS_DPI_BASE + 0x010, 1);
+		DISP_REG_SET_FIELD(NULL, REG_FLD(13, 16), DISPSYS_DPI_BASE + 0x030, 0x140);
+		DISP_REG_SET_FIELD(NULL, REG_FLD(13, 0), DISPSYS_DPI_BASE + 0x030, 0x140);
+		DISP_REG_SET_FIELD(NULL, REG_FLD(13, 16), DISPSYS_DPI_BASE + 0x034, 0xB4);
+		DISP_REG_SET_FIELD(NULL, REG_FLD(13, 0), DISPSYS_DPI_BASE + 0x034, 0xB4);
+		DISP_REG_SET_FIELD(NULL, REG_FLD(24, 0), DISPSYS_DPI_BASE + 0x038, 0x3ebcca);
 		break;
 	case 4:
 		ret = dvt_allocate_buffer(resolution, M4U_FOR_RDMA1);
@@ -1926,24 +1733,16 @@ int dvt_start_rdma_to_dpi(unsigned int resolution, unsigned int timeS,
 		ret = dvt_allocate_buffer(resolution, M4U_FOR_RDMA1);
 		dvt_init_RDMA_param(RDMA_MODE_MEMORY, resolution);
 		cmdqRecWait(checksum_cmdq, CMDQ_EVENT_MUTEX1_STREAM_EOF);
-		cmdqRecWrite(checksum_cmdq, DPI_PHY_ADDR + 0x048, 0x80000000,
-			     0x80000000);
+		cmdqRecWrite(checksum_cmdq, DPI_PHY_ADDR + 0x048, 0x80000000, 0x80000000);
 		cmdqRecWait(checksum_cmdq, CMDQ_EVENT_MUTEX1_STREAM_EOF);
-		cmdqRecPoll(checksum_cmdq, DPI_PHY_ADDR + 0x048, 0x40000000,
-			    0x40000000);
-		cmdqRecBackupRegisterToSlot(checksum_cmdq, checksum_record, 0,
-					    DPI_PHY_ADDR + 0x048);
+		cmdqRecPoll(checksum_cmdq, DPI_PHY_ADDR + 0x048, 0x40000000, 0x40000000);
+		cmdqRecBackupRegisterToSlot(checksum_cmdq, checksum_record, 0, DPI_PHY_ADDR + 0x048);
 
 		for (i = 1; i < 3; i++) {
-			cmdqRecWrite(checksum_cmdq, DPI_PHY_ADDR + 0x048,
-				     0x80000000, 0x80000000);
-			cmdqRecWait(checksum_cmdq,
-				    CMDQ_EVENT_MUTEX1_STREAM_EOF);
-			cmdqRecPoll(checksum_cmdq, DPI_PHY_ADDR + 0x048,
-				    0x40000000, 0x40000000);
-			cmdqRecBackupRegisterToSlot(checksum_cmdq,
-						    checksum_record, i,
-						    DPI_PHY_ADDR + 0x048);
+			cmdqRecWrite(checksum_cmdq, DPI_PHY_ADDR + 0x048, 0x80000000, 0x80000000);
+			cmdqRecWait(checksum_cmdq, CMDQ_EVENT_MUTEX1_STREAM_EOF);
+			cmdqRecPoll(checksum_cmdq, DPI_PHY_ADDR + 0x048, 0x40000000, 0x40000000);
+			cmdqRecBackupRegisterToSlot(checksum_cmdq, checksum_record, i, DPI_PHY_ADDR + 0x048);
 		}
 
 		break;
@@ -1989,13 +1788,13 @@ int dvt_start_rdma_to_dpi(unsigned int resolution, unsigned int timeS,
 
 	msleep(timeS * 1000);
 
-	ddp_driver_dpi.dump_info(DISP_MODULE_DPI, 1);
-	ddp_dump_analysis(DISP_MODULE_RDMA_SHORT);
-	ddp_dump_reg(DISP_MODULE_RDMA_SHORT);
-	ddp_dump_analysis(DISP_MODULE_CONFIG);
-	ddp_dump_reg(DISP_MODULE_CONFIG);
-	ddp_dump_analysis(DISP_MODULE_MUTEX);
-	ddp_dump_reg(DISP_MODULE_MUTEX);
+		ddp_driver_dpi.dump_info(DISP_MODULE_DPI, 1);
+		ddp_dump_analysis(DISP_MODULE_RDMA_SHORT);
+		ddp_dump_reg(DISP_MODULE_RDMA_SHORT);
+		ddp_dump_analysis(DISP_MODULE_CONFIG);
+		ddp_dump_reg(DISP_MODULE_CONFIG);
+		ddp_dump_analysis(DISP_MODULE_MUTEX);
+		ddp_dump_reg(DISP_MODULE_MUTEX);
 
 
 	DPI_DVT_LOG_W("module stop\n");
@@ -2017,8 +1816,7 @@ int dvt_start_rdma_to_dpi(unsigned int resolution, unsigned int timeS,
 	DPI_DVT_LOG_W("top clock off\n");
 	dvt_ddp_path_top_clock_off();
 
-	memcpy(extd_rdma_params.p_golden_setting_context, &temp_golden,
-	       sizeof(temp_golden));
+	memcpy(extd_rdma_params.p_golden_setting_context, &temp_golden, sizeof(temp_golden));
 
 	if (data_va)
 		vfree((void *)data_va);
@@ -2027,9 +1825,7 @@ int dvt_start_rdma_to_dpi(unsigned int resolution, unsigned int timeS,
 }
 
 
-int dvt_start_rdma_to_dpi_for_RGB2YUV(unsigned int resolution,
-				      unsigned int timeS,
-				      enum AviColorSpace_e format)
+int dvt_start_rdma_to_dpi_for_RGB2YUV(unsigned int resolution, unsigned int timeS, enum AviColorSpace_e format)
 {
 	int ret = 0;
 
@@ -2115,19 +1911,17 @@ int dvt_start_rdma_to_dpi_for_RGB2YUV(unsigned int resolution,
 }
 
 
-/**************Test Case Start*****************/
+/*******************************Test Case Start***********************************/
 #include "ddp_hal.h"
 
 static int dpi_dvt_testcase_4_timing(unsigned int resolution)
 {
-	DPI_DVT_LOG_W("dpi_dvt_testcase_4_timing, resolution: %d\n",
-		      resolution);
+	DPI_DVT_LOG_W("dpi_dvt_testcase_4_timing, resolution: %d\n", resolution);
 	/* get HDMI Driver from vendor floder */
 	hdmi_drv = (struct HDMI_DRIVER *)HDMI_GetDriver();
 	if (hdmi_drv == NULL) {
-		DPI_DVT_LOG_W
-		    ("[hdmi]%s, init fail, can't get hdmi driver handle\n",
-		     __func__);
+		DPI_DVT_LOG_W("[hdmi]%s, hdmi_init fail, can not get hdmi driver handle\n",
+				  __func__);
 		return -1;
 	}
 
@@ -2146,9 +1940,8 @@ static int dpi_dvt_testcase_2_BG(unsigned int resolution)
 	/* get HDMI Driver from vendor floder */
 	hdmi_drv = (struct HDMI_DRIVER *)HDMI_GetDriver();
 	if (hdmi_drv == NULL) {
-		DPI_DVT_LOG_W
-		    ("[hdmi]%s, nit fail, can't get hdmi driver handle\n",
-		     __func__);
+		DPI_DVT_LOG_W("[hdmi]%s, hdmi_init fail, can not get hdmi driver handle\n",
+				  __func__);
 		return -1;
 	}
 
@@ -2181,11 +1974,10 @@ static int dpi_dvt_testcase_3_pattern(enum PATTERN pattern)
 	return 0;
 }
 
-static int dpi_dvt_testcase_6_yuv(unsigned int resolution,
-				  enum AviColorSpace_e format)
+static int dpi_dvt_testcase_6_yuv(unsigned int resolution, enum AviColorSpace_e format)
 {
-	DPI_DVT_LOG_W("dpi_dvt_testcase_6_yuv444, resolution: %d, format: %d\n",
-		      resolution, format);
+	DPI_DVT_LOG_W("dpi_dvt_testcase_6_yuv444, resolution: %d, format: %d\n", resolution,
+		      format);
 
 	dpi_dvt_parameters(resolution);
 	dvt_dump_ext_dpi_parameters();
@@ -2198,8 +1990,7 @@ static int dpi_dvt_testcase_10_checkSum(unsigned int resolution)
 {
 	int i;
 
-	DPI_DVT_LOG_W("dpi_dvt_testcase_10_checkSum, resolution: %d\n",
-		      resolution);
+	DPI_DVT_LOG_W("dpi_dvt_testcase_10_checkSum, resolution: %d\n", resolution);
 	cmdqRecCreate(CMDQ_SCENARIO_MHL_DISP, &checksum_cmdq);
 	cmdqRecReset(checksum_cmdq);
 	init_cmdq_slots(&checksum_record, 3, 0);
@@ -2207,8 +1998,7 @@ static int dpi_dvt_testcase_10_checkSum(unsigned int resolution)
 	dpi_dvt_parameters(resolution);
 	dvt_dump_ext_dpi_parameters();
 
-	if (resolution == HDMI_VIDEO_2160p_DSC_24Hz
-		|| resolution == HDMI_VIDEO_2160p_DSC_30Hz)
+	if (resolution == HDMI_VIDEO_2160p_DSC_24Hz || resolution == HDMI_VIDEO_2160p_DSC_30Hz)
 		;
 	else
 		dvt_start_rdma_to_dpi(resolution, 20, 0xA);
@@ -2218,20 +2008,17 @@ static int dpi_dvt_testcase_10_checkSum(unsigned int resolution)
 	DPI_DVT_LOG_W("checksum[0] = %x", checksum[0] & 0xffffff);
 	for (i = 0; i < 2; i++) {
 		DPI_DVT_LOG_W("checksum[%d] = %x", i, checksum[i] & 0xffffff);
-		if ((checksum[i] & 0xffffff) != (checksum[i + 1] & 0xffffff))
-			DPI_DVT_LOG_W
-			    ("Error88888888888checksum is not the same!!\n");
+		if ((checksum[i] & 0xffffff) != (checksum[i+1] & 0xffffff))
+			DPI_DVT_LOG_W("Error8888888888888888888888888888checksum is not the same!!\n");
 	}
 	DPI_DVT_LOG_W("checksum[%d] = %x", i, checksum[i] & 0xffffff);
 	cmdqBackupFreeSlot(checksum_record);
 	cmdqRecDestroy(checksum_cmdq);
 	return 0;
 }
-
 static int dpi_dvt_testcase_11_ovl1_to_dpi(unsigned int resolution)
 {
-	DPI_DVT_LOG_W("dpi_dvt_testcase_11_ovl1_to_dpi, resolution: %d\n",
-		      resolution);
+	DPI_DVT_LOG_W("dpi_dvt_testcase_11_ovl1_to_dpi, resolution: %d\n", resolution);
 
 	dpi_dvt_parameters(resolution);
 	dvt_dump_ext_dpi_parameters();
@@ -2241,12 +2028,10 @@ static int dpi_dvt_testcase_11_ovl1_to_dpi(unsigned int resolution)
 	msleep(100);
 	return 0;
 }
-
 #if 0
 static int dpi_dvt_testcase_18_4K_rdma_to_dpi(unsigned int resolution)
 {
-	DPI_DVT_LOG_W("dpi_dvt_testcase_18_timing, resolution: %d\n",
-		      resolution);
+	DPI_DVT_LOG_W("dpi_dvt_testcase_18_timing, resolution: %d\n", resolution);
 
 	dpi_dvt_parameters(resolution);
 	dvt_dump_ext_dpi_parameters();
@@ -2266,29 +2051,21 @@ static int ovl2mem_case19(unsigned int resolution)
 
 	DPI_DVT_LOG_W("top clock on\n");
 	dvt_ddp_path_top_clock_on();
-	DISP_REG_SET(NULL,
-		     DDP_REG_BASE_DISP_RDMA1 + DISP_REG_RDMA_SHADOW_UPDATE,
-		     (0x1 << 1) | (0x1 << 2));
-	DISP_REG_SET_FIELD(NULL, EN_FLD_BYPASS_SHADOW,
-			   DDP_REG_BASE_DISP_OVL1 + DISP_REG_OVL_EN, 0x1);
-	DISP_REG_SET_FIELD(NULL, EN_FLD_RD_WRK_REG,
-			   DDP_REG_BASE_DISP_OVL1 + DISP_REG_OVL_EN, 0x1);
-	DISP_REG_SET_FIELD(NULL, EN_FLD_BYPASS_SHADOW,
-			   DDP_REG_BASE_DISP_OVL1_2L + DISP_REG_OVL_EN, 0x1);
-	DISP_REG_SET_FIELD(NULL, EN_FLD_RD_WRK_REG,
-			   DDP_REG_BASE_DISP_OVL1_2L + DISP_REG_OVL_EN, 0x1);
+	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_RDMA1 + DISP_REG_RDMA_SHADOW_UPDATE,
+			    (0x1<<1)|(0x1<<2));
+	DISP_REG_SET_FIELD(NULL, EN_FLD_BYPASS_SHADOW, DDP_REG_BASE_DISP_OVL1 + DISP_REG_OVL_EN, 0x1);
+	DISP_REG_SET_FIELD(NULL, EN_FLD_RD_WRK_REG, DDP_REG_BASE_DISP_OVL1 + DISP_REG_OVL_EN, 0x1);
+	DISP_REG_SET_FIELD(NULL, EN_FLD_BYPASS_SHADOW, DDP_REG_BASE_DISP_OVL1_2L + DISP_REG_OVL_EN, 0x1);
+	DISP_REG_SET_FIELD(NULL, EN_FLD_RD_WRK_REG, DDP_REG_BASE_DISP_OVL1_2L + DISP_REG_OVL_EN, 0x1);
 
 	DPI_DVT_LOG_W("set Mutex and connect path\n");
 	dvt_connect_ovl1_wdma(NULL);
 	dvt_mutex_set_ovl1_wdma(HW_MUTEX, NULL);
 
-	ddp_driver_ovl.connect(DISP_MODULE_OVL1, DISP_MODULE_UNKNOWN,
-			       DISP_MODULE_OVL1_2L, 1, NULL);
-	ddp_driver_ovl.connect(DISP_MODULE_OVL1_2L, DISP_MODULE_OVL1,
-			       DISP_MODULE_UNKNOWN, 1, NULL);
+	ddp_driver_ovl.connect(DISP_MODULE_OVL1, DISP_MODULE_UNKNOWN, DISP_MODULE_OVL1_2L, 1, NULL);
+	ddp_driver_ovl.connect(DISP_MODULE_OVL1_2L, DISP_MODULE_OVL1, DISP_MODULE_UNKNOWN, 1, NULL);
 	DISP_REG_SET_FIELD(NULL, DATAPATH_CON_FLD_BGCLR_IN_SEL,
-			   DDP_REG_BASE_DISP_OVL1_2L +
-			   DISP_REG_OVL_DATAPATH_CON, 1);
+						   DDP_REG_BASE_DISP_OVL1_2L + DISP_REG_OVL_DATAPATH_CON, 1);
 
 	DPI_DVT_LOG_W("module init\n");
 	dvt_module_action(WDMA1_PATH, INIT);
@@ -2314,11 +2091,9 @@ static int ovl2mem_case19(unsigned int resolution)
 	dvt_init_OVL_param(RDMA_MODE_DIRECT_LINK);
 	ddp_driver_ovl.config(DISP_MODULE_OVL1, &extd_ovl_params, NULL);
 	ddp_driver_ovl.config(DISP_MODULE_OVL1_2L, &extd_ovl_params, NULL);
-	/*configOVL0Layer0Swap(DISP_MODULE_OVL0, 0);    BGR:0,  RGB:1 */
-	ddp_driver_ovl.ioctl(DISP_MODULE_OVL0, NULL, DDP_OVL_GOLDEN_SETTING,
-			     &gset_arg);
-	ddp_driver_ovl.ioctl(DISP_MODULE_OVL0_2L, NULL, DDP_OVL_GOLDEN_SETTING,
-			     &gset_arg);
+	/*configOVL0Layer0Swap(DISP_MODULE_OVL0, 0);	BGR:0,  RGB:1 */
+	ddp_driver_ovl.ioctl(DISP_MODULE_OVL0, NULL, DDP_OVL_GOLDEN_SETTING, &gset_arg);
+	ddp_driver_ovl.ioctl(DISP_MODULE_OVL0_2L, NULL, DDP_OVL_GOLDEN_SETTING, &gset_arg);
 
 	DPI_DVT_LOG_W("module reset\n");
 	dvt_mutex_reset(NULL, HW_MUTEX);
@@ -2359,13 +2134,12 @@ static int ovl2mem_case19(unsigned int resolution)
 
 	DPI_DVT_LOG_W("top clock off\n");
 	dvt_ddp_path_top_clock_off();
-	memcpy(extd_rdma_params.p_golden_setting_context, &temp_golden,
-	       sizeof(temp_golden));
+	memcpy(extd_rdma_params.p_golden_setting_context, &temp_golden, sizeof(temp_golden));
 	out = (char *)out_va;
 	data = (char *)data_va;
-	for (i = 0; i < (1080 * 1920); i++) {
+	for (i = 0; i < (1080*1920); i++) {
 		for (j = 0; j < 3; j++) {
-			if (out[3 * i + j] != data[3 * i + 2 - j]) {
+			if (out[3*i + j] != data[3*i + 2 - j]) {
 				DPI_DVT_LOG_W("OVL1-WDMA1 TEST FAIL!\n");
 				non_equal = 1;
 				break;
@@ -2375,8 +2149,7 @@ static int ovl2mem_case19(unsigned int resolution)
 			break;
 	}
 	DPI_DVT_LOG_W("out_va has data %d, %d, %d\n", out[0], out[1], out[2]);
-	DPI_DVT_LOG_W("data_va has data %d, %d, %d\n", data[0], data[1],
-		      data[2]);
+	DPI_DVT_LOG_W("data_va has data %d, %d, %d\n", data[0], data[1], data[2]);
 
 	if (data_va)
 		vfree((void *)data_va);
@@ -2399,7 +2172,7 @@ static int dpi_ldvt_testcase_20(unsigned int resolution)
 #endif
 /* static int dpi_dsc_testcase(unsigned int resolution); */
 
-/**********Test Case End****************/
+/*******************************Test Case End************************************/
 int dpi_dvt_run_cases(unsigned int caseNum)
 {
 	switch (caseNum) {
@@ -2407,10 +2180,10 @@ int dpi_dvt_run_cases(unsigned int caseNum)
 		{
 
 /*
- *
+*
 			dpi_dvt_testcase_4_timing(HDMI_VIDEO_1920x1080p_60Hz);
 			msleep(500);
- */
+*/
 			dpi_dvt_testcase_4_timing(HDMI_VIDEO_1920x1080p_30Hz);
 			msleep(500);
 			dpi_dvt_testcase_4_timing(HDMI_VIDEO_1280x720p_60Hz);
@@ -2424,8 +2197,7 @@ int dpi_dvt_run_cases(unsigned int caseNum)
 		{
 			dpi_dvt_parameters(HDMI_VIDEO_1920x1080p_30Hz);
 			dvt_dump_ext_dpi_parameters();
-			dvt_start_rdma_to_dpi(HDMI_VIDEO_1920x1080p_30Hz, 20,
-					      0x1);
+			dvt_start_rdma_to_dpi(HDMI_VIDEO_1920x1080p_30Hz, 20, 0x1);
 			break;
 		}
 	case 2:
@@ -2456,30 +2228,25 @@ int dpi_dvt_run_cases(unsigned int caseNum)
 		}
 	case 6:
 		{
-			dpi_dvt_testcase_6_yuv(HDMI_VIDEO_1920x1080p_30Hz,
-					       acsYCbCr444);
+			dpi_dvt_testcase_6_yuv(HDMI_VIDEO_1920x1080p_30Hz, acsYCbCr444);
 			msleep(500);
 			break;
 		}
 	case 10:
 		{
 /* dpi_dvt_testcase_10_checkSum(HDMI_VIDEO_2160p_DSC_30Hz); */
-			dpi_dvt_testcase_10_checkSum
-			    (HDMI_VIDEO_1920x1080p_30Hz);
+			dpi_dvt_testcase_10_checkSum(HDMI_VIDEO_1920x1080p_30Hz);
 
 			msleep(500);
 			break;
 		}
 	case 11:
 		{
-			dpi_dvt_testcase_11_ovl1_to_dpi
-			    (HDMI_VIDEO_1920x1080p_30Hz);
+			dpi_dvt_testcase_11_ovl1_to_dpi(HDMI_VIDEO_1920x1080p_30Hz);
 			msleep(500);
-			dpi_dvt_testcase_11_ovl1_to_dpi
-			    (HDMI_VIDEO_1280x720p_60Hz);
+			dpi_dvt_testcase_11_ovl1_to_dpi(HDMI_VIDEO_1280x720p_60Hz);
 			msleep(500);
-			dpi_dvt_testcase_11_ovl1_to_dpi
-			    (HDMI_VIDEO_720x480p_60Hz);
+			dpi_dvt_testcase_11_ovl1_to_dpi(HDMI_VIDEO_720x480p_60Hz);
 			msleep(500);
 			break;
 		}
@@ -2517,7 +2284,6 @@ int dpi_dvt_run_cases(unsigned int caseNum)
 
 	return 0;
 }
-
 #if 0
 
 static void BW_Worker_handler(struct work_struct *worker)
@@ -2525,10 +2291,8 @@ static void BW_Worker_handler(struct work_struct *worker)
 	int bandwidth = 0;
 
 	/* bandwidth = bw_mon_in_ms(R, 10); */
-	DDPERR("Display bandwidth for ldvt: bandwidth in last 10ms is %d\n",
-	       bandwidth);
+	DDPERR("Display bandwidth for ldvt: bandwidth in last 10ms is %d\n", bandwidth);
 }
-
 static void BW_Timer_handler(unsigned long timer)
 {
 	schedule_work(&bw_work);
@@ -2583,27 +2347,21 @@ unsigned int dpi_ldvt_testcase(void)
 int dvt_dsi1_param(unsigned int mode, unsigned int resolution)
 {
 	unsigned int dpi_clock = 0;
-	unsigned int hsync_pulse_width = 0, hsync_back_porch =
-	    0, hsync_front_porch = 0, vsync_pulse_width = 0, vsync_back_porch =
-	    0, vsync_front_porch = 0;
+	unsigned int  hsync_pulse_width = 0, hsync_back_porch = 0, hsync_front_porch = 0,
+	    vsync_pulse_width = 0, vsync_back_porch = 0, vsync_front_porch = 0;
 	unsigned int height = 0, width = 0;
 
 	memset(&extd_dsi1_params, 0, sizeof(extd_dsi1_params));
 
-	if (mode == DSI_VDO_MODE_BURST || mode == DSI_VDO_MODE_SYNC_EVENT
-	    || mode == DSI_VDO_MODE_SYNC_PLUSE) {
+	if (mode == DSI_VDO_MODE_BURST || mode == DSI_VDO_MODE_SYNC_EVENT || mode == DSI_VDO_MODE_SYNC_PLUSE) {
 		extd_dsi1_params.dispif_config.dsi.mode = mode;
 		extd_dsi1_params.dispif_config.dsi.switch_mode = 0;
 		extd_dsi1_params.dispif_config.dsi.switch_mode_enable = 0;
 		extd_dsi1_params.dispif_config.dsi.LANE_NUM = 4;
-		extd_dsi1_params.dispif_config.dsi.data_format.color_order =
-		    LCM_COLOR_ORDER_RGB;
-		extd_dsi1_params.dispif_config.dsi.data_format.trans_seq =
-		    LCM_DSI_TRANS_SEQ_MSB_FIRST;
-		extd_dsi1_params.dispif_config.dsi.data_format.padding =
-		    LCM_DSI_PADDING_ON_LSB;
-		extd_dsi1_params.dispif_config.dsi.data_format.format =
-		    LCM_DSI_FORMAT_RGB888;
+		extd_dsi1_params.dispif_config.dsi.data_format.color_order = LCM_COLOR_ORDER_RGB;
+		extd_dsi1_params.dispif_config.dsi.data_format.trans_seq = LCM_DSI_TRANS_SEQ_MSB_FIRST;
+		extd_dsi1_params.dispif_config.dsi.data_format.padding = LCM_DSI_PADDING_ON_LSB;
+		extd_dsi1_params.dispif_config.dsi.data_format.format = LCM_DSI_FORMAT_RGB888;
 
 		extd_dsi1_params.dispif_config.dsi.packet_size = 256;
 		extd_dsi1_params.dispif_config.dsi.PS = PACKED_PS_24BIT_RGB888;
@@ -2662,7 +2420,7 @@ int dvt_dsi1_param(unsigned int mode, unsigned int resolution)
 			vsync_front_porch = 4;
 
 			dpi_clock = 228;
-			/* dpi_clock = 228 << 8; */
+	/* dpi_clock = 228 << 8; */
 
 			height = 1080;
 			width = 1920;
@@ -2678,7 +2436,7 @@ int dvt_dsi1_param(unsigned int mode, unsigned int resolution)
 			vsync_back_porch = 36;
 			vsync_front_porch = 4;
 
-			/* dpi_clock = 490; */
+	/* dpi_clock = 490; */
 			dpi_clock = (459);
 
 			height = 1080;
@@ -2696,7 +2454,7 @@ int dvt_dsi1_param(unsigned int mode, unsigned int resolution)
 			vsync_front_porch = 4;
 
 			dpi_clock = 165;
-			/* dpi_clock = 153 << 8; */
+	/* dpi_clock = 153 << 8; */
 
 			height = 1080;
 			width = 640;
@@ -2745,20 +2503,14 @@ int dvt_dsi1_param(unsigned int mode, unsigned int resolution)
 		break;
 	}
 
-	extd_dsi1_params.dispif_config.dsi.horizontal_sync_active =
-	    hsync_pulse_width;
-	extd_dsi1_params.dispif_config.dsi.horizontal_backporch =
-	    hsync_back_porch;
-	extd_dsi1_params.dispif_config.dsi.horizontal_frontporch =
-	    hsync_front_porch;
+	extd_dsi1_params.dispif_config.dsi.horizontal_sync_active = hsync_pulse_width;
+	extd_dsi1_params.dispif_config.dsi.horizontal_backporch = hsync_back_porch;
+	extd_dsi1_params.dispif_config.dsi.horizontal_frontporch = hsync_front_porch;
 	extd_dsi1_params.dispif_config.dsi.horizontal_active_pixel = width;
 
-	extd_dsi1_params.dispif_config.dsi.vertical_sync_active =
-	    vsync_pulse_width;
-	extd_dsi1_params.dispif_config.dsi.vertical_backporch =
-	    vsync_back_porch;
-	extd_dsi1_params.dispif_config.dsi.vertical_frontporch =
-	    vsync_front_porch;
+	extd_dsi1_params.dispif_config.dsi.vertical_sync_active = vsync_pulse_width;
+	extd_dsi1_params.dispif_config.dsi.vertical_backporch = vsync_back_porch;
+	extd_dsi1_params.dispif_config.dsi.vertical_frontporch = vsync_front_porch;
 	extd_dsi1_params.dispif_config.dsi.vertical_active_line = height;
 
 	extd_dsi1_params.dispif_config.dsi.PLL_CLOCK = dpi_clock;
@@ -2785,12 +2537,9 @@ static int dpi_dsc_testcase(unsigned int resolution)
 	DPI_DVT_LOG_W("top clock on\n");
 	dvt_ddp_path_top_clock_on();
 	/* set rdma shadow register bypass mode */
-	DISP_REG_SET(NULL,
-		     1 * (DDP_REG_BASE_DISP_RDMA1 - DDP_REG_BASE_DISP_RDMA0)
-		     + DDP_REG_BASE_DISP_RDMA0 + DISP_REG_RDMA_SHADOW_UPDATE,
-		     (0x1 << 1) | (0x1 << 2));
-	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_DSC + DISP_REG_DSC_SHADOW,
-		     (0x1 << 1) | (0x1 << 2));
+	DISP_REG_SET(NULL, 1 * (DDP_REG_BASE_DISP_RDMA1 - DDP_REG_BASE_DISP_RDMA0)
+				+ DDP_REG_BASE_DISP_RDMA0 + DISP_REG_RDMA_SHADOW_UPDATE, (0x1<<1)|(0x1<<2));
+	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_DSC + DISP_REG_DSC_SHADOW, (0x1<<1)|(0x1<<2));
 
 	DPI_DVT_LOG_W("set Mutex and connect path\n");
 	dvt_connect_path(NULL);
@@ -2840,12 +2589,9 @@ static int dsi_dsc_testcase(unsigned int resolution)
 	/* dvt_ddp_path_top_clock_on(); */
 	dvt_ddp_path_top_clock_on();
 	/* set rdma shadow register bypass mode */
-	DISP_REG_SET(NULL,
-		     1 * (DDP_REG_BASE_DISP_RDMA1 - DDP_REG_BASE_DISP_RDMA0)
-		     + DDP_REG_BASE_DISP_RDMA0 + DISP_REG_RDMA_SHADOW_UPDATE,
-		     (0x1 << 1) | (0x1 << 2));
-	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_DSC + DISP_REG_DSC_SHADOW,
-		     (0x1 << 1) | (0x1 << 2));
+	DISP_REG_SET(NULL, 1 * (DDP_REG_BASE_DISP_RDMA1 - DDP_REG_BASE_DISP_RDMA0)
+				+ DDP_REG_BASE_DISP_RDMA0 + DISP_REG_RDMA_SHADOW_UPDATE, (0x1<<1)|(0x1<<2));
+	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_DSC + DISP_REG_DSC_SHADOW, (0x1<<1)|(0x1<<2));
 
 	DPI_DVT_LOG_W("set Mutex and connect path\n");
 	dsi_dsc_dvt_connect_path(NULL);
@@ -2901,45 +2647,37 @@ static int ovl_dsi_dsc_testcase(unsigned int resolution)
 	DPI_DVT_LOG_W("top clock on\n");
 	dvt_ddp_path_top_clock_on();
 	/* set rdma shadow register bypass mode */
-	DISP_REG_SET(NULL,
-		     1 * (DDP_REG_BASE_DISP_RDMA1 - DDP_REG_BASE_DISP_RDMA0)
-		     + DDP_REG_BASE_DISP_RDMA0 + DISP_REG_RDMA_SHADOW_UPDATE,
-		     (0x1 << 1) | (0x1 << 2));
-	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_DSC + DISP_REG_DSC_SHADOW,
-		     (0x1 << 1) | (0x1 << 2));
-	DISP_REG_SET(NULL,
-		     DDP_REG_BASE_DISP_GAMMA1 - DDP_REG_BASE_DISP_GAMMA0 +
-		     DISP_REG_GAMMA_DEBUG, (0x1 << 1) | (0x1 << 2));
-	DISP_REG_SET(NULL,
-		     DDP_REG_BASE_DISP_COLOR1 - DDP_REG_BASE_DISP_COLOR0 +
-		     DISP_COLOR_SHADOW_CTRL, (0x1 << 0) | (0x1 << 2));
-	DISP_REG_SET(NULL,
-		     DDP_REG_BASE_DISP_CCORR1 - DDP_REG_BASE_DISP_CCORR0 +
-		     DISP_REG_CCORR_SHADOW, (0x1 << 0) | (0x1 << 2));
-	DISP_REG_SET(NULL,
-		     DDP_REG_BASE_DISP_AAL1 - DDP_REG_BASE_DISP_AAL0 +
-		     DISP_AAL_SHADOW_CTL, (0x1 << 0) | (0x1 << 2));
-	DISP_REG_SET(NULL,
-		     DDP_REG_BASE_DISP_DITHER1 - DDP_REG_BASE_DISP_DITHER0 +
-		     DISP_REG_DITHER_0, (0x1 << 0) | (0x1 << 2));
+	DISP_REG_SET(NULL, 1 * (DDP_REG_BASE_DISP_RDMA1 - DDP_REG_BASE_DISP_RDMA0)
+					+ DDP_REG_BASE_DISP_RDMA0 + DISP_REG_RDMA_SHADOW_UPDATE, (0x1<<1)|(0x1<<2));
+	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_DSC + DISP_REG_DSC_SHADOW, (0x1<<1)|(0x1<<2));
+	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_GAMMA1 - DDP_REG_BASE_DISP_GAMMA0
+					+ DISP_REG_GAMMA_DEBUG, (0x1<<1)|(0x1<<2));
+	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_COLOR1 - DDP_REG_BASE_DISP_COLOR0
+					+ DISP_COLOR_SHADOW_CTRL, (0x1<<0)|(0x1<<2));
+	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_CCORR1 - DDP_REG_BASE_DISP_CCORR0
+					+ DISP_REG_CCORR_SHADOW, (0x1<<0)|(0x1<<2));
+	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_AAL1 - DDP_REG_BASE_DISP_AAL0
+					+ DISP_AAL_SHADOW_CTL, (0x1<<0)|(0x1<<2));
+	DISP_REG_SET(NULL, DDP_REG_BASE_DISP_DITHER1 - DDP_REG_BASE_DISP_DITHER0
+					+ DISP_REG_DITHER_0, (0x1<<0)|(0x1<<2));
 
 	DISP_REG_SET_FIELD(NULL, EN_FLD_BYPASS_SHADOW, DDP_REG_BASE_DISP_OVL1
-			   + DISP_REG_OVL_EN, 0x1);
+					+ DISP_REG_OVL_EN, 0x1);
 	DISP_REG_SET_FIELD(NULL, EN_FLD_RD_WRK_REG, DDP_REG_BASE_DISP_OVL1
-			   + DISP_REG_OVL_EN, 0x1);
+					+ DISP_REG_OVL_EN, 0x1);
 	DISP_REG_SET_FIELD(NULL, EN_FLD_BYPASS_SHADOW, DDP_REG_BASE_DISP_OVL1_2L
-			   + DISP_REG_OVL_EN, 0x1);
+					+ DISP_REG_OVL_EN, 0x1);
 	DISP_REG_SET_FIELD(NULL, EN_FLD_RD_WRK_REG, DDP_REG_BASE_DISP_OVL1_2L
-			   + DISP_REG_OVL_EN, 0x1);
+					+ DISP_REG_OVL_EN, 0x1);
 
 	DPI_DVT_LOG_W("set Mutex and connect path\n");
 	ovl_dsi_dsc_dvt_connect_path(NULL);
 	ovl_dsi_dsc_dvt_mutex_set(dvt_acquire_mutex(), NULL);
 
 	ddp_driver_ovl.connect(DISP_MODULE_OVL1, DISP_MODULE_UNKNOWN,
-			       DISP_MODULE_OVL1_2L, 1, NULL);
+					DISP_MODULE_OVL1_2L, 1, NULL);
 	ddp_driver_ovl.connect(DISP_MODULE_OVL1_2L, DISP_MODULE_OVL1,
-			       DISP_MODULE_UNKNOWN, 1, NULL);
+					DISP_MODULE_UNKNOWN, 1, NULL);
 
 	DPI_DVT_LOG_W("module init\n");
 	dvt_module_action(LONG_PATH1_DSI1, INIT);
@@ -2958,9 +2696,7 @@ static int ovl_dsi_dsc_testcase(unsigned int resolution)
 	ddp_driver_color.config(DISP_MODULE_COLOR1, &extd_gamma_params, NULL);
 	ddp_driver_ccorr.config(DISP_MODULE_CCORR1, &extd_gamma_params, NULL);
 	ddp_driver_dither.config(DISP_MODULE_DITHER1, &extd_gamma_params, NULL);
-	DISP_REG_SET(NULL,
-		     DISPSYS_COLOR1_BASE - DISPSYS_COLOR0_BASE +
-		     DISP_COLOR_CK_ON, 0x1);
+	DISP_REG_SET(NULL, DISPSYS_COLOR1_BASE - DISPSYS_COLOR0_BASE + DISP_COLOR_CK_ON, 0x1);
 
 	ddp_driver_dsc.config(DISP_MODULE_DSC, &extd_dpi_params, NULL);
 	ddp_driver_dsi1.config(DISP_MODULE_DSI1, &extd_dsi1_params, NULL);
@@ -2973,10 +2709,8 @@ static int ovl_dsi_dsc_testcase(unsigned int resolution)
 	memset(&gset_arg, 0, sizeof(gset_arg));
 	gset_arg.dst_mod_type = DST_MOD_REAL_TIME;
 	gset_arg.is_decouple_mode = 0;
-	ddp_driver_ovl.ioctl(DISP_MODULE_OVL1, NULL, DDP_OVL_GOLDEN_SETTING,
-			     &gset_arg);
-	ddp_driver_ovl.ioctl(DISP_MODULE_OVL1_2L, NULL, DDP_OVL_GOLDEN_SETTING,
-			     &gset_arg);
+	ddp_driver_ovl.ioctl(DISP_MODULE_OVL1, NULL, DDP_OVL_GOLDEN_SETTING, &gset_arg);
+	ddp_driver_ovl.ioctl(DISP_MODULE_OVL1_2L, NULL, DDP_OVL_GOLDEN_SETTING, &gset_arg);
 
 	DPI_DVT_LOG_W("module reset\n");
 	dvt_mutex_reset(NULL, dvt_acquire_mutex());
@@ -3184,9 +2918,8 @@ unsigned int dpi_dvt_ioctl(unsigned int arg)
 	/* get HDMI Driver from vendor floder */
 	hdmi_drv = (struct HDMI_DRIVER *)HDMI_GetDriver();
 	if (hdmi_drv == NULL) {
-		DPI_DVT_LOG_W
-		    ("[hdmi]%s, init fail, can't get hdmi driver handle\n",
-		     __func__);
+		DPI_DVT_LOG_W("[hdmi]%s, hdmi_init fail, can not get hdmi driver handle\n",
+				  __func__);
 		return -1;
 	}
 

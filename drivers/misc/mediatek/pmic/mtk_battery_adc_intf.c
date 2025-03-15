@@ -20,14 +20,9 @@
 #include <mach/mtk_pmic.h>
 
 #include <mtk_battery_internal.h>
+#include <mach/mtk_charger_init.h>
 #include <mtk_charger.h>
 #include "include/pmic_auxadc.h"
-
-bool __attribute__ ((weak)) is_power_path_supported(void)
-{
-	pr_notice_once("%s: check mtk_charger\n", __func__);
-	return 0;
-}
 
 int pmic_get_battery_voltage(void)
 {
@@ -36,9 +31,12 @@ int pmic_get_battery_voltage(void)
 #if defined(CONFIG_POWER_EXT) || defined(CONFIG_FPGA_EARLY_PORTING)
 	bat = 4201;
 #else
+
+#if !defined(CONFIG_MTK_PMIC_CHIP_MT6355)
 	if (is_isense_supported() && is_power_path_supported())
 		bat = pmic_get_auxadc_value(AUXADC_LIST_ISENSE);
 	else
+#endif
 		bat = pmic_get_auxadc_value(AUXADC_LIST_BATADC);
 #endif
 	return bat;
@@ -50,12 +48,7 @@ bool pmic_is_battery_exist(void)
 	bool is_bat_exist;
 	int hw_id = pmic_get_register_value(PMIC_HWCID);
 
-#if defined(CONFIG_FPGA_EARLY_PORTING)
-	is_bat_exist = 0;
-	return is_bat_exist;
-#endif
-
-#if defined(CONFIG_MTK_PMIC_CHIP_MT6358) || defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6358)
 	temp = pmic_get_register_value(PMIC_AD_BATON_UNDET);
 #else
 	temp = pmic_get_register_value(PMIC_RGS_BATON_UNDET);
@@ -129,14 +122,6 @@ int pmic_get_ibus(void)
 	return 0;
 }
 
-int __attribute__ ((weak))
-	charger_get_rsense(void)
-{
-	pr_notice_once("%s: do not define r_sense\n", __func__);
-	return 56;
-}
-
-
 int pmic_get_charging_current(void)
 {
 #if defined(CONFIG_POWER_EXT) || defined(CONFIG_FPGA_EARLY_PORTING)
@@ -144,13 +129,16 @@ int pmic_get_charging_current(void)
 #else
 	int v_batsns = 0, v_isense = 0;
 
+	v_batsns = 1;
+	v_isense = 1;
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6357)
 	if (is_isense_supported() && !is_power_path_supported()) {
 		v_isense = pmic_get_auxadc_value(AUXADC_LIST_ISENSE);
 		v_batsns = pmic_get_auxadc_value(AUXADC_LIST_BATADC);
 
-		return (v_isense - v_batsns) * 1000 / charger_get_rsense();
+		return (v_isense - v_batsns) * 1000 / R_SENSE;
 	}
-
+#endif
 	return 0;
 #endif
 }
@@ -206,11 +194,8 @@ int pmic_bif_init(void)
 int pmic_enable_hw_vbus_ovp(bool enable)
 {
 	int ret = 0;
-#if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
-	/* TODO check replace by which RG*/
-#else
+
 	ret = pmic_set_register_value(PMIC_RG_VCDT_HV_EN, enable);
-#endif
 	if (ret != 0)
 		pr_notice("%s: failed, ret = %d\n", __func__, ret);
 

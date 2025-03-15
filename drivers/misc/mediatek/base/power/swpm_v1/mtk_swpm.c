@@ -18,7 +18,6 @@
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
 #include <linux/types.h>
-#include <linux/string.h>
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #include <sspm_reservedmem_define.h>
 #endif
@@ -31,7 +30,6 @@
  *  Macro Definitions
  ****************************************************************************/
 #define DEFAULT_AVG_WINDOW		(50)
-/* #define BRINGUP_DISABLE */
 
 #define MAX(a, b)			((a) >= (b) ? (a) : (b))
 #define MIN(a, b)			((a) >= (b) ? (b) : (a))
@@ -79,59 +77,52 @@
 static phys_addr_t rec_phys_addr, rec_virt_addr;
 static unsigned long long rec_size;
 #endif
+static bool swpm_enable = true;
 static unsigned char avg_window = DEFAULT_AVG_WINDOW;
 
 /****************************************************************************
  *  Global Variables
  ****************************************************************************/
 struct swpm_rec_data *swpm_info_ref;
-unsigned int swpm_status;
-bool swpm_debug;
-DEFINE_SPINLOCK(swpm_spinlock);
+bool swpm_debug = true;
+DEFINE_MUTEX(swpm_mutex);
 
 /****************************************************************************
  *  Static Function
  ****************************************************************************/
 static char *_copy_from_user_for_proc(const char __user *buffer, size_t count)
 {
-	static char buf[64];
-	unsigned int len = 0;
+	char *buf = (char *)__get_free_page(GFP_USER);
 
-	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
-
-	if (copy_from_user(buf, buffer, len))
+	if (!buf)
 		return NULL;
 
-	buf[len] = '\0';
+	if (count >= PAGE_SIZE)
+		goto out;
+
+	if (copy_from_user(buf, buffer, count))
+		goto out;
+
+	buf[count] = '\0';
 
 	return buf;
+
+out:
+	free_page((unsigned long)buf);
+
+	return NULL;
 }
 
 static int dump_power_proc_show(struct seq_file *m, void *v)
 {
-	char buf[256];
-	char *ptr = buf;
-	int i;
-
-	for (i = 0; i < NR_POWER_RAIL; i++) {
-		ptr += snprintf(ptr, 256, "%s",
-			swpm_power_rail_to_string((enum power_rail)i));
-		if (i != NR_POWER_RAIL - 1)
-			ptr += sprintf(ptr, "/");
-		else
-			ptr += sprintf(ptr, " = ");
-	}
-
-	for (i = 0; i < NR_POWER_RAIL; i++) {
-		ptr += snprintf(ptr, 256, "%d",
-			swpm_get_avg_power((enum power_rail)i, avg_window));
-		if (i != NR_POWER_RAIL - 1)
-			ptr += sprintf(ptr, "/");
-		else
-			ptr += sprintf(ptr, " uA");
-	}
-
-	seq_printf(m, "%s\n", buf);
+	seq_printf(m, "Avg CPU pwr = %dmA\n",
+		swpm_get_avg_power(CPU_POWER_METER, avg_window));
+	seq_printf(m, "Avg GPU pwr = %dmA\n",
+		swpm_get_avg_power(GPU_POWER_METER, avg_window));
+	seq_printf(m, "Avg CORE pwr = %dmA\n",
+		swpm_get_avg_power(CORE_POWER_METER, avg_window));
+	seq_printf(m, "Avg MEM pwr = %dmA\n",
+		swpm_get_avg_power(MEM_POWER_METER, avg_window));
 
 	return 0;
 }
@@ -159,52 +150,29 @@ static ssize_t debug_proc_write(struct file *file,
 	else
 		swpm_err("echo 1/0 > /proc/swpm/debug\n");
 
-	return count;
-}
-
-static int enable_proc_show(struct seq_file *m, void *v)
-{
-	seq_printf(m, "\nSWPM status = 0x%x\n", swpm_status);
-
-	return 0;
-}
-
-static ssize_t enable_proc_write(struct file *file,
-		const char __user *buffer, size_t count, loff_t *pos)
-{
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-	int type, enable;
-#endif
-	char *buf = _copy_from_user_for_proc(buffer, count);
-
-	if (!buf)
-		return -EINVAL;
-
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-	if (sscanf(buf, "%d %d", &type, &enable) == 2)
-		swpm_set_enable(type, enable);
-	else
-		swpm_err("echo <type or 65535> <0 or 1> > /proc/swpm/enable\n");
-#endif
-
+	free_page((unsigned long)buf);
 	return count;
 }
 
 static int profile_proc_show(struct seq_file *m, void *v)
 {
-	seq_printf(m, "monitor time avg/max = %llu/%llu ns, cnt = %llu\n",
+	seq_printf(m, "read EMI time avg/max = %lluus/%lluus, cnt = %llu\n",
+		swpm_info_ref->avg_latency[READ_EMI_TIME],
+		swpm_info_ref->max_latency[READ_EMI_TIME],
+		swpm_info_ref->prof_cnt[READ_EMI_TIME]);
+	seq_printf(m, "monitor time avg/max = %lluus/%lluus, cnt = %llu\n",
 		swpm_info_ref->avg_latency[MON_TIME],
 		swpm_info_ref->max_latency[MON_TIME],
 		swpm_info_ref->prof_cnt[MON_TIME]);
-	seq_printf(m, "calculate time avg/max = %llu/%llu ns, cnt = %llu\n",
+	seq_printf(m, "calculate time avg/max = %lluus/%lluus, cnt = %llu\n",
 		swpm_info_ref->avg_latency[CALC_TIME],
 		swpm_info_ref->max_latency[CALC_TIME],
 		swpm_info_ref->prof_cnt[CALC_TIME]);
-	seq_printf(m, "proc record time avg/max = %llu/%llu ns, cnt = %llu\n",
+	seq_printf(m, "proc record time avg/max = %lluus/%lluus, cnt = %llu\n",
 		swpm_info_ref->avg_latency[REC_TIME],
 		swpm_info_ref->max_latency[REC_TIME],
 		swpm_info_ref->prof_cnt[REC_TIME]);
-	seq_printf(m, "total time avg/max = %llu/%llu ns, cnt = %llu\n",
+	seq_printf(m, "total time avg/max = %lluus/%lluus, cnt = %llu\n",
 		swpm_info_ref->avg_latency[TOTAL_TIME],
 		swpm_info_ref->max_latency[TOTAL_TIME],
 		swpm_info_ref->prof_cnt[TOTAL_TIME]);
@@ -230,6 +198,7 @@ static ssize_t profile_proc_write(struct file *file,
 	else
 		swpm_err("echo <1/0> > /proc/swpm/profile\n");
 
+	free_page((unsigned long)buf);
 	return count;
 }
 
@@ -256,12 +225,12 @@ static ssize_t avg_window_proc_write(struct file *file,
 	else
 		swpm_err("echo <window> > /proc/swpm/avg_window\n");
 
+	free_page((unsigned long)buf);
 	return count;
 }
 
 PROC_FOPS_RO(dump_power);
 PROC_FOPS_RW(debug);
-PROC_FOPS_RW(enable);
 PROC_FOPS_RW(profile);
 PROC_FOPS_RW(avg_window);
 
@@ -278,7 +247,6 @@ static int create_procfs(void)
 	struct pentry swpm_entries[] = {
 		PROC_ENTRY(dump_power),
 		PROC_ENTRY(debug),
-		PROC_ENTRY(enable),
 		PROC_ENTRY(profile),
 		PROC_ENTRY(avg_window),
 	};
@@ -291,7 +259,7 @@ static int create_procfs(void)
 
 	for (i = 0; i < ARRAY_SIZE(swpm_entries); i++) {
 		if (!proc_create(swpm_entries[i].name,
-			0664,
+			S_IRUGO | S_IWUSR | S_IWGRP,
 			swpm_dir, swpm_entries[i].fops)) {
 			swpm_err("[%s]: create /proc/swpm/%s failed\n",
 				__func__, swpm_entries[i].name);
@@ -329,14 +297,15 @@ static void get_rec_addr(void)
 
 static int __init swpm_init(void)
 {
-#ifdef BRINGUP_DISABLE
-	swpm_err("swpm is disabled\n");
-	goto end;
-#endif
+	if (swpm_enable == false) {
+		swpm_err("swpm is disabled\n");
+		return 0;
+	}
+
 	get_rec_addr();
 	if (!swpm_info_ref) {
 		swpm_err("get sspm dram addr failed\n");
-		goto end;
+		return 0;
 	}
 	create_procfs();
 
@@ -354,7 +323,6 @@ static int __init swpm_init(void)
 
 	swpm_info("SWPM init done!\n");
 
-end:
 	return 0;
 }
 late_initcall(swpm_init);
@@ -362,18 +330,15 @@ late_initcall(swpm_init);
 /***************************************************************************
  *  API
  ***************************************************************************/
-unsigned int swpm_get_avg_power(enum power_rail type, unsigned int avg_window)
+unsigned int swpm_get_avg_power(unsigned int type, unsigned int avg_window)
 {
 	unsigned int *ptr;
 	unsigned int cnt, idx, sum = 0, pwr = 0;
-	unsigned long flags;
 
-	if (type >= NR_POWER_RAIL) {
+	if (type >= NR_POWER_METER) {
 		swpm_err("Invalid SWPM type = %d\n", type);
 		return 0;
 	}
-
-	swpm_lock(&swpm_spinlock, flags);
 
 	/* window should be 1 to MAX_RECORD_CNT */
 	avg_window = MAX(avg_window, 1);
@@ -393,8 +358,6 @@ unsigned int swpm_get_avg_power(enum power_rail type, unsigned int avg_window)
 	}
 
 	pwr = sum / avg_window;
-
-	swpm_unlock(&swpm_spinlock, flags);
 
 	swpm_dbg("avg pwr of meter %d = %d mA\n", type, pwr);
 

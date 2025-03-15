@@ -54,12 +54,8 @@ static const unsigned int g_HACC_CFG_3[8] = {
 /******************************************************************************
  *  INTERNAL ENGINE
  ******************************************************************************/
-static unsigned char *sp_hacc_internal(unsigned char *buf, unsigned int size,
-				       bool bAC,
-				       enum hacc_user user,
-				       bool bDoLock,
-				       enum aes_ops aes_type,
-				       bool bEn)
+static unsigned char *sp_hacc_internal(unsigned char *buf, unsigned int size, bool bAC,
+				       enum hacc_user user, bool bDoLock, enum aes_ops aes_type, bool bEn)
 {
 	unsigned int err = 0;
 
@@ -67,9 +63,7 @@ static unsigned char *sp_hacc_internal(unsigned char *buf, unsigned int size,
 	/* get hacc lock                 */
 	/* ---------------------------- */
 	if (true == bDoLock) {
-		/* If the semaphore is successfully acquired,
-		 * this function returns 0.
-		 */
+		/* If the semaphore is successfully acquired, this function returns 0. */
 		err = osal_hacc_lock();
 
 		if (err) {
@@ -79,13 +73,13 @@ static unsigned char *sp_hacc_internal(unsigned char *buf, unsigned int size,
 	}
 
 	/* ---------------------------- */
-	/* ciphering and force AC       */
+	/* ciphering and force AC               */
 	/* ---------------------------- */
 	switch (user) {
 	case HACC_USER1:
-		/* ------------------------------- */
-		/* use smart phone hacc function 1 */
-		/* ------------------------------- */
+		/* ---------------------------- */
+		/* use smart phone hacc function 1  */
+		/* ---------------------------- */
 		HACC_V3_Init(bEn, g_HACC_CFG_1);
 
 		HACC_V3_Run((unsigned int *)buf, size, (unsigned int *)buf);
@@ -155,7 +149,7 @@ _err:
 
 	pr_debug("[%s] HACC Fail (0x%x)\n", MOD, err);
 
-	WARN_ON(!(0));
+	BUG_ON(!(0));
 
 	return buf;
 }
@@ -163,10 +157,8 @@ _err:
 /******************************************************************************
  *  ENCRYPTION
  ******************************************************************************/
-unsigned char *masp_hal_sp_hacc_enc(unsigned char *buf, unsigned int size,
-				    unsigned char bAC,
-				    enum hacc_user user,
-				    unsigned char bDoLock)
+unsigned char *masp_hal_sp_hacc_enc(unsigned char *buf, unsigned int size, unsigned char bAC,
+				    enum hacc_user user, unsigned char bDoLock)
 {
 	return sp_hacc_internal(buf, size, true, user, bDoLock, AES_ENC, true);
 }
@@ -175,10 +167,8 @@ unsigned char *masp_hal_sp_hacc_enc(unsigned char *buf, unsigned int size,
 /******************************************************************************
  *  DECRYPTION
  ******************************************************************************/
-unsigned char *masp_hal_sp_hacc_dec(unsigned char *buf, unsigned int size,
-				    unsigned char bAC,
-				    enum hacc_user user,
-				    unsigned char bDoLock)
+unsigned char *masp_hal_sp_hacc_dec(unsigned char *buf, unsigned int size, unsigned char bAC,
+				    enum hacc_user user, unsigned char bDoLock)
 {
 	return sp_hacc_internal(buf, size, true, user, bDoLock, AES_DEC, false);
 }
@@ -208,15 +198,11 @@ unsigned int masp_hal_sp_hacc_init(unsigned char *sec_seed, unsigned int size)
 	keyseed.size = HACC_AES_MAX_KEY_SZ;
 	for (i = 0; i < HACC_AES_MAX_KEY_SZ / 2; i++) {
 		keyseed.seed[i] = sec_seed[i];
-		keyseed.seed[HACC_AES_MAX_KEY_SZ - i - 1] = sec_seed[i] +
-				MTK_HACC_SEED;
+		keyseed.seed[HACC_AES_MAX_KEY_SZ - i - 1] = sec_seed[i] + MTK_HACC_SEED;
 	}
 
-	pr_debug("0x%x,0x%x,0x%x,0x%x\n",
-		 keyseed.seed[0],
-		 keyseed.seed[1],
-		 keyseed.seed[2],
-		 keyseed.seed[3]);
+	pr_debug("0x%x,0x%x,0x%x,0x%x\n", keyseed.seed[0], keyseed.seed[1], keyseed.seed[2],
+	     keyseed.seed[3]);
 
 	return hacc_init(&keyseed);
 }

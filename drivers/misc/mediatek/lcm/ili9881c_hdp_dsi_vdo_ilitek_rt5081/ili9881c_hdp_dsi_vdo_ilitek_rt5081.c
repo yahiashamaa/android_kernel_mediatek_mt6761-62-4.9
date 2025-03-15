@@ -43,7 +43,7 @@
 #define LCM_ID (0x98)
 
 static const unsigned int BL_MIN_LEVEL = 20;
-static struct LCM_UTIL_FUNCS lcm_util;
+static LCM_UTIL_FUNCS lcm_util;
 
 #define SET_RESET_PIN(v)	(lcm_util.set_reset_pin((v)))
 #define MDELAY(n)		(lcm_util.mdelay(n))
@@ -83,13 +83,12 @@ static struct LCM_UTIL_FUNCS lcm_util;
 
 /* static unsigned char lcd_id_pins_value = 0xFF; */
 static const unsigned char LCD_MODULE_ID = 0x01;
-#define LCM_DSI_CMD_MODE	0
-#define FRAME_WIDTH		(720)
-#define FRAME_HEIGHT	(1440)
-#define LCM_DENSITY		(320)
+#define LCM_DSI_CMD_MODE									0
+#define FRAME_WIDTH										(720)
+#define FRAME_HEIGHT									(1440)
 
-#define LCM_PHYSICAL_WIDTH		(64800)
-#define LCM_PHYSICAL_HEIGHT		(129600)
+#define LCM_PHYSICAL_WIDTH									(64800)
+#define LCM_PHYSICAL_HEIGHT									(129600)
 
 #define REGFLAG_DELAY		0xFFFC
 #define REGFLAG_UDELAY	0xFFFB
@@ -97,7 +96,7 @@ static const unsigned char LCD_MODULE_ID = 0x01;
 #define REGFLAG_RESET_LOW	0xFFFE
 #define REGFLAG_RESET_HIGH	0xFFFF
 
-static struct LCM_DSI_MODE_SWITCH_CMD lcm_switch_mode_cmd;
+static LCM_DSI_MODE_SWITCH_CMD lcm_switch_mode_cmd;
 
 #ifndef TRUE
 #define TRUE 1
@@ -379,7 +378,7 @@ static void push_table(void *cmdq, struct LCM_setting_table *table,
 	unsigned int count, unsigned char force_update)
 {
 	unsigned int i;
-	unsigned int cmd;
+	unsigned cmd;
 
 	for (i = 0; i < count; i++) {
 		cmd = table[i].cmd;
@@ -401,24 +400,21 @@ static void push_table(void *cmdq, struct LCM_setting_table *table,
 			break;
 
 		default:
-			dsi_set_cmdq_V22(cmdq, cmd,
-				table[i].count,
-				table[i].para_list,
-				force_update);
+			dsi_set_cmdq_V22(cmdq, cmd, table[i].count, table[i].para_list, force_update);
 		}
 	}
 }
 
 
-static void lcm_set_util_funcs(const struct LCM_UTIL_FUNCS *util)
+static void lcm_set_util_funcs(const LCM_UTIL_FUNCS *util)
 {
-	memcpy(&lcm_util, util, sizeof(struct LCM_UTIL_FUNCS));
+	memcpy(&lcm_util, util, sizeof(LCM_UTIL_FUNCS));
 }
 
 
-static void lcm_get_params(struct LCM_PARAMS *params)
+static void lcm_get_params(LCM_PARAMS *params)
 {
-	memset(params, 0, sizeof(struct LCM_PARAMS));
+	memset(params, 0, sizeof(LCM_PARAMS));
 
 	params->type = LCM_TYPE_DSI;
 
@@ -428,7 +424,6 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	params->physical_height = LCM_PHYSICAL_HEIGHT/1000;
 	params->physical_width_um = LCM_PHYSICAL_WIDTH;
 	params->physical_height_um = LCM_PHYSICAL_HEIGHT;
-	params->density = LCM_DENSITY;
 
 #if (LCM_DSI_CMD_MODE)
 	params->dsi.mode = CMD_MODE;
@@ -470,11 +465,9 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	/*params->dsi.ssc_disable = 1;*/
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #if (LCM_DSI_CMD_MODE)
-	/* this value must be in MTK suggested table */
-	params->dsi.PLL_CLOCK = 220;
+	params->dsi.PLL_CLOCK = 220;	/* this value must be in MTK suggested table */
 #else
-	/* this value must be in MTK suggested table */
-	params->dsi.PLL_CLOCK = 255;
+	params->dsi.PLL_CLOCK = 255;	/* this value must be in MTK suggested table */
 #endif
 	params->dsi.PLL_CK_CMD = 220;
 	params->dsi.PLL_CK_VDO = 255;
@@ -492,10 +485,8 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 
 #ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 	params->round_corner_en = 1;
-	params->full_content = 0;
 	params->corner_pattern_width = 720;
 	params->corner_pattern_height = 32;
-	params->corner_pattern_height_bot = 32;
 #endif
 }
 
@@ -554,7 +545,6 @@ static void lcm_resume_power(void)
 
 static void lcm_init(void)
 {
-	int size;
 
 	/*LCM_LOGD("lcm_init\n");*/
 
@@ -579,19 +569,11 @@ static void lcm_init(void)
 	SET_RESET_PIN(1);
 	MDELAY(10);
 	if (lcm_dsi_mode == CMD_MODE) {
-		size = sizeof(init_setting_cmd) /
-			sizeof(struct LCM_setting_table);
-		push_table(NULL, init_setting_cmd, size, 1);
-		LCM_LOGI(
-			"ili9881c----rt5081----lcm mode = cmd mode :%d----\n",
-			lcm_dsi_mode);
+		push_table(NULL, init_setting_cmd, sizeof(init_setting_cmd) / sizeof(struct LCM_setting_table), 1);
+		LCM_LOGI("ili9881c----rt5081----lcm mode = cmd mode :%d----\n", lcm_dsi_mode);
 	} else {
-		size = sizeof(init_setting_vdo) /
-			sizeof(struct LCM_setting_table);
-		push_table(NULL, init_setting_vdo, size, 1);
-		LCM_LOGI(
-			"ili9881c----rt5081----lcm mode = vdo mode :%d----\n",
-			lcm_dsi_mode);
+		push_table(NULL, init_setting_vdo, sizeof(init_setting_vdo) / sizeof(struct LCM_setting_table), 1);
+		LCM_LOGI("ili9881c----rt5081----lcm mode = vdo mode :%d----\n", lcm_dsi_mode);
 	}
 
 #endif
@@ -604,9 +586,7 @@ static void lcm_suspend(void)
 {
 	/*LCM_LOGD("lcm_suspend\n");*/
 
-	push_table(NULL, lcm_suspend_setting,
-		sizeof(lcm_suspend_setting) / sizeof(struct LCM_setting_table),
-		1);
+	push_table(NULL, lcm_suspend_setting, sizeof(lcm_suspend_setting) / sizeof(struct LCM_setting_table), 1);
 	MDELAY(10);
 	/* SET_RESET_PIN(0); */
 }
@@ -618,8 +598,7 @@ static void lcm_resume(void)
 	lcm_init();
 }
 
-static void lcm_update(unsigned int x, unsigned int y,
-	unsigned int width, unsigned int height)
+static void lcm_update(unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
 	unsigned int x0 = x;
 	unsigned int y0 = y;
@@ -670,10 +649,7 @@ static unsigned int lcm_compare_id(void)
 	SET_RESET_PIN(1);
 	MDELAY(20);
 
-	push_table(NULL,
-		switch_table_page1,
-		sizeof(switch_table_page1) / sizeof(struct LCM_setting_table),
-		1);
+	push_table(NULL, switch_table_page1, sizeof(switch_table_page1) / sizeof(struct LCM_setting_table), 1);
 
 	array[0] = 0x00023700;	/* read id return two byte,version and id */
 	dsi_set_cmdq(array, 1, 1);
@@ -684,12 +660,8 @@ static unsigned int lcm_compare_id(void)
 	read_reg_v2(0x01, buffer, 1);
 	version_id = buffer[0];
 
-	LCM_LOGI("%s,ili9881c_id=0x%08x,version_id=0x%x\n",
-		__func__, id, version_id);
-	push_table(NULL,
-		switch_table_page0,
-		sizeof(switch_table_page0) / sizeof(struct LCM_setting_table),
-		1);
+	LCM_LOGI("%s,ili9881c_id=0x%08x,version_id=0x%x\n", __func__, id, version_id);
+	push_table(NULL, switch_table_page0, sizeof(switch_table_page0) / sizeof(struct LCM_setting_table), 1);
 
 	if (id == LCM_ID && version_id == 0x81)
 		return 1;
@@ -739,15 +711,13 @@ static unsigned int lcm_ata_check(unsigned char *buffer)
 	unsigned int data_array[3];
 	unsigned char read_buf[4];
 
-	LCM_LOGI("ATA check size = 0x%x,0x%x,0x%x,0x%x\n",
-		x0_MSB, x0_LSB, x1_MSB, x1_LSB);
+	LCM_LOGI("ATA check size = 0x%x,0x%x,0x%x,0x%x\n", x0_MSB, x0_LSB, x1_MSB, x1_LSB);
 	data_array[0] = 0x0005390A;	/* HS packet */
 	data_array[1] = (x1_MSB << 24) | (x0_LSB << 16) | (x0_MSB << 8) | 0x2a;
 	data_array[2] = (x1_LSB);
 	dsi_set_cmdq(data_array, 3, 1);
 
-	/* read id return two byte,version and id */
-	data_array[0] = 0x00043700;
+	data_array[0] = 0x00043700;	/* read id return two byte,version and id */
 	dsi_set_cmdq(data_array, 1, 1);
 
 	read_reg_v2(0x2A, read_buf, 4);
@@ -783,31 +753,22 @@ static void lcm_setbacklight_cmdq(void *handle, unsigned int level)
 
 	bl_level[0].para_list[0] = level;
 
-	push_table(handle,
-		bl_level,
-		sizeof(bl_level) / sizeof(struct LCM_setting_table),
-		1);
+	push_table(handle, bl_level, sizeof(bl_level) / sizeof(struct LCM_setting_table), 1);
 }
 
 static void *lcm_switch_mode(int mode)
 {
 #ifndef BUILD_LK
-/* customization: 1. V2C config 2 values, C2V config 1 value;
- *                      2. config mode control register
- */
+/* customization: 1. V2C config 2 values, C2V config 1 value; 2. config mode control register */
 	if (mode == 0) {	/* V2C */
 		lcm_switch_mode_cmd.mode = CMD_MODE;
-		/* mode control addr */
-		lcm_switch_mode_cmd.addr = 0xBB;
-		/* enabel GRAM firstly, ensure writing one frame to GRAM */
-		lcm_switch_mode_cmd.val[0] = 0x13;
-		/* disable video mode secondly */
-		lcm_switch_mode_cmd.val[1] = 0x10;
+		lcm_switch_mode_cmd.addr = 0xBB;	/* mode control addr */
+		lcm_switch_mode_cmd.val[0] = 0x13;	/* enabel GRAM firstly, ensure writing one frame to GRAM */
+		lcm_switch_mode_cmd.val[1] = 0x10;	/* disable video mode secondly */
 	} else {		/* C2V */
 		lcm_switch_mode_cmd.mode = SYNC_PULSE_VDO_MODE;
 		lcm_switch_mode_cmd.addr = 0xBB;
-		/* disable GRAM and enable video mode */
-		lcm_switch_mode_cmd.val[0] = 0x03;
+		lcm_switch_mode_cmd.val[0] = 0x03;	/* disable GRAM and enable video mode */
 	}
 	return (void *)(&lcm_switch_mode_cmd);
 #else
@@ -834,8 +795,7 @@ static void lcm_validate_roi(int *x, int *y, int *width, int *height)
 	y1 = round_down(y1, 16);
 	h = y2 - y1 + 1;
 
-	/* in some cases, roi maybe empty. */
-	/* In this case we need to use minimu roi */
+	/* in some cases, roi maybe empty. In this case we need to use minimu roi */
 	if (h < 16)
 		h = 16;
 
@@ -844,8 +804,7 @@ static void lcm_validate_roi(int *x, int *y, int *width, int *height)
 	/* check height again */
 	if (y1 >= FRAME_HEIGHT || y1 + h > FRAME_HEIGHT) {
 		/* assign full screen roi */
-		LCM_LOGD("%s calc error,assign full roi:y=%d,h=%d\n",
-			__func__, *y, *height);
+		LCM_LOGD("%s calc error,assign full roi:y=%d,h=%d\n", __func__, *y, *height);
 		y1 = 0;
 		h = FRAME_HEIGHT;
 	}
@@ -861,11 +820,11 @@ static void lcm_validate_roi(int *x, int *y, int *width, int *height)
 #endif
 
 #if (LCM_DSI_CMD_MODE)
-struct LCM_DRIVER ili9881c_hdp_dsi_cmd_ilitek_rt5081_lcm_drv = {
+LCM_DRIVER ili9881c_hdp_dsi_cmd_ilitek_rt5081_lcm_drv = {
 	.name = "ili9881c_hdp_dsi_cmd_ilitek_rt5081_drv",
 #else
 
-struct LCM_DRIVER ili9881c_hdp_dsi_vdo_ilitek_rt5081_lcm_drv = {
+LCM_DRIVER ili9881c_hdp_dsi_vdo_ilitek_rt5081_lcm_drv = {
 	.name = "ili9881c_hdp_dsi_vdo_ilitek_rt5081_drv",
 #endif
 	.set_util_funcs = lcm_set_util_funcs,

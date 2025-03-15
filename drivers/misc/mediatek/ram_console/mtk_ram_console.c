@@ -54,10 +54,10 @@ static bool reserve_mem_fail;
  */
 struct last_reboot_reason {
 	uint32_t fiq_step;
-	/* 0xaeedeadX: X=1 (HWT), X=2 (KE), X=3 (nested panic) */
-	uint32_t exp_type;
+	uint32_t exp_type;	/* 0xaeedeadX: X=1 (HWT), X=2 (KE), X=3 (nested panic) */
 	uint64_t kaslr_offset;
 	uint64_t ram_console_buffer_addr;
+	uint32_t reboot_mode;
 
 	uint32_t last_irq_enter[AEE_MTK_CPU_NUMS];
 	uint64_t jiffies_last_irq_enter[AEE_MTK_CPU_NUMS];
@@ -65,6 +65,8 @@ struct last_reboot_reason {
 	uint32_t last_irq_exit[AEE_MTK_CPU_NUMS];
 	uint64_t jiffies_last_irq_exit[AEE_MTK_CPU_NUMS];
 
+	uint64_t jiffies_last_sched[AEE_MTK_CPU_NUMS];
+	char last_sched_comm[AEE_MTK_CPU_NUMS][TASK_COMM_LEN];
 	uint8_t hotplug_footprint[AEE_MTK_CPU_NUMS];
 	uint8_t hotplug_cpu_event;
 	uint8_t hotplug_cb_index;
@@ -173,14 +175,14 @@ struct last_reboot_reason {
 	uint64_t ptp_temp;
 	uint8_t ptp_status;
 	uint8_t eem_pi_offset;
-	uint8_t etc_status;
-	uint8_t etc_mode;
 
 
 	int8_t thermal_temp[THERMAL_RESERVED_TZS];
 	uint8_t thermal_status;
 	uint8_t thermal_ATM_status;
 	uint64_t thermal_ktime;
+
+	uint8_t isr_el1;
 
 	uint32_t idvfs_ctrl_reg;
 	uint32_t idvfs_enable_cnt;
@@ -202,6 +204,8 @@ struct last_reboot_reason {
 	unsigned long last_async_func;
 	unsigned long last_sync_func;
 	uint32_t gz_irq;
+
+	void *kparams;
 };
 
 struct reboot_reason_pl {
@@ -247,8 +251,7 @@ static atomic_t rc_in_fiq = ATOMIC_INIT(0);
 static void ram_console_init_val(void);
 
 #include "desc/desc_s.h"
-void aee_rr_get_desc_info(unsigned long *addr, unsigned long *size,
-		unsigned long *start)
+void aee_rr_get_desc_info(unsigned long *addr, unsigned long *size, unsigned long *start)
 {
 	if (addr == NULL || size == NULL || start == NULL)
 		return;
@@ -268,21 +271,18 @@ static void *_memcpy(void *dest, const void *src, size_t count)
 	return dest;
 }
 
+#ifdef memcpy
+#undef memcpy
+#endif
 #define memcpy _memcpy
 #endif
 
 #define LAST_RR_SEC_VAL(header, sect, type, item) \
-	(header->off_##sect ? \
-	((type *)((void *)header + header->off_##sect))->item : 0)
-#define LAST_RRR_BUF_VAL(buf, rr_item)	\
-	LAST_RR_SEC_VAL(buf, linux, struct last_reboot_reason, rr_item)
-#define LAST_RRPL_BUF_VAL(buf, rr_item)	\
-	LAST_RR_SEC_VAL(buf, pl, struct reboot_reason_pl, rr_item)
-#define LAST_RRR_VAL(rr_item)	\
-	LAST_RR_SEC_VAL(ram_console_old, linux, struct last_reboot_reason, \
-			rr_item)
-#define LAST_RRPL_VAL(rr_item)	\
-	LAST_RR_SEC_VAL(ram_console_old, pl, struct reboot_reason_pl, rr_item)
+	(header->off_##sect ? ((type *)((void *)header + header->off_##sect))->item : 0)
+#define LAST_RRR_BUF_VAL(buf, rr_item) LAST_RR_SEC_VAL(buf, linux, struct last_reboot_reason, rr_item)
+#define LAST_RRPL_BUF_VAL(buf, rr_item) LAST_RR_SEC_VAL(buf, pl, struct reboot_reason_pl, rr_item)
+#define LAST_RRR_VAL(rr_item)  LAST_RR_SEC_VAL(ram_console_old, linux, struct last_reboot_reason, rr_item)
+#define LAST_RRPL_VAL(rr_item) LAST_RR_SEC_VAL(ram_console_old, pl, struct reboot_reason_pl, rr_item)
 
 unsigned int ram_console_size(void)
 {
@@ -290,8 +290,7 @@ unsigned int ram_console_size(void)
 }
 
 #ifdef CONFIG_PSTORE
-void __weak pstore_bconsole_write(struct console *con, const char *s,
-		unsigned int c)
+void __weak pstore_bconsole_write(struct console *con, const char *s, unsigned c)
 {
 }
 
@@ -300,8 +299,7 @@ void sram_log_save(const char *msg, int count)
 	pstore_bconsole_write(NULL, msg, count);
 }
 
-void pstore_console_show(enum pstore_type_id type_id, struct seq_file *m,
-		void *v)
+void pstore_console_show(enum pstore_type_id type_id, struct seq_file *m, void *v)
 {
 	struct pstore_info *psi = psinfo;
 	char *buf = NULL;
@@ -311,7 +309,6 @@ void pstore_console_show(enum pstore_type_id type_id, struct seq_file *m,
 	enum pstore_type_id type;
 	struct timespec time;
 	bool compressed;
-	ssize_t ecc_notice_size = 0;
 
 	if (!psi)
 		return;
@@ -319,8 +316,7 @@ void pstore_console_show(enum pstore_type_id type_id, struct seq_file *m,
 	if (psi->open && psi->open(psi))
 		goto out;
 
-	while ((size = psi->read(&id, &type, &count, &time, &buf, &compressed,
-					&ecc_notice_size, psi)) > 0) {
+	while ((size = psi->read(&id, &type, &count, &time, &buf, &compressed, psi)) > 0) {
 		if (type == type_id)
 			seq_write(m, buf, size);
 		kfree(buf);
@@ -341,13 +337,12 @@ void sram_log_save(const char *msg, int count)
 	unsigned int ram_console_buffer_size = ram_console_size();
 
 	if (ram_console_buffer == NULL) {
-		pr_notice("ram console buffer is NULL!\n");
+		pr_err("ram console buffer is NULL!\n");
 		return;
 	}
 
 	buffer = ram_console_buffer;
-	rc_console = (char *)ram_console_buffer +
-		ram_console_buffer->off_console;
+	rc_console = (char *)ram_console_buffer + ram_console_buffer->off_console;
 
 	/* count >= buffer_size, full the buffer */
 	if (count >= ram_console_buffer_size) {
@@ -364,7 +359,7 @@ void sram_log_save(const char *msg, int count)
 		buffer->log_size = ram_console_buffer_size;
 	} else {
 		/* count <=  last buffer, fill in free buffer */
-		memcpy(rc_console + buffer->log_start, msg, count);
+		memcpy(rc_console + buffer->log_start, msg, count);	/* count <= last buffer, fill them */
 		buffer->log_start += count;
 		buffer->log_size += count;
 		if (buffer->log_start >= ram_console_buffer_size)
@@ -387,8 +382,7 @@ void aee_sram_fiq_save_bin(const char *msg, size_t len)
 	char buf[20];
 
 	for (i = 0; i < len;) {
-		snprintf(buf, sizeof(long) * 2 + 2,
-				FORMAT_LONG, *(long *)(msg + i));
+		snprintf(buf, sizeof(long) * 2 + 2, FORMAT_LONG, *(long *)(msg + i));
 		sram_log_save(buf, sizeof(long) * 2 + 1);
 		i += sizeof(long);
 		if (i % 32 == 0)
@@ -423,8 +417,7 @@ void aee_sram_fiq_log(const char *msg)
 	FIQ_log_size += count;
 }
 
-void ram_console_write(struct console *console, const char *s,
-		unsigned int count)
+void ram_console_write(struct console *console, const char *s, unsigned int count)
 {
 	unsigned long flags;
 
@@ -455,40 +448,34 @@ void ram_console_enable_console(int enabled)
 
 static int ram_console_check_header(struct ram_console_buffer *buffer)
 {
-	if (!buffer || (buffer->sz_buffer != ram_console_buffer->sz_buffer)
-		|| buffer->off_pl > buffer->sz_buffer
-		|| buffer->off_lk > buffer->sz_buffer
-		|| buffer->off_linux > buffer->sz_buffer
-		|| buffer->off_console > buffer->sz_buffer
-		|| buffer->off_pl + ALIGN(buffer->sz_pl, 64) != buffer->off_lpl
-		|| buffer->off_lk + ALIGN(buffer->sz_lk, 64)
-			!= buffer->off_llk) {
-		pr_notice("ram_console: ilegal header.");
+	if (!buffer || (buffer->sz_buffer != ram_console_buffer->sz_buffer) || buffer->off_pl > buffer->sz_buffer
+	    || buffer->off_lk > buffer->sz_buffer || buffer->off_linux > buffer->sz_buffer
+	    || buffer->off_console > buffer->sz_buffer
+	    || buffer->off_pl + ALIGN(buffer->sz_pl, 64) != buffer->off_lpl
+	    || buffer->off_lk + ALIGN(buffer->sz_lk, 64) != buffer->off_llk) {
+		pr_err("ram_console: ilegal header.");
 		return -1;
 	} else
 		return 0;
 }
 
-static int ram_console_lastk_show(struct ram_console_buffer *buffer,
-		struct seq_file *m, void *v)
+static int ram_console_lastk_show(struct ram_console_buffer *buffer, struct seq_file *m, void *v)
 {
 	unsigned int wdt_status;
 
 	if (!buffer) {
-		pr_notice("ram_console: buffer is null\n");
+		pr_err("ram_console: buffer is null\n");
 		seq_puts(m, "buffer is null.\n");
 		return 0;
 	}
 
 	if (ram_console_check_header(buffer) && buffer->sz_buffer != 0) {
-		pr_notice("ram_console: buffer %p, size %x(%x)\n",
-			buffer, buffer->sz_buffer,
-			ram_console_buffer->sz_buffer);
+		pr_err("ram_console: buffer %p, size %x(%x)\n", buffer, buffer->sz_buffer,
+		       ram_console_buffer->sz_buffer);
 		seq_write(m, buffer, ram_console_buffer->sz_buffer);
 		return 0;
 	}
-	if (buffer->off_pl == 0 || buffer->off_pl + ALIGN(buffer->sz_pl, 64)
-			!= buffer->off_lpl) {
+	if (buffer->off_pl == 0 || buffer->off_pl + ALIGN(buffer->sz_pl, 64) != buffer->off_lpl) {
 		/* workaround for compatibility to old preloader & lk (OTA) */
 		wdt_status = *((unsigned char *)buffer + 12);
 	} else
@@ -496,27 +483,23 @@ static int ram_console_lastk_show(struct ram_console_buffer *buffer,
 
 	seq_printf(m, "ram console header, hw_status: %u, fiq step %u.\n",
 		   wdt_status, LAST_RRR_BUF_VAL(buffer, fiq_step));
-	seq_printf(m, "%s, old status is %u.\n",
-			ram_console_clear ?
-			"Clear" : "Not Clear", old_wdt_status);
+	seq_printf(m, "%s, old status is %u.\n", ram_console_clear ? "Clear" : "Not Clear", old_wdt_status);
 
 #ifdef CONFIG_PSTORE_CONSOLE
+	/*pr_err("ram_console: pstore show start\n");*/
 	pstore_console_show(PSTORE_TYPE_CONSOLE, m, v);
+	/*pr_err("ram_console: pstore show end\n");*/
 #else
 	if (buffer->off_console != 0
 	    && buffer->off_linux + ALIGN(sizeof(struct last_reboot_reason),
 					 64) == buffer->off_console
 	    && buffer->sz_console == buffer->sz_buffer - buffer->off_console
-	    && buffer->log_size <= buffer->sz_console
-	    && buffer->log_start <= buffer->sz_console) {
-		seq_write(m, (void *)buffer + buffer->off_console +
-				buffer->log_start,
-				buffer->log_size - buffer->log_start);
-		seq_write(m, (void *)buffer + buffer->off_console,
-				buffer->log_start);
+	    && buffer->log_size <= buffer->sz_console && buffer->log_start <= buffer->sz_console) {
+		seq_write(m, (void *)buffer + buffer->off_console + buffer->log_start,
+			  buffer->log_size - buffer->log_start);
+		seq_write(m, (void *)buffer + buffer->off_console, buffer->log_start);
 	} else {
-		seq_puts(m,
-			"header may be corrupted, dump the raw buffer for reference only\n");
+		seq_puts(m, "header may be corrupted, dump the raw buffer for reference only\n");
 		seq_write(m, buffer, ram_console_buffer->sz_buffer);
 	}
 #endif
@@ -526,31 +509,28 @@ static int ram_console_lastk_show(struct ram_console_buffer *buffer,
 static void aee_rr_show_in_log(void)
 {
 	if (ram_console_check_header(ram_console_old))
-		pr_notice("ram_console: no valid data\n");
+		pr_err("ram_console: no valid data\n");
 	else {
-		pr_notice("pmic & external buck: 0x%x\n",
-				LAST_RRR_VAL(pmic_ext_buck));
-		pr_notice("ram_console: CPU notifier status: %d, %d, 0x%llx, %llu\n",
+		pr_err("pmic & external buck: 0x%x\n", LAST_RRR_VAL(pmic_ext_buck));
+		pr_err("ram_console: CPU notifier status: %d, %d, 0x%llx, %llu\n",
 				LAST_RRR_VAL(hotplug_cpu_event),
 				LAST_RRR_VAL(hotplug_cb_index),
 				LAST_RRR_VAL(hotplug_cb_fp),
 				LAST_RRR_VAL(hotplug_cb_times));
-		pr_notice("ram_console: CPU HPS footprint: %llu, 0x%x, %d, %llu\n",
+		pr_err("ram_console: CPU HPS footprint: %llu, 0x%x, %d, %llu\n",
 				LAST_RRR_VAL(hps_cb_enter_times),
 				LAST_RRR_VAL(hps_cb_cpu_bitmask),
 				LAST_RRR_VAL(hps_cb_footprint),
 				LAST_RRR_VAL(hps_cb_fp_times));
-		pr_notice("ram_console: last init function: 0x%lx\n",
-				LAST_RRR_VAL(last_init_func));
+		pr_err("ram_console: last init function: 0x%lx\n", LAST_RRR_VAL(last_init_func));
 	}
 }
 
-static int __init ram_console_save_old(struct ram_console_buffer *buffer,
-		size_t buffer_size)
+static int __init ram_console_save_old(struct ram_console_buffer *buffer, size_t buffer_size)
 {
 	ram_console_old = kmalloc(buffer_size, GFP_KERNEL);
 	if (ram_console_old == NULL) {
-		pr_notice("ram_console: failed to allocate old buffer\n");
+		pr_err("ram_console: failed to allocate old buffer\n");
 		return -1;
 	}
 	memcpy(ram_console_old, buffer, buffer_size);
@@ -558,14 +538,12 @@ static int __init ram_console_save_old(struct ram_console_buffer *buffer,
 	return 0;
 }
 
-static int __init ram_console_init(struct ram_console_buffer *buffer,
-		size_t buffer_size)
+static int __init ram_console_init(struct ram_console_buffer *buffer, size_t buffer_size)
 {
 	ram_console_buffer = buffer;
 	buffer->sz_buffer = buffer_size;
 
-	if (buffer->sig != REBOOT_REASON_SIG  ||
-			ram_console_check_header(buffer)) {
+	if (buffer->sig != REBOOT_REASON_SIG  || ram_console_check_header(buffer)) {
 		memset_io((void *)buffer, 0, buffer_size);
 		buffer->sig = REBOOT_REASON_SIG;
 		ram_console_clear = 1;
@@ -573,20 +551,16 @@ static int __init ram_console_init(struct ram_console_buffer *buffer,
 		old_wdt_status = LAST_RRPL_BUF_VAL(buffer, wdt_status);
 	}
 	ram_console_save_old(buffer, buffer_size);
-	if (buffer->sz_lk != 0 && buffer->off_lk + ALIGN(buffer->sz_lk, 64) ==
-			buffer->off_llk)
+	if (buffer->sz_lk != 0 && buffer->off_lk + ALIGN(buffer->sz_lk, 64) == buffer->off_llk)
 		buffer->off_linux = buffer->off_llk + ALIGN(buffer->sz_lk, 64);
 	else
-		/* OTA:leave enough space for pl/lk */
-		buffer->off_linux = 512;
+		buffer->off_linux = 512;	/* OTA:leave enough space for pl/lk */
 	buffer->sz_buffer = buffer_size;
-	buffer->off_console = buffer->off_linux +
-		ALIGN(sizeof(struct last_reboot_reason), 64);
+	buffer->off_console = buffer->off_linux + ALIGN(sizeof(struct last_reboot_reason), 64);
 	buffer->sz_console = buffer->sz_buffer - buffer->off_console;
 	buffer->log_start = 0;
 	buffer->log_size = 0;
-	memset_io((void *)buffer + buffer->off_linux, 0,
-			buffer_size - buffer->off_linux);
+	memset_io((void *)buffer + buffer->off_linux, 0, buffer_size - buffer->off_linux);
 	ram_console_init_desc(buffer->off_linux);
 #ifndef CONFIG_PSTORE
 	register_console(&ram_console);
@@ -623,7 +597,7 @@ static void *remap_lowmem(phys_addr_t start, phys_addr_t size)
 	vaddr = vmap(pages, page_count, VM_MAP, prot);
 	kfree(pages);
 	if (!vaddr) {
-		pr_notice("%s: Failed to map %u pages\n", __func__, page_count);
+		pr_err("%s: Failed to map %u pages\n", __func__, page_count);
 		return NULL;
 	}
 
@@ -638,20 +612,16 @@ struct mem_desc_t {
 
 #if defined(CONFIG_MTK_RAM_CONSOLE_USING_SRAM)
 #ifdef CONFIG_OF
-static int __init dt_get_ram_console(unsigned long node, const char *uname,
-		int depth, void *data)
+static int __init dt_get_ram_console(unsigned long node, const char *uname, int depth, void *data)
 {
 	struct mem_desc_t *sram;
 
-	if (depth != 1 || (strcmp(uname, "chosen") != 0
-			&& strcmp(uname, "chosen@0") != 0))
+	if (depth != 1 || (strcmp(uname, "chosen") != 0 && strcmp(uname, "chosen@0") != 0))
 		return 0;
 
-	sram = (struct mem_desc_t *) of_get_flat_dt_prop(node,
-			"ram_console", NULL);
+	sram = (struct mem_desc_t *) of_get_flat_dt_prop(node, "ram_console", NULL);
 	if (sram) {
-		pr_notice("ram_console:[DT] 0x%lx@0x%lx\n",
-				sram->size, sram->start);
+		pr_notice("ram_console:[DT] 0x%lx@0x%lx\n", sram->size, sram->start);
 		*(struct mem_desc_t *) data = *sram;
 	}
 
@@ -678,8 +648,7 @@ static int __init ram_console_early_init(void)
 		if (bufp)
 			buffer_size = sram.size;
 		else {
-			pr_err("ram_console: ioremap failed, [0x%lx, 0x%lx]\n",
-					sram.start,
+			pr_err("ram_console: ioremap failed, [0x%lx, 0x%lx]\n", sram.start,
 			       sram.size);
 			return 0;
 		}
@@ -687,22 +656,18 @@ static int __init ram_console_early_init(void)
 		return 0;
 	}
 #else
-	bufp = ioremap_wc(CONFIG_MTK_RAM_CONSOLE_ADDR,
-			CONFIG_MTK_RAM_CONSOLE_SIZE);
+	bufp = ioremap_wc(CONFIG_MTK_RAM_CONSOLE_ADDR, CONFIG_MTK_RAM_CONSOLE_SIZE);
 	if (bufp)
 		buffer_size = CONFIG_MTK_RAM_CONSOLE_SIZE;
 		ram_console_buffer_pa = CONFIG_MTK_RAM_CONSOLE_ADDR;
 	else {
-		pr_err("ram_console: ioremap failed, [0x%x, 0x%x]\n",
-				sram.start, sram.size);
+		pr_err("ram_console: ioremap failed, [0x%x, 0x%x]\n", sram.start, sram.size);
 		return 0;
 	}
 #endif
 #elif defined(CONFIG_MTK_RAM_CONSOLE_USING_DRAM)
-	bufp = remap_lowmem(CONFIG_MTK_RAM_CONSOLE_DRAM_ADDR,
-			CONFIG_MTK_RAM_CONSOLE_DRAM_SIZE);
-	ram_console_buffer_pa =
-		(struct ram_console_buffer *)CONFIG_MTK_RAM_CONSOLE_DRAM_ADDR;
+	bufp = remap_lowmem(CONFIG_MTK_RAM_CONSOLE_DRAM_ADDR, CONFIG_MTK_RAM_CONSOLE_DRAM_SIZE);
+	ram_console_buffer_pa = (struct ram_console_buffer *)CONFIG_MTK_RAM_CONSOLE_DRAM_ADDR;
 	if (bufp == NULL) {
 		pr_err("ram_console: ioremap failed\n");
 		return 0;
@@ -712,8 +677,7 @@ static int __init ram_console_early_init(void)
 	return 0;
 #endif
 
-	pr_notice("ram_console: buffer start: 0x%p, size: 0x%zx\n",
-			bufp, buffer_size);
+	pr_err("ram_console: buffer start: 0x%p, size: 0x%zx\n", bufp, buffer_size);
 	mtk_cpu_num = num_present_cpus();
 	return ram_console_init(bufp, buffer_size);
 }
@@ -742,7 +706,7 @@ static int __init ram_console_late_init(void)
 	struct proc_dir_entry *entry;
 
 	if (reserve_mem_fail) {
-		pr_info("ram_console/pstore wrong reserved memory\n");
+		pr_err("ram_console/pstore wrong reserved memory\n");
 		BUG();
 	}
 	entry = proc_create("last_kmsg", 0444, NULL, &ram_console_file_ops);
@@ -761,16 +725,14 @@ late_initcall(ram_console_late_init);
 int ram_console_pstore_reserve_memory(struct reserved_mem *rmem)
 {
 #ifndef DUMMY_MEMORY_LAYOUT
-	if (rmem->base != KERN_PSTORE_BASE ||
-		rmem->size > KERN_PSTORE_MAX_SIZE) {
+	if (rmem->base != KERN_PSTORE_BASE || rmem->size > KERN_PSTORE_MAX_SIZE) {
 		reserve_mem_fail = true;
 		pr_info("pstore: Check the reserved address and size\n");
 	}
 #endif
 	pr_info("[memblock]%s: 0x%llx - 0x%llx (0x%llx)\n", "mediatek,pstore",
 		 (unsigned long long)rmem->base,
-		 (unsigned long long)rmem->base +
-		 (unsigned long long)rmem->size,
+		 (unsigned long long)rmem->base + (unsigned long long)rmem->size,
 		 (unsigned long long)rmem->size);
 	return 0;
 }
@@ -778,17 +740,14 @@ int ram_console_pstore_reserve_memory(struct reserved_mem *rmem)
 int ram_console_binary_reserve_memory(struct reserved_mem *rmem)
 {
 #ifndef DUMMY_MEMORY_LAYOUT
-	if (rmem->base != KERN_RAMCONSOLE_BASE ||
-		rmem->size > KERN_RAMCONSOLE_MAX_SIZE) {
+	if (rmem->base != KERN_RAMCONSOLE_BASE || rmem->size > KERN_RAMCONSOLE_MAX_SIZE) {
 		reserve_mem_fail = true;
 		pr_info("ram_console: Check the reserved address and size\n");
 	}
 #endif
-	pr_info("[memblock]%s: 0x%llx - 0x%llx (0x%llx)\n",
-		"mediatek,ram_console",
+	pr_info("[memblock]%s: 0x%llx - 0x%llx (0x%llx)\n", "mediatek,ram_console",
 		 (unsigned long long)rmem->base,
-		 (unsigned long long)rmem->base +
-		 (unsigned long long)rmem->size,
+		 (unsigned long long)rmem->base + (unsigned long long)rmem->size,
 		 (unsigned long long)rmem->size);
 	return 0;
 }
@@ -799,11 +758,9 @@ RESERVEDMEM_OF_DECLARE(reserve_memory_ram_console, "mediatek,ram_console",
 		       ram_console_binary_reserve_memory);
 
 /* aee sram flags save */
-#define RR_BASE(stage)	\
-	((void *)ram_console_buffer + ram_console_buffer->off_##stage)
+#define RR_BASE(stage) ((void *)ram_console_buffer + ram_console_buffer->off_##stage)
 #define RR_LINUX ((struct last_reboot_reason *)RR_BASE(linux))
-#define RR_BASE_PA(stage)	\
-	((void *)ram_console_buffer_pa + ram_console_buffer->off_##stage)
+#define RR_BASE_PA(stage) ((void *)ram_console_buffer_pa + ram_console_buffer->off_##stage)
 #define RR_LINUX_PA ((struct last_reboot_reason *)RR_BASE_PA(linux))
 
 /*NOTICE: You should check if ram_console is null before call these macros*/
@@ -828,8 +785,21 @@ static void ram_console_init_val(void)
 #else
 	LAST_RR_SET(kaslr_offset, 0xd15ab1e);
 #endif
-	LAST_RR_SET(ram_console_buffer_addr,
-		(unsigned long)&ram_console_buffer);
+	LAST_RR_SET(ram_console_buffer_addr, (unsigned long)&ram_console_buffer);
+}
+
+void aee_rr_rec_reboot_mode(u8 mode)
+{
+	if (!ram_console_init_done || !ram_console_buffer)
+		return;
+	LAST_RR_SET(reboot_mode, mode);
+}
+
+void aee_rr_rec_kdump_params(void *params)
+{
+	if (!ram_console_init_done || !ram_console_buffer)
+		return;
+	LAST_RR_SET(kparams, params);
 }
 
 void aee_rr_rec_fiq_step(u8 step)
@@ -885,6 +855,17 @@ void aee_rr_rec_last_irq_exit(int cpu, int irq, u64 jiffies)
 	if (cpu >= 0 && cpu < num_possible_cpus()) {
 		LAST_RR_SET_WITH_ID(last_irq_exit, cpu, irq);
 		LAST_RR_SET_WITH_ID(jiffies_last_irq_exit, cpu, jiffies);
+	}
+	mb();			/*TODO:need add comments */
+}
+
+void aee_rr_rec_last_sched_jiffies(int cpu, u64 jiffies, const char *comm)
+{
+	if (!ram_console_init_done || !ram_console_buffer)
+		return;
+	if (cpu >= 0 && cpu < num_possible_cpus()) {
+		LAST_RR_SET_WITH_ID(jiffies_last_sched, cpu, jiffies);
+		LAST_RR_MEMCPY_WITH_ID(last_sched_comm, cpu, comm, TASK_COMM_LEN);
 	}
 	mb();			/*TODO:need add comments */
 }
@@ -1122,9 +1103,7 @@ u32 aee_rr_curr_spm_common_scenario_val(void)
 	return LAST_RR_VAL(spm_common_scenario_data);
 }
 
-/* special case without MMU, return addr directly,
- * strongly suggest not to use
- */
+/* special case without MMU, return addr directly, strongly suggest not to use */
 unsigned int *aee_rr_rec_mcdi_wfi(void)
 {
 #if 0
@@ -1687,24 +1666,10 @@ void aee_rr_rec_eem_pi_offset(u8 val)
 	LAST_RR_SET(eem_pi_offset, val);
 }
 
-void aee_rr_rec_etc_status(u8 val)
-{
-	if (!ram_console_init_done)
-		return;
-	LAST_RR_SET(etc_status, val);
-}
-
-void aee_rr_rec_etc_mode(u8 val)
-{
-	if (!ram_console_init_done)
-		return;
-	LAST_RR_SET(etc_mode, val);
-}
-
 int aee_rr_init_thermal_temp(int num)
 {
 	if (num < 0 || num >= THERMAL_RESERVED_TZS) {
-		pr_notice("%s num= %d\n", __func__, num);
+		pr_err("%s num= %d\n", __func__, num);
 		return -1;
 	}
 
@@ -1718,7 +1683,7 @@ int aee_rr_rec_thermal_temp(int index, s8 val)
 		return -1;
 
 	if (index < 0 || index >= thermal_num) {
-		pr_notice("%s index= %d\n", __func__, index);
+		pr_err("%s index= %d\n", __func__, index);
 		return -1;
 	}
 
@@ -1745,6 +1710,13 @@ void aee_rr_rec_thermal_ktime(u64 val)
 	if (!ram_console_init_done || !ram_console_buffer)
 		return;
 	LAST_RR_SET(thermal_ktime, val);
+}
+
+void aee_rr_rec_isr_el1(u8 val)
+{
+	if (!ram_console_init_done || !ram_console_buffer)
+		return;
+	LAST_RR_SET(isr_el1, val);
 }
 
 void aee_rr_rec_idvfs_ctrl_reg(u32 val)
@@ -1816,7 +1788,7 @@ void aee_rr_rec_ocp_target_limit(int id, u32 val)
 		return;
 
 	if (id < 0 || id >= 4) {
-		pr_notice("%s: Invalid ocp id = %d\n", __func__, id);
+		pr_err("%s: Invalid ocp id = %d\n", __func__, id);
 		return;
 	}
 
@@ -2070,16 +2042,6 @@ u8 aee_rr_curr_eem_pi_offset(void)
 	return LAST_RR_VAL(eem_pi_offset);
 }
 
-u8 aee_rr_curr_etc_status(void)
-{
-	return LAST_RR_VAL(etc_status);
-}
-
-u8 aee_rr_curr_etc_mode(void)
-{
-	return LAST_RR_VAL(etc_mode);
-}
-
 s8 aee_rr_curr_thermal_temp(int index)
 {
 	if (index < 0 || index >= thermal_num)
@@ -2101,6 +2063,11 @@ u8 aee_rr_curr_thermal_ATM_status(void)
 u64 aee_rr_curr_thermal_ktime(void)
 {
 	return LAST_RR_VAL(thermal_ktime);
+}
+
+u8 aee_rr_curr_isr_el1(void)
+{
+	return LAST_RR_VAL(isr_el1);
 }
 
 u32 aee_rr_curr_idvfs_ctrl_reg(void)
@@ -2208,8 +2175,6 @@ void aee_rr_rec_last_init_func(unsigned long val)
 {
 	if (!ram_console_init_done || !ram_console_buffer)
 		return;
-	if (LAST_RR_VAL(last_init_func) == ~(unsigned long)(0))
-		return;
 	LAST_RR_SET(last_init_func, val);
 }
 
@@ -2294,8 +2259,7 @@ void aee_rr_show_wdt_status(struct seq_file *m)
 	unsigned int wdt_status;
 	struct ram_console_buffer *buffer = ram_console_old;
 
-	if (buffer->off_pl == 0 || buffer->off_pl + ALIGN(buffer->sz_pl, 64)
-			!= buffer->off_lpl) {
+	if (buffer->off_pl == 0 || buffer->off_pl + ALIGN(buffer->sz_pl, 64) != buffer->off_lpl) {
 		/* workaround for compatibility to old preloader & lk (OTA) */
 		wdt_status = *((unsigned char *)buffer + 12);
 	} else
@@ -2325,9 +2289,8 @@ void aee_rr_show_kaslr_offset(struct seq_file *m)
 
 void aee_rr_show_ram_console_buffer_addr(struct seq_file *m)
 {
-	uint64_t ram_console_buffer_addr;
+	uint64_t ram_console_buffer_addr = LAST_RRR_VAL(ram_console_buffer_addr);
 
-	ram_console_buffer_addr = LAST_RRR_VAL(ram_console_buffer_addr);
 	seq_printf(m, "&ram_console_buffer: 0x%llx\n", ram_console_buffer_addr);
 }
 
@@ -2383,8 +2346,7 @@ void aee_rr_show_hotplug_caller_callee_status(struct seq_file *m)
 
 void aee_rr_show_hotplug_up_prepare_ktime(struct seq_file *m)
 {
-	seq_printf(m, "CPU_UP_PREPARE: %lld\n",
-			LAST_RRR_VAL(cpu_up_prepare_ktime));
+	seq_printf(m, "CPU_UP_PREPARE: %lld\n", LAST_RRR_VAL(cpu_up_prepare_ktime));
 }
 
 void aee_rr_show_hotplug_starting_ktime(struct seq_file *m)
@@ -2399,8 +2361,7 @@ void aee_rr_show_hotplug_online_ktime(struct seq_file *m)
 
 void aee_rr_show_hotplug_down_prepare_ktime(struct seq_file *m)
 {
-	seq_printf(m, "CPU_DOWN_PREPARE: %lld\n",
-			LAST_RRR_VAL(cpu_down_prepare_ktime));
+	seq_printf(m, "CPU_DOWN_PREPARE: %lld\n", LAST_RRR_VAL(cpu_down_prepare_ktime));
 }
 
 void aee_rr_show_hotplug_dying_ktime(struct seq_file *m)
@@ -2415,8 +2376,7 @@ void aee_rr_show_hotplug_dead_ktime(struct seq_file *m)
 
 void aee_rr_show_hotplug_post_dead_ktime(struct seq_file *m)
 {
-	seq_printf(m, "CPU_POST_DEAD: %lld\n",
-			LAST_RRR_VAL(cpu_post_dead_ktime));
+	seq_printf(m, "CPU_POST_DEAD: %lld\n", LAST_RRR_VAL(cpu_post_dead_ktime));
 }
 
 void aee_rr_show_mcdi(struct seq_file *m)
@@ -2456,20 +2416,17 @@ void aee_rr_show_spm_suspend(struct seq_file *m)
 
 void aee_rr_show_spm_common_scenario(struct seq_file *m)
 {
-	seq_printf(m, "spm_common_scenario: 0x%x\n",
-			LAST_RRR_VAL(spm_common_scenario_data));
+	seq_printf(m, "spm_common_scenario: 0x%x\n", LAST_RRR_VAL(spm_common_scenario_data));
 }
 
 void aee_rr_show_mtk_cpuidle_footprint(struct seq_file *m, int cpu)
 {
-	seq_printf(m, "  mtk_cpuidle_footprint: 0x%x\n",
-			LAST_RRR_VAL(mtk_cpuidle_footprint[cpu]));
+	seq_printf(m, "  mtk_cpuidle_footprint: 0x%x\n", LAST_RRR_VAL(mtk_cpuidle_footprint[cpu]));
 }
 
 void aee_rr_show_mcdi_footprint(struct seq_file *m, int cpu)
 {
-	seq_printf(m, "  mcdi footprint: 0x%x\n",
-			LAST_RRR_VAL(mcdi_footprint[cpu]));
+	seq_printf(m, "  mcdi footprint: 0x%x\n", LAST_RRR_VAL(mcdi_footprint[cpu]));
 }
 
 void aee_rr_show_clk(struct seq_file *m)
@@ -2492,8 +2449,7 @@ void aee_rr_show_vcore_dvfs_opp(struct seq_file *m)
 
 void aee_rr_show_vcore_dvfs_status(struct seq_file *m)
 {
-	seq_printf(m, "vcore_dvfs_status: 0x%x\n",
-			LAST_RRR_VAL(vcore_dvfs_status));
+	seq_printf(m, "vcore_dvfs_status: 0x%x\n", LAST_RRR_VAL(vcore_dvfs_status));
 }
 
 void aee_rr_show_ppm_cluster_limit(struct seq_file *m)
@@ -2501,8 +2457,7 @@ void aee_rr_show_ppm_cluster_limit(struct seq_file *m)
 	int i = 0;
 
 	for (i = 0; i < 8; i++)
-		seq_printf(m, "ppm_cluster_limit: 0x%08x\n",
-				LAST_RRR_VAL(ppm_cluster_limit[i]));
+		seq_printf(m, "ppm_cluster_limit: 0x%08x\n", LAST_RRR_VAL(ppm_cluster_limit[i]));
 }
 
 void aee_rr_show_ppm_step(struct seq_file *m)
@@ -2527,34 +2482,28 @@ void aee_rr_show_ppm_policy_mask(struct seq_file *m)
 
 void aee_rr_show_ppm_waiting_for_pbm(struct seq_file *m)
 {
-	seq_printf(m, "ppm_waiting_for_pbm: 0x%x\n",
-			LAST_RRR_VAL(ppm_waiting_for_pbm));
+	seq_printf(m, "ppm_waiting_for_pbm: 0x%x\n", LAST_RRR_VAL(ppm_waiting_for_pbm));
 }
 
 void aee_rr_show_cpu_dvfs_vproc_big(struct seq_file *m)
 {
-	seq_printf(m, "cpu_dvfs_vproc_big: 0x%x\n",
-			LAST_RRR_VAL(cpu_dvfs_vproc_big));
+	seq_printf(m, "cpu_dvfs_vproc_big: 0x%x\n", LAST_RRR_VAL(cpu_dvfs_vproc_big));
 }
 
 void aee_rr_show_cpu_dvfs_vproc_little(struct seq_file *m)
 {
-	seq_printf(m, "cpu_dvfs_vproc_little: 0x%x\n",
-			LAST_RRR_VAL(cpu_dvfs_vproc_little));
+	seq_printf(m, "cpu_dvfs_vproc_little: 0x%x\n", LAST_RRR_VAL(cpu_dvfs_vproc_little));
 }
 
 void aee_rr_show_cpu_dvfs_oppidx(struct seq_file *m)
 {
-	seq_printf(m, "cpu_dvfs_oppidx: little = 0x%x\n",
-			LAST_RRR_VAL(cpu_dvfs_oppidx) & 0xF);
-	seq_printf(m, "cpu_dvfs_oppidx: big = 0x%x\n",
-			(LAST_RRR_VAL(cpu_dvfs_oppidx) >> 4) & 0xF);
+	seq_printf(m, "cpu_dvfs_oppidx: little = 0x%x\n", LAST_RRR_VAL(cpu_dvfs_oppidx) & 0xF);
+	seq_printf(m, "cpu_dvfs_oppidx: big = 0x%x\n", (LAST_RRR_VAL(cpu_dvfs_oppidx) >> 4) & 0xF);
 }
 
 void aee_rr_show_cpu_dvfs_cci_oppidx(struct seq_file *m)
 {
-	seq_printf(m, "cpu_dvfs_oppidx: cci = 0x%x\n",
-			LAST_RRR_VAL(cpu_dvfs_cci_oppidx) & 0xF);
+	seq_printf(m, "cpu_dvfs_oppidx: cci = 0x%x\n", LAST_RRR_VAL(cpu_dvfs_cci_oppidx) & 0xF);
 }
 
 void aee_rr_show_cpu_dvfs_status(struct seq_file *m)
@@ -2569,8 +2518,7 @@ void aee_rr_show_cpu_dvfs_step(struct seq_file *m)
 
 void aee_rr_show_cpu_dvfs_pbm_step(struct seq_file *m)
 {
-	seq_printf(m, "cpu_dvfs_pbm_step: 0x%x\n",
-			LAST_RRR_VAL(cpu_dvfs_pbm_step));
+	seq_printf(m, "cpu_dvfs_pbm_step: 0x%x\n", LAST_RRR_VAL(cpu_dvfs_pbm_step));
 }
 
 void aee_rr_show_cpu_dvfs_cb(struct seq_file *m)
@@ -2724,7 +2672,7 @@ void aee_rr_show_ptp_vboot(struct seq_file *m)
 
 	for (i = 0; i < 8; i++)
 		seq_printf(m, "ptp_bank_[%d]_vboot = 0x%llx\n", i,
-			(LAST_RRR_VAL(ptp_vboot) >> (i * 8)) & 0xFF);
+			   (LAST_RRR_VAL(ptp_vboot) >> (i * 8)) & 0xFF);
 }
 
 void aee_rr_show_ptp_cpu_big_volt(struct seq_file *m)
@@ -2733,7 +2681,7 @@ void aee_rr_show_ptp_cpu_big_volt(struct seq_file *m)
 
 	for (i = 0; i < 8; i++)
 		seq_printf(m, "ptp_cpu_big_volt[%d] = %llx\n", i,
-			(LAST_RRR_VAL(ptp_cpu_big_volt) >> (i * 8)) & 0xFF);
+			   (LAST_RRR_VAL(ptp_cpu_big_volt) >> (i * 8)) & 0xFF);
 }
 
 void aee_rr_show_ptp_cpu_big_volt_1(struct seq_file *m)
@@ -2742,7 +2690,7 @@ void aee_rr_show_ptp_cpu_big_volt_1(struct seq_file *m)
 
 	for (i = 0; i < 8; i++)
 		seq_printf(m, "ptp_cpu_big_volt_1[%d] = %llx\n", i,
-			(LAST_RRR_VAL(ptp_cpu_big_volt_1) >> (i * 8)) & 0xFF);
+			   (LAST_RRR_VAL(ptp_cpu_big_volt_1) >> (i * 8)) & 0xFF);
 }
 
 void aee_rr_show_ptp_cpu_big_volt_2(struct seq_file *m)
@@ -2751,7 +2699,7 @@ void aee_rr_show_ptp_cpu_big_volt_2(struct seq_file *m)
 
 	for (i = 0; i < 8; i++)
 		seq_printf(m, "ptp_cpu_big_volt_2[%d] = %llx\n", i,
-			(LAST_RRR_VAL(ptp_cpu_big_volt_2) >> (i * 8)) & 0xFF);
+			   (LAST_RRR_VAL(ptp_cpu_big_volt_2) >> (i * 8)) & 0xFF);
 }
 
 void aee_rr_show_ptp_cpu_big_volt_3(struct seq_file *m)
@@ -2760,7 +2708,7 @@ void aee_rr_show_ptp_cpu_big_volt_3(struct seq_file *m)
 
 	for (i = 0; i < 8; i++)
 		seq_printf(m, "ptp_cpu_big_volt_3[%d] = %llx\n", i,
-			(LAST_RRR_VAL(ptp_cpu_big_volt_3) >> (i * 8)) & 0xFF);
+			   (LAST_RRR_VAL(ptp_cpu_big_volt_3) >> (i * 8)) & 0xFF);
 }
 
 void aee_rr_show_ptp_cpu_2_little_volt(struct seq_file *m)
@@ -2769,8 +2717,7 @@ void aee_rr_show_ptp_cpu_2_little_volt(struct seq_file *m)
 
 	for (i = 0; i < 8; i++)
 		seq_printf(m, "ptp_cpu_2_little_volt[%d] = %llx\n", i,
-			(LAST_RRR_VAL(ptp_cpu_2_little_volt) >>
-			(i * 8)) & 0xFF);
+			   (LAST_RRR_VAL(ptp_cpu_2_little_volt) >> (i * 8)) & 0xFF);
 }
 
 void aee_rr_show_ptp_cpu_2_little_volt_1(struct seq_file *m)
@@ -2779,8 +2726,7 @@ void aee_rr_show_ptp_cpu_2_little_volt_1(struct seq_file *m)
 
 	for (i = 0; i < 8; i++)
 		seq_printf(m, "ptp_cpu_2_little_volt_1[%d] = %llx\n", i,
-			(LAST_RRR_VAL(ptp_cpu_2_little_volt_1) >>
-			(i * 8)) & 0xFF);
+			   (LAST_RRR_VAL(ptp_cpu_2_little_volt_1) >> (i * 8)) & 0xFF);
 }
 
 void aee_rr_show_ptp_cpu_2_little_volt_2(struct seq_file *m)
@@ -2789,8 +2735,7 @@ void aee_rr_show_ptp_cpu_2_little_volt_2(struct seq_file *m)
 
 	for (i = 0; i < 8; i++)
 		seq_printf(m, "ptp_cpu_2_little_volt_2[%d] = %llx\n", i,
-			(LAST_RRR_VAL(ptp_cpu_2_little_volt_2) >>
-			(i * 8)) & 0xFF);
+			   (LAST_RRR_VAL(ptp_cpu_2_little_volt_2) >> (i * 8)) & 0xFF);
 }
 
 void aee_rr_show_ptp_cpu_2_little_volt_3(struct seq_file *m)
@@ -2799,8 +2744,7 @@ void aee_rr_show_ptp_cpu_2_little_volt_3(struct seq_file *m)
 
 	for (i = 0; i < 8; i++)
 		seq_printf(m, "ptp_cpu_2_little_volt_3[%d] = %llx\n", i,
-			(LAST_RRR_VAL(ptp_cpu_2_little_volt_3) >>
-			(i * 8)) & 0xFF);
+			   (LAST_RRR_VAL(ptp_cpu_2_little_volt_3) >> (i * 8)) & 0xFF);
 }
 
 void aee_rr_show_ptp_cpu_little_volt(struct seq_file *m)
@@ -2809,7 +2753,7 @@ void aee_rr_show_ptp_cpu_little_volt(struct seq_file *m)
 
 	for (i = 0; i < 8; i++)
 		seq_printf(m, "ptp_cpu_little_volt[%d] = %llx\n", i,
-			(LAST_RRR_VAL(ptp_cpu_little_volt) >> (i * 8)) & 0xFF);
+			   (LAST_RRR_VAL(ptp_cpu_little_volt) >> (i * 8)) & 0xFF);
 }
 
 void aee_rr_show_ptp_cpu_little_volt_1(struct seq_file *m)
@@ -2818,8 +2762,7 @@ void aee_rr_show_ptp_cpu_little_volt_1(struct seq_file *m)
 
 	for (i = 0; i < 8; i++)
 		seq_printf(m, "ptp_cpu_little_volt_1[%d] = %llx\n", i,
-			(LAST_RRR_VAL(ptp_cpu_little_volt_1) >>
-			(i * 8)) & 0xFF);
+			   (LAST_RRR_VAL(ptp_cpu_little_volt_1) >> (i * 8)) & 0xFF);
 }
 
 void aee_rr_show_ptp_cpu_little_volt_2(struct seq_file *m)
@@ -2828,8 +2771,7 @@ void aee_rr_show_ptp_cpu_little_volt_2(struct seq_file *m)
 
 	for (i = 0; i < 8; i++)
 		seq_printf(m, "ptp_cpu_little_volt_2[%d] = %llx\n", i,
-			(LAST_RRR_VAL(ptp_cpu_little_volt_2) >>
-			(i * 8)) & 0xFF);
+			   (LAST_RRR_VAL(ptp_cpu_little_volt_2) >> (i * 8)) & 0xFF);
 }
 
 void aee_rr_show_ptp_cpu_little_volt_3(struct seq_file *m)
@@ -2838,8 +2780,7 @@ void aee_rr_show_ptp_cpu_little_volt_3(struct seq_file *m)
 
 	for (i = 0; i < 8; i++)
 		seq_printf(m, "ptp_cpu_little_volt_3[%d] = %llx\n", i,
-			(LAST_RRR_VAL(ptp_cpu_little_volt_3) >>
-			 (i * 8)) & 0xFF);
+			   (LAST_RRR_VAL(ptp_cpu_little_volt_3) >> (i * 8)) & 0xFF);
 }
 
 void aee_rr_show_ptp_cpu_cci_volt(struct seq_file *m)
@@ -2848,7 +2789,7 @@ void aee_rr_show_ptp_cpu_cci_volt(struct seq_file *m)
 
 	for (i = 0; i < 8; i++)
 		seq_printf(m, "ptp_cpu_cci_volt[%d] = %llx\n", i,
-			(LAST_RRR_VAL(ptp_cpu_cci_volt) >> (i * 8)) & 0xFF);
+			   (LAST_RRR_VAL(ptp_cpu_cci_volt) >> (i * 8)) & 0xFF);
 }
 
 void aee_rr_show_ptp_cpu_cci_volt_1(struct seq_file *m)
@@ -2857,7 +2798,7 @@ void aee_rr_show_ptp_cpu_cci_volt_1(struct seq_file *m)
 
 	for (i = 0; i < 8; i++)
 		seq_printf(m, "ptp_cpu_cci_volt_1[%d] = %llx\n", i,
-			(LAST_RRR_VAL(ptp_cpu_cci_volt_1) >> (i * 8)) & 0xFF);
+			   (LAST_RRR_VAL(ptp_cpu_cci_volt_1) >> (i * 8)) & 0xFF);
 }
 
 void aee_rr_show_ptp_cpu_cci_volt_2(struct seq_file *m)
@@ -2866,7 +2807,7 @@ void aee_rr_show_ptp_cpu_cci_volt_2(struct seq_file *m)
 
 	for (i = 0; i < 8; i++)
 		seq_printf(m, "ptp_cpu_cci_volt_2[%d] = %llx\n", i,
-			(LAST_RRR_VAL(ptp_cpu_cci_volt_2) >> (i * 8)) & 0xFF);
+			   (LAST_RRR_VAL(ptp_cpu_cci_volt_2) >> (i * 8)) & 0xFF);
 }
 
 void aee_rr_show_ptp_cpu_cci_volt_3(struct seq_file *m)
@@ -2875,7 +2816,7 @@ void aee_rr_show_ptp_cpu_cci_volt_3(struct seq_file *m)
 
 	for (i = 0; i < 8; i++)
 		seq_printf(m, "ptp_cpu_cci_volt_3[%d] = %llx\n", i,
-			(LAST_RRR_VAL(ptp_cpu_cci_volt_3) >> (i * 8)) & 0xFF);
+			   (LAST_RRR_VAL(ptp_cpu_cci_volt_3) >> (i * 8)) & 0xFF);
 }
 
 void aee_rr_show_ptp_gpu_volt(struct seq_file *m)
@@ -2917,10 +2858,8 @@ void aee_rr_show_ptp_gpu_volt_3(struct seq_file *m)
 void aee_rr_show_ptp_temp(struct seq_file *m)
 {
 	seq_printf(m, "ptp_temp: big = %llx\n", LAST_RRR_VAL(ptp_temp) & 0xFF);
-	seq_printf(m, "ptp_temp: GPU = %llx\n",
-			(LAST_RRR_VAL(ptp_temp) >> 8) & 0xFF);
-	seq_printf(m, "ptp_temp: little = %llx\n",
-			(LAST_RRR_VAL(ptp_temp) >> 16) & 0xFF);
+	seq_printf(m, "ptp_temp: GPU = %llx\n", (LAST_RRR_VAL(ptp_temp) >> 8) & 0xFF);
+	seq_printf(m, "ptp_temp: little = %llx\n", (LAST_RRR_VAL(ptp_temp) >> 16) & 0xFF);
 }
 
 void aee_rr_show_thermal_temp(struct seq_file *m)
@@ -2928,8 +2867,7 @@ void aee_rr_show_thermal_temp(struct seq_file *m)
 	int i;
 
 	for (i = 0; i < thermal_num; i++)
-		seq_printf(m, "thermal_temp%d = %d\n",
-				(i + 1), LAST_RRR_VAL(thermal_temp[i]));
+		seq_printf(m, "thermal_temp%d = %d\n", (i + 1), LAST_RRR_VAL(thermal_temp[i]));
 }
 
 void aee_rr_show_ptp_status(struct seq_file *m)
@@ -2942,37 +2880,18 @@ void aee_rr_show_eem_pi_offset(struct seq_file *m)
 	seq_printf(m, "eem_pi_offset : 0x%x\n", LAST_RRR_VAL(eem_pi_offset));
 }
 
-void aee_rr_show_etc_status(struct seq_file *m)
-{
-	seq_printf(m, "etc_status : 0x%x\n", LAST_RRR_VAL(etc_status));
-}
-
-void aee_rr_show_etc_mode(struct seq_file *m)
-{
-	seq_printf(m, "etc_mode : 0x%x\n", LAST_RRR_VAL(etc_mode));
-}
-
 void aee_rr_show_idvfs_ctrl_reg(struct seq_file *m)
 {
 	seq_printf(m, "idvfs_ctrl_reg = 0x%x\n", LAST_RRR_VAL(idvfs_ctrl_reg));
-	seq_printf(m, "idvfs_Endis = %s\n",
-			(LAST_RRR_VAL(idvfs_ctrl_reg) & 0x1) ?
-			"Enable" : "Disable");
-	seq_printf(m, "idvfs_SWP_Endis = %s\n",
-			(LAST_RRR_VAL(idvfs_ctrl_reg) & 0x2) ?
-			"Enable" : "Disable");
-	seq_printf(m, "idvfs_OCP_Endis = %s\n",
-			(LAST_RRR_VAL(idvfs_ctrl_reg) & 0x4) ?
-			"Enable" : "Disable");
-	seq_printf(m, "idvfs_OTP_Endis = %s\n",
-			(LAST_RRR_VAL(idvfs_ctrl_reg) & 0x8) ?
-			"Enable" : "Disable");
+	seq_printf(m, "idvfs_Endis = %s\n", (LAST_RRR_VAL(idvfs_ctrl_reg) & 0x1) ? "Enable" : "Disable");
+	seq_printf(m, "idvfs_SWP_Endis = %s\n", (LAST_RRR_VAL(idvfs_ctrl_reg) & 0x2) ? "Enable" : "Disable");
+	seq_printf(m, "idvfs_OCP_Endis = %s\n", (LAST_RRR_VAL(idvfs_ctrl_reg) & 0x4) ? "Enable" : "Disable");
+	seq_printf(m, "idvfs_OTP_Endis = %s\n", (LAST_RRR_VAL(idvfs_ctrl_reg) & 0x8) ? "Enable" : "Disable");
 }
 
 void aee_rr_show_idvfs_enable_cnt(struct seq_file *m)
 {
-	seq_printf(m, "idvfs_enable_cnt = %u\n",
-			LAST_RRR_VAL(idvfs_enable_cnt));
+	seq_printf(m, "idvfs_enable_cnt = %u\n", LAST_RRR_VAL(idvfs_enable_cnt));
 }
 
 void aee_rr_show_idvfs_swreq_cnt(struct seq_file *m)
@@ -2983,8 +2902,7 @@ void aee_rr_show_idvfs_swreq_cnt(struct seq_file *m)
 void aee_rr_show_idvfs_curr_volt(struct seq_file *m)
 {
 	seq_printf(m, "idvfs_curr_volt = %umv, 0x5e = 0x%x\n",
-		(((LAST_RRR_VAL(idvfs_curr_volt) & 0xff) * 10) + 300),
-		(LAST_RRR_VAL(idvfs_curr_volt) >> 8));
+		(((LAST_RRR_VAL(idvfs_curr_volt) & 0xff) * 10) + 300), (LAST_RRR_VAL(idvfs_curr_volt) >> 8));
 }
 
 void aee_rr_show_idvfs_sram_ldo(struct seq_file *m)
@@ -2995,22 +2913,19 @@ void aee_rr_show_idvfs_sram_ldo(struct seq_file *m)
 void aee_rr_show_idvfs_swavg_curr_pct_x100(struct seq_file *m)
 {
 	seq_printf(m, "idvfs_swavg_curr_pct_x100 = %u, %uMHz\n",
-		LAST_RRR_VAL(idvfs_swavg_curr_pct_x100),
-		(LAST_RRR_VAL(idvfs_swavg_curr_pct_x100) / 4));
+		LAST_RRR_VAL(idvfs_swavg_curr_pct_x100), (LAST_RRR_VAL(idvfs_swavg_curr_pct_x100) / 4));
 }
 
 void aee_rr_show_idvfs_swreq_curr_pct_x100(struct seq_file *m)
 {
 	seq_printf(m, "idvfs_swreq_curr_pct_x100 = %u, %uMHz\n",
-		LAST_RRR_VAL(idvfs_swreq_curr_pct_x100),
-		(LAST_RRR_VAL(idvfs_swreq_curr_pct_x100) / 4));
+		LAST_RRR_VAL(idvfs_swreq_curr_pct_x100), (LAST_RRR_VAL(idvfs_swreq_curr_pct_x100) / 4));
 }
 
 void aee_rr_show_idvfs_swreq_next_pct_x100(struct seq_file *m)
 {
 	seq_printf(m, "idvfs_swreq_next_pct_x100 = %u, %uMHz\n",
-		LAST_RRR_VAL(idvfs_swreq_next_pct_x100),
-		(LAST_RRR_VAL(idvfs_swreq_next_pct_x100) / 4));
+		LAST_RRR_VAL(idvfs_swreq_next_pct_x100), (LAST_RRR_VAL(idvfs_swreq_next_pct_x100) / 4));
 }
 
 void aee_rr_show_idvfs_state_manchine(struct seq_file *m)
@@ -3048,8 +2963,7 @@ void aee_rr_show_idvfs_state_manchine(struct seq_file *m)
 		seq_puts(m, "idvfs state = 6: SWREQ finish can into disable\n");
 		break;
 	default:
-		seq_printf(m, "idvfs state = %u, unknown state manchine\n",
-				LAST_RRR_VAL(idvfs_state_manchine));
+		seq_printf(m, "idvfs state = %u, unknown state manchine\n", LAST_RRR_VAL(idvfs_state_manchine));
 		break;
 	}
 }
@@ -3059,8 +2973,7 @@ void aee_rr_show_ocp_target_limit(struct seq_file *m)
 	int i = 0;
 
 	for (i = 0; i < 4; i++)
-		seq_printf(m, "ocp_target_limit[%d]: %d\n", i,
-				LAST_RRR_VAL(ocp_target_limit[i]));
+		seq_printf(m, "ocp_target_limit[%d]: %d\n", i, LAST_RRR_VAL(ocp_target_limit[i]));
 }
 
 void aee_rr_show_ocp_enable(struct seq_file *m)
@@ -3075,8 +2988,7 @@ void aee_rr_show_thermal_status(struct seq_file *m)
 
 void aee_rr_show_thermal_ATM_status(struct seq_file *m)
 {
-	seq_printf(m, "thermal_ATM_status: %d\n",
-			LAST_RRR_VAL(thermal_ATM_status));
+	seq_printf(m, "thermal_ATM_status: %d\n", LAST_RRR_VAL(thermal_ATM_status));
 }
 
 void aee_rr_show_thermal_ktime(struct seq_file *m)
@@ -3096,8 +3008,7 @@ void aee_rr_show_scp_lr(struct seq_file *m)
 
 void aee_rr_show_last_init_func(struct seq_file *m)
 {
-	seq_printf(m, "last init function: 0x%lx\n",
-			LAST_RRR_VAL(last_init_func));
+	seq_printf(m, "last init function: 0x%lx\n", LAST_RRR_VAL(last_init_func));
 }
 
 void aee_rr_show_last_sync_func(struct seq_file *m)
@@ -3114,14 +3025,12 @@ void aee_rr_show_last_async_func(struct seq_file *m)
 
 void aee_rr_show_pmic_ext_buck(struct seq_file *m)
 {
-	seq_printf(m, "pmic & external buck: 0x%x\n",
-			LAST_RRR_VAL(pmic_ext_buck));
+	seq_printf(m, "pmic & external buck: 0x%x\n", LAST_RRR_VAL(pmic_ext_buck));
 }
 
 void aee_rr_show_hang_detect_timeout_count(struct seq_file *m)
 {
-	seq_printf(m, "hang detect time out: 0x%x\n",
-			LAST_RRR_VAL(hang_detect_timeout_count));
+	seq_printf(m, "hang detect time out: 0x%x\n", LAST_RRR_VAL(hang_detect_timeout_count));
 }
 
 void aee_rr_show_gz_irq(struct seq_file *m)
@@ -3131,12 +3040,14 @@ void aee_rr_show_gz_irq(struct seq_file *m)
 
 void aee_rr_show_drcc_dbg_info(struct seq_file *m)
 {
-	seq_printf(m, "DRCC dbg info result: 0x%x\n",
-			LAST_RRR_VAL(drcc_dbg_ret));
-	seq_printf(m, "DRCC dbg info offset: 0x%x\n",
-			LAST_RRR_VAL(drcc_dbg_off));
-	seq_printf(m, "DRCC dbg info timestamp: 0x%llx\n",
-			LAST_RRR_VAL(drcc_dbg_ts));
+	seq_printf(m, "DRCC dbg info result: 0x%x\n", LAST_RRR_VAL(drcc_dbg_ret));
+	seq_printf(m, "DRCC dbg info offset: 0x%x\n", LAST_RRR_VAL(drcc_dbg_off));
+	seq_printf(m, "DRCC dbg info timestamp: 0x%llx\n", LAST_RRR_VAL(drcc_dbg_ts));
+}
+
+void aee_rr_show_isr_el1(struct seq_file *m)
+{
+	seq_printf(m, "isr_el1: %d\n", LAST_RRR_VAL(isr_el1));
 }
 
 __weak uint32_t get_vcore_dvfs_sram_debug_regs(uint32_t index)
@@ -3194,8 +3105,7 @@ void aee_rr_show_spm_firmware_version(struct seq_file *m)
 	if (ptr != NULL)
 		for (i = 0; i < *ptr; i++)
 			seq_printf(m, "SPM firmware version(index %d) = %s\n",
-				i + 1,
-				(char *)get_spm_firmware_version(i + 1));
+					i + 1, (char *)get_spm_firmware_version(i + 1));
 }
 
 int __weak mt_reg_dump(char *buf)
@@ -3323,12 +3233,11 @@ last_rr_show_t aee_rr_show[] = {
 	aee_rr_show_ptp_temp,
 	aee_rr_show_ptp_status,
 	aee_rr_show_eem_pi_offset,
-	aee_rr_show_etc_status,
-	aee_rr_show_etc_mode,
 	aee_rr_show_thermal_temp,
 	aee_rr_show_thermal_status,
 	aee_rr_show_thermal_ATM_status,
 	aee_rr_show_thermal_ktime,
+	aee_rr_show_isr_el1,
 	aee_rr_show_idvfs_ctrl_reg,
 	aee_rr_show_idvfs_enable_cnt,
 	aee_rr_show_idvfs_swreq_cnt,
@@ -3384,8 +3293,7 @@ int aee_rr_reboot_reason_show(struct seq_file *m, void *v)
 
 	if (ram_console_check_header(ram_console_old)) {
 		seq_puts(m, "NO VALID DATA.\n");
-		seq_printf(m, "%s, old status is %u.\n", ram_console_clear ?
-				"Clear" : "Not Clear", old_wdt_status);
+		seq_printf(m, "%s, old status is %u.\n", ram_console_clear ? "Clear" : "Not Clear", old_wdt_status);
 		seq_puts(m, "Only try to dump last_XXX.\n");
 		for (i = 0; i < array_size(aee_rr_last_xxx); i++)
 			aee_rr_last_xxx[i] (m);

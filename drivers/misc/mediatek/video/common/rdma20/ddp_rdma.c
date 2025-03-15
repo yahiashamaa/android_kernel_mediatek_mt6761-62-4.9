@@ -56,15 +56,14 @@ unsigned int rdma_index(enum DISP_MODULE_ENUM module)
 		idx = 2;
 		break;
 	default:
-		DDPERR("invalid rdma module=%d\n", module);
+		DDPERR("invalid rdma module=%d\n", module);	/* invalid module */
 		ASSERT(0);
 	}
 	ASSERT((idx >= 0) && (idx < RDMA_INSTANCES));
 	return idx;
 }
 
-void rdma_set_target_line(enum DISP_MODULE_ENUM module,
-					unsigned int line, void *handle)
+void rdma_set_target_line(enum DISP_MODULE_ENUM module, unsigned int line, void *handle)
 {
 	unsigned long base_addr = rdma_base_addr(module);
 

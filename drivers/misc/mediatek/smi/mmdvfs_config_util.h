@@ -16,18 +16,18 @@
 #define __MMDVFS_CONFIG_UTIL_H__
 
 #include <linux/module.h>
-#include <linux/clk.h>
-#include <mt-plat/mtk_smi.h>
+#include "mtk_smi.h"
 #include "mmdvfs_mgr.h"
 
-#define MMDVFS_CLK_BY_MUX	(0)
-#define MMDVFS_CLK_PLL_RATE	(1)
-#define MMDVFS_CLK_NONE		(2)
+
+#define MMDVFS_CLK_CONFIG_BY_MUX    (0)
+#define MMDVFS_CLK_CONFIG_PLL_RATE	(1)
+#define MMDVFS_CLK_CONFIG_NONE      (2)
 
 /* System OPP number limitation (Max opp support)*/
-#define MMDVFS_OPP_NUM_LIMITATION		(6)
-#define MMDVFS_CLK_OPP_NUM_LIMITATION		(6)
-#define MMDVFS_VCORE_OPP_NUM_LIMITATION		(6)
+#define MMDVFS_OPP_NUM_LIMITATION		(6)    /* Max total MMDVFS opps of the profile support */
+#define MMDVFS_CLK_OPP_NUM_LIMITATION		(6) /* Max total CLK opps of the profile support */
+#define MMDVFS_VCORE_OPP_NUM_LIMITATION		(6) /* Max total CLK opps of the profile support */
 
 /* MMDVFS OPPs (External interface, Vcore and MMCLK combined)*/
 #define MMDVFS_FINE_STEP_UNREQUEST (-1)
@@ -66,6 +66,21 @@
 #define MMDVFS_CLK_MUX_TOP_VPU_SEL  (9)
 #define MMDVFS_CLK_MUX_NUM (10)
 
+/* VPU steps */
+#define MMDVFS_VPU_OPP0 0
+#define MMDVFS_VPU_OPP1 1
+#define MMDVFS_VPU_OPP2 2
+#define MMDVFS_VPU_OPP3 3
+#define MMDVFS_VPU_OPP_NUM_LIMITATION 4
+
+/* VPU internal clk steps*/
+#define MMDVFS_VPU_INTERNAL_OPP0  0
+#define MMDVFS_VPU_INTERNAL_OPP1  1
+#define MMDVFS_VPU_INTERNAL_OPP2  2
+#define MMDVFS_VPU_INTERNAL_OPP3  3
+#define MMDVFS_VPU_INTERNAL_OPP_NUM 4
+#define MMDVFS_VPU_INTERNAL_OPP_NUM_LIMITATION 4
+
 /* Configuration Header */
 struct mmdvfs_cam_property {
 	int sensor_size;
@@ -101,7 +116,7 @@ struct mmdvfs_clk_desc {
 };
 
 struct mmdvfs_clk_source_desc {
-	struct clk *ccf_handle;
+	void *ccf_handle;
 	char *ccf_name;
 	u32 clk_rate_mhz;
 };
@@ -125,7 +140,7 @@ struct mmdvfs_hw_configurtion {
 };
 
 /* For a single mmdvfs step's profiles and associated hardware configuration */
-struct mmdvfs_step_profile {
+struct mmdvfs_step_to_profile_mapping {
 	int mmdvfs_step;
 	struct mmdvfs_profile *profiles;
 	int total_profiles;
@@ -152,27 +167,24 @@ struct mmdvfs_adaptor {
 	int vcore_kicker;
 	int enable_vcore;
 	int enable_clk_mux;
-	int enable_pll;
+	int enable_pll_hopping;
 	struct mmdvfs_clk_source_desc *mmdvfs_clk_sources;
 	int mmdvfs_clk_sources_num;
 	struct mmdvfs_clk_hw_map *mmdvfs_clk_hw_maps;
 	int mmdvfs_clk_hw_maps_num;
-	struct mmdvfs_step_profile *step_profile_mappings;
+	struct mmdvfs_step_to_profile_mapping *step_profile_mappings;
 	int step_num;
-	int disable_control_mask;
-	void (*profile_dump)(struct mmdvfs_adaptor *self);
-	void (*single_hw_config_dump)(struct mmdvfs_adaptor *self,
-		struct mmdvfs_hw_configurtion *hw_configuration);
-	void (*hw_config_dump)(struct mmdvfs_adaptor *self);
+	int disable_auto_control_mask;
+	void (*profile_dump_func)(struct mmdvfs_adaptor *self);
+	void (*single_hw_configuration_dump_func)(struct mmdvfs_adaptor *self,
+	struct mmdvfs_hw_configurtion *hw_configuration);
+	void (*hw_configuration_dump_func)(struct mmdvfs_adaptor *self);
 	int (*determine_mmdvfs_step)(struct mmdvfs_adaptor *self,
-		int smi_scenario, struct mmdvfs_cam_property *cam_setting,
+	int smi_scenario, struct mmdvfs_cam_property *cam_setting,
 	struct mmdvfs_video_property *codec_setting);
-	int (*apply_hw_config)(struct mmdvfs_adaptor *self,
-		int mmdvfs_step, int current_step);
-	int (*apply_vcore_hw_config)(struct mmdvfs_adaptor *self,
-		int mmdvfs_step);
-	int (*apply_clk_hw_config)(struct mmdvfs_adaptor *self,
-		int mmdvfs_step);
+	int (*apply_hw_configurtion_by_step)(struct mmdvfs_adaptor *self, int mmdvfs_step, int current_step);
+	int (*apply_vcore_hw_configurtion_by_step)(struct mmdvfs_adaptor *self, int mmdvfs_step);
+	int (*apply_clk_hw_configurtion_by_step)(struct mmdvfs_adaptor *self, int mmdvfs_step, bool to_high);
 	int (*get_cam_sys_clk)(struct mmdvfs_adaptor *self, int mmdvfs_step);
 	/* static members */
 	void (*single_profile_dump_func)(struct mmdvfs_profile *profile);
@@ -182,14 +194,24 @@ struct mmdvfs_adaptor {
 
 struct mmdvfs_step_util {
 	/* Record each scenaio's opp */
-	int mmdvfs_scenario[MMDVFS_SCEN_COUNT];
+	int mmdvfs_scenario_mmdvfs_opp[MMDVFS_SCEN_COUNT];
 	int total_scenario;
 	/* Record the currency status of each opps*/
-	int mmdvfs_concurrency[MMDVFS_OPP_NUM_LIMITATION];
+	int mmdvfs_concurrency_of_opps[MMDVFS_OPP_NUM_LIMITATION];
 	int total_opps;
+	int *mmclk_oop_to_legacy_step;
+	int mmclk_oop_to_legacy_step_num;
+	int *legacy_step_to_oop;
+	int legacy_step_to_oop_num;
 	int wfd_vp_mix_step;
 	void (*init)(struct mmdvfs_step_util *self);
+	int (*get_legacy_mmclk_step_from_mmclk_opp)(
+	struct mmdvfs_step_util *self, int mmclk_step);
+	int (*get_opp_from_legacy_step)(struct mmdvfs_step_util *self,
+	int legacy_step);
 	int (*set_step)(struct mmdvfs_step_util *self, s32 step, u32 scenario);
+	int (*get_clients_clk_opp)(struct mmdvfs_step_util *self, struct mmdvfs_adaptor *adaptor,
+	int clients_mask, int clk_id);
 };
 
 struct mmdvfs_vpu_dvfs_configurator {
@@ -199,14 +221,14 @@ struct mmdvfs_vpu_dvfs_configurator {
 	int nr_vpu_vimvo_steps;
 	struct mmdvfs_vpu_steps_setting *mmdvfs_vpu_steps_settings;
 
-	const struct mmdvfs_vpu_steps_setting*(*get_vpu_setting)(
-		struct mmdvfs_vpu_dvfs_configurator *self, int vpu_opp);
+	const struct mmdvfs_vpu_steps_setting*
+		(*get_vpu_setting)(struct mmdvfs_vpu_dvfs_configurator *self, int vpu_opp);
 };
 
 #define MMDVFS_PM_QOS_SUB_SYS_NUM 1
 #define MMDVFS_PM_QOS_SUB_SYS_CAMERA 0
 
-struct mmdvfs_thres_setting {
+struct mmdvfs_threshold_setting {
 		int class_id;
 		int *thresholds;
 		int *opps;
@@ -214,11 +236,10 @@ struct mmdvfs_thres_setting {
 		int mmdvfs_client_id;
 };
 
-struct mmdvfs_thres_handler {
-		struct mmdvfs_thres_setting *threshold_settings;
+struct mmdvfs_thresholds_dvfs_handler {
+		struct mmdvfs_threshold_setting *threshold_settings;
 		int mmdvfs_threshold_setting_num;
-		int (*get_step)(struct mmdvfs_thres_handler *self,
-			u32 class_id, u32 value);
+		int (*get_step)(struct mmdvfs_thresholds_dvfs_handler *self, u32 class_id, u32 value);
 };
 
 
@@ -228,13 +249,12 @@ extern struct mmdvfs_adaptor *g_mmdvfs_non_force_adaptor;
 extern struct mmdvfs_step_util *g_mmdvfs_step_util;
 extern struct mmdvfs_step_util *g_mmdvfs_non_force_step_util;
 
-extern struct mmdvfs_thres_handler *g_mmdvfs_threshandler;
+extern struct mmdvfs_thresholds_dvfs_handler *g_mmdvfs_thresholds_dvfs_handler;
 extern u32 camera_bw_config;
 
 void mmdvfs_config_util_init(void);
 
-/* #ifdef MMDVFS_QOS_SUPPORT */
-#if 1
+#ifdef CONFIG_MTK_QOS_SUPPORT
 void mmdvfs_qos_update(struct mmdvfs_step_util *step_util, int new_step);
 int set_qos_scenario(const char *val, const struct kernel_param *kp);
 int get_qos_scenario(char *buf, const struct kernel_param *kp);

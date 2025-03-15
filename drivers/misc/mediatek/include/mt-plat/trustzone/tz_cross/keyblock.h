@@ -52,7 +52,7 @@ enum DRMKeyID {
  * [out] blockLeng  encrypt DRMBlockLength
 
  * return 0: OK,  others: FAIL
- */
+*/
 int get_encrypt_drmkey(unsigned int keyID,
 	unsigned char **oneDrmkeyBlock,
 	unsigned int *blockLeng);
@@ -61,8 +61,7 @@ int get_clearDrmkey_size(unsigned int keyID, unsigned int *leng);
 
 int free_encrypt_drmkey(unsigned char *oneEncDrmkeyBlock);
 
-int write_kbo_drmkey(enum DRMKeyID id, unsigned char *enckey,
-	unsigned int length);
+int write_kbo_drmkey(enum DRMKeyID id, unsigned char *enckey, unsigned int length);
 
 int delete_kbo_drmkey(enum DRMKeyID id);
 
@@ -73,8 +72,8 @@ int query_drmkey(unsigned int *count, unsigned int *keytype);
 /* end of uree using */
 
 /* begin for tee using */
-int encrypt_drmkey(enum DRMKeyID id, unsigned char *clearKey,
-	unsigned int inLength, unsigned char **encKey, unsigned int *outLength);
+int encrypt_drmkey(enum DRMKeyID id, unsigned char *clearKey, unsigned int inLength,
+	unsigned char **encKey, unsigned int *outLength);
 
 int decrypt_drmkey(unsigned char *encDrmKeyBlock, unsigned int inLength,
 	unsigned char **DrmKey, unsigned int *outLength);

@@ -14,7 +14,7 @@
 #ifndef __CMDQ_SEC_H__
 #define __CMDQ_SEC_H__
 
-#include "cmdq_helper_ext.h"
+#include "cmdq_core.h"
 
 #if defined(CMDQ_SECURE_PATH_SUPPORT)
 #include "tee_client_api.h"
@@ -69,9 +69,11 @@ struct cmdqSecContextStruct {
 #endif
 };
 
+extern const u32 isp_iwc_buf_size[];
+
 int32_t cmdq_sec_init_allocate_resource_thread(void *data);
 
-s32 cmdq_sec_task_copy_to_buffer(struct cmdqRecStruct *task,
+s32 cmdq_sec_task_copy_to_buffer(struct TaskStruct *task,
 	struct cmdqCommandStruct *desc);
 
 const struct cmdq_controller *cmdq_sec_get_controller(void);
@@ -80,13 +82,10 @@ const struct cmdq_controller *cmdq_sec_get_controller(void);
  * Create and destroy non-cachable shared memory,
  * used to share data for CMDQ driver between NWd and SWd
  *
- * Be careful that we should not disvlose any information about secure buffer
- * address of
+ * Be careful that we should not disvlose any information about secure buffer address of
  */
-int32_t cmdq_sec_create_shared_memory(
-	struct cmdqSecSharedMemoryStruct **pHandle, const uint32_t size);
-int32_t cmdq_sec_destroy_shared_memory(
-	struct cmdqSecSharedMemoryStruct *handle);
+int32_t cmdq_sec_create_shared_memory(struct cmdqSecSharedMemoryStruct **pHandle, const uint32_t size);
+int32_t cmdq_sec_destroy_shared_memory(struct cmdqSecSharedMemoryStruct *handle);
 
 /*
  * Callback to fill message buffer for secure task
@@ -108,21 +107,14 @@ typedef int32_t(*CmdqSecFillIwcCB) (int32_t, void *, int32_t, void *);
  * .cancel error task
  */
 
-int32_t cmdq_sec_exec_task_async_unlocked(
-	struct cmdqRecStruct *pTask, int32_t thread);
-int32_t cmdq_sec_cancel_error_task_unlocked(
-	struct cmdqRecStruct *pTask, int32_t thread,
-	struct cmdqSecCancelTaskResultStruct *pResult);
+int32_t cmdq_sec_exec_task_async_unlocked(struct TaskStruct *pTask, int32_t thread);
+int32_t cmdq_sec_cancel_error_task_unlocked(struct TaskStruct *pTask, int32_t thread,
+					    struct cmdqSecCancelTaskResultStruct *pResult);
 int32_t cmdq_sec_allocate_path_resource_unlocked(bool throwAEE);
 s32 cmdq_sec_get_secure_thread_exec_counter(const s32 thread);
-s32 cmdq_sec_revise_jump(struct cmdqRecStruct *handle);
-s32 cmdq_sec_handle_error_result(struct cmdqRecStruct *task, s32 thread,
-	const s32 waitQ, bool throw_aee);
-
 
 /* function declaretion */
 struct cmdqSecContextStruct *cmdq_sec_context_handle_create(uint32_t tgid);
-s32 cmdq_sec_insert_backup_cookie_instr(struct cmdqRecStruct *task, s32 thread);
 
 /*
  * secure path control

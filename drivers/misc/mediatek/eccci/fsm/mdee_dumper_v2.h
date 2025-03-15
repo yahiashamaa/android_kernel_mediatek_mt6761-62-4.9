@@ -265,8 +265,7 @@ typedef struct _ex_exp_PL_log_t {
 /* exception overview struct */
 #define MD_CORE_TOTAL_NUM   (8)
 #define MD_CORE_NAME_LEN    (11)
-/* +5 for 16, +16 for str TDD FDD */
-#define MD_CORE_NAME_DEBUG  (MD_CORE_NAME_LEN + 5 + 16)
+#define MD_CORE_NAME_DEBUG  (MD_CORE_NAME_LEN + 5 + 16) /* +5 for 16, +16 for str TDD FDD */
 #define ECT_SRC_NONE    (0x0)
 #define ECT_SRC_PS      (0x1 << 0)
 #define ECT_SRC_L1      (0x1 << 1)
@@ -311,8 +310,7 @@ typedef struct dump_debug_info {
 	char core_name[MD_CORE_NAME_DEBUG];
 	union {
 		struct {
-			/* use pCore: file path, contain file name */
-			char file_name[256];
+			char file_name[256]; /* use pCore: file path, contain file name */
 			int line_num;
 			unsigned int parameters[3];
 		} assert;
@@ -347,8 +345,7 @@ struct mdee_dumper_v2 {
 	unsigned int more_info;
 	DEBUG_INFO_T debug_info[MD_CORE_NUM];
 	unsigned char ex_core_num;
-	/* request by modem, change to 2k: include EX_PL_LOG_T*/
-	unsigned char ex_pl_info[MD_HS1_FAIL_DUMP_SIZE];
+	unsigned char ex_pl_info[MD_HS1_FAIL_DUMP_SIZE]; /* request by modem, change to 2k: include EX_PL_LOG_T*/
 };
 
 extern int Is_MD_EMI_voilation(void);

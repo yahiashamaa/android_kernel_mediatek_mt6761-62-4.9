@@ -1,14 +1,15 @@
 /*
  * Copyright (C) 2011-2015 MediaTek Inc.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License version 2 as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program.
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <linux/module.h>       /* needed by all modules */
@@ -37,6 +38,7 @@
 #include <linux/io.h>
 #include <linux/atomic.h>
 #include <mt-plat/sync_write.h>
+#include <mt-plat/aee.h>
 #include "sspm_define.h"
 #include "sspm_helper.h"
 #include "sspm_ipi.h"
@@ -145,8 +147,7 @@ int release_sspm_semaphore(int flag)
 		else
 			pr_debug("[SSPM] release semaphore %d failed!\n", flag);
 	} else {
-		pr_debug("[SSPM] try to release semaphore %d not own by me\n",
-			flag);
+		pr_debug("[SSPM] try to release semaphore %d not own by me\n", flag);
 	}
 
 	return ret;
@@ -174,6 +175,16 @@ unsigned int is_sspm_ready(void)
 		return 0;
 }
 EXPORT_SYMBOL_GPL(is_sspm_ready);
+
+static inline ssize_t sspm_status_show(struct device *kobj, struct device_attribute *attr, char *buf)
+{
+	if (sspm_ready)
+		return sprintf(buf, "SSPM is ready");
+	else
+		return sprintf(buf, "SSPM is not ready");
+}
+
+DEVICE_ATTR(sspm_status, S_IRUSR | S_IRGRP | S_IROTH, sspm_status_show, NULL);
 
 static int sspm_device_probe(struct platform_device *pdev)
 {
@@ -252,6 +263,11 @@ static int __init sspm_init(void)
 
 	if (!sspm_workqueue) {
 		pr_err("[SSPM] Workqueue Create Failed\n");
+		goto error;
+	}
+
+	if (sspm_excep_init()) {
+		pr_err("[SSPM] Excep Init Failed\n");
 		goto error;
 	}
 

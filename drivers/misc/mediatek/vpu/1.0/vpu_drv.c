@@ -32,16 +32,14 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 
-#ifdef CONFIG_MTK_M4U
 #include <m4u.h>
-#else
-#include "mach/mt_iommu.h"
-#endif
 #include "vpu_drv.h"
 #include "vpu_cmn.h"
 
 
-/****************************************************************************/
+/*******************************************************************************
+*
+********************************************************************************/
 
 #define VPU_DEV_NAME            "vpu"
 
@@ -134,8 +132,7 @@ static int vpu_release(struct inode *inode, struct file *flip);
 
 static int vpu_mmap(struct file *flip, struct vm_area_struct *vma);
 
-static long vpu_compat_ioctl(struct file *flip, unsigned int cmd,
-			     unsigned long arg);
+static long vpu_compat_ioctl(struct file *flip, unsigned int cmd, unsigned long arg);
 
 static long vpu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg);
 
@@ -152,21 +149,12 @@ static const struct file_operations vpu_fops = {
 /*---------------------------------------------------------------------------*/
 /* M4U: fault callback                                                       */
 /*---------------------------------------------------------------------------*/
-#ifdef CONFIG_MTK_M4U
-m4u_callback_ret_t vpu_m4u_fault_callback(int port, unsigned int mva,
-					  void *data)
+m4u_callback_ret_t vpu_m4u_fault_callback(int port, unsigned int mva, void *data)
 {
 	LOG_DBG("[m4u] fault callback: port=%d, mva=0x%x", port, mva);
 	return M4U_CALLBACK_HANDLED;
 }
-#else
-enum mtk_iommu_callback_ret_t vpu_m4u_fault_callback(int port, unsigned int mva,
-					  void *data)
-{
-	LOG_DBG("[m4u] fault callback: port=%d, mva=0x%x", port, mva);
-	return MTK_IOMMU_CALLBACK_HANDLED;
-}
-#endif
+
 /*---------------------------------------------------------------------------*/
 /*                                                                           */
 /*---------------------------------------------------------------------------*/
@@ -318,8 +306,7 @@ int vpu_pop_request_from_queue(struct vpu_user *user, struct vpu_request **rreq)
 
 	/* ret == -ERESTARTSYS, if signal interrupt */
 	if (ret < 0) {
-		LOG_ERR("interrupt by signal, while pop a request, ret=%d\n",
-			ret);
+		LOG_ERR("interrupt by signal, while pop a request, ret=%d\n", ret);
 		*rreq = NULL;
 		return -EINTR;
 	}
@@ -391,8 +378,8 @@ int vpu_dump_user(struct seq_file *s)
 
 #define LINE_BAR "  +------+------+------+-------+-------+-------+-------+\n"
 	vpu_print_seq(s, LINE_BAR);
-	vpu_print_seq(s, "  |%-6s|%-6s|%-6s|%-7s|%-7s|%-7s|%-7s|\n", "Id",
-		      "Pid", "Tid", "Enque", "Running", "Deque", "Locked");
+	vpu_print_seq(s, "  |%-6s|%-6s|%-6s|%-7s|%-7s|%-7s|%-7s|\n",
+			"Id", "Pid", "Tid", "Enque", "Running", "Deque", "Locked");
 	vpu_print_seq(s, LINE_BAR);
 
 	mutex_lock(&vpu_device->user_mutex);
@@ -453,8 +440,7 @@ static int vpu_open(struct inode *inode, struct file *flip)
 	return ret;
 }
 
-static long vpu_compat_ioctl(struct file *flip, unsigned int cmd,
-			     unsigned long arg)
+static long vpu_compat_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 {
 	switch (cmd) {
 	case VPU_IOCTL_SET_POWER:
@@ -486,10 +472,8 @@ static long vpu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 	{
 		struct vpu_power power;
 
-		ret = copy_from_user(&power, (void *)arg,
-				     sizeof(struct vpu_power));
-		CHECK_RET("[SET_POWER] copy 'struct power' failed, ret=%d\n",
-			       ret);
+		ret = copy_from_user(&power, (void *) arg, sizeof(struct vpu_power));
+		CHECK_RET("[SET_POWER] copy 'struct power' failed, ret=%d\n", ret);
 
 		ret = vpu_set_power(user, &power);
 		CHECK_RET("[SET_POWER] set power failed, ret=%d\n", ret);
@@ -515,16 +499,12 @@ static long vpu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 		if (ret)
 			LOG_ERR("[ENQUE] get params failed, ret=%d\n", ret);
 		else if (req->buffer_count > VPU_MAX_NUM_PORTS)
-			LOG_ERR("[ENQUE] wrong buffer count, count=%d\n",
-				req->buffer_count);
+			LOG_ERR("[ENQUE] wrong buffer count, count=%d\n", req->buffer_count);
 		else if (copy_from_user(req->buffers, u_req->buffers,
-					req->buffer_count *
-						sizeof(struct vpu_buffer)))
-			LOG_ERR("[ENQUE] copy 'struct buffer' failed, ret=%d\n",
-				ret);
+				req->buffer_count * sizeof(struct vpu_buffer)))
+			LOG_ERR("[ENQUE] copy 'struct buffer' failed, ret=%d\n", ret);
 		else if (vpu_push_request_to_queue(user, req))
-			LOG_ERR("[ENQUE] push to user's queue failed, ret=%d\n",
-				ret);
+			LOG_ERR("[ENQUE] push to user's queue failed, ret=%d\n", ret);
 		else
 			break;
 
@@ -567,9 +547,8 @@ static long vpu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 		uint64_t u_info_ptr;
 		uint32_t u_info_length;
 
-		u_algo = (struct vpu_algo *)arg;
-		ret = copy_from_user(name, u_algo->name,
-				     sizeof(char[VPU_NAME_SIZE]));
+		u_algo = (struct vpu_algo *) arg;
+		ret = copy_from_user(name, u_algo->name, sizeof(char[VPU_NAME_SIZE]));
 		CHECK_RET("[GET_ALGO] copy 'name' failed, ret=%d\n", ret);
 		name[VPU_NAME_SIZE - 1] = '\0';
 
@@ -591,36 +570,31 @@ static long vpu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 		/* 2-3. write setting desc */
 		ret = put_user(algo->sett_desc_count, &u_algo->sett_desc_count);
 		ret |= copy_to_user(u_algo->sett_descs, algo->sett_descs,
-				    algo->sett_desc_count *
-					    sizeof(struct vpu_prop_desc));
-		CHECK_RET("[GET_ALGO] update setting desc failed, ret=%d\n",
-			  ret);
+				algo->sett_desc_count * sizeof(struct vpu_prop_desc));
+		CHECK_RET("[GET_ALGO] update setting desc failed, ret=%d\n", ret);
 
 		/* 2-4. write info desc */
 		ret = put_user(algo->info_desc_count, &u_algo->info_desc_count);
 		ret |= copy_to_user(u_algo->info_descs, algo->info_descs,
-				    algo->info_desc_count *
-					    sizeof(struct vpu_prop_desc));
+				algo->info_desc_count * sizeof(struct vpu_prop_desc));
 		CHECK_RET("[GET_ALGO] update info desc failed, ret=%d\n", ret);
 
 		/* 2-5. write info data */
 		ret = get_user(u_info_ptr, &u_algo->info_ptr);
 		ret |= get_user(u_info_length, &u_algo->info_length);
-		CHECK_RET("[GET_ALGO] get info ptr/length failed, ret=%d\n",
-			  ret);
+		CHECK_RET("[GET_ALGO] get info ptr/length failed, ret=%d\n", ret);
 		ret = (u_info_length < algo->info_length) ? -EINVAL : 0;
 		CHECK_RET("[GET_ALGO] the size of info data is not enough!");
-		ret = copy_to_user((void *)(u_info_ptr), (void *)algo->info_ptr,
-				   algo->info_length);
+		ret = copy_to_user((void *) (u_info_ptr), (void *) algo->info_ptr, algo->info_length);
 		CHECK_RET("[GET_ALGO] update info data failed, ret=%d\n", ret);
 
 		break;
 	}
-	case VPU_IOCTL_REG_WRITE: {
+	case VPU_IOCTL_REG_WRITE:
+	{
 		struct vpu_reg_values regs;
 
-		ret = copy_from_user(&regs, (void *)arg,
-				     sizeof(struct vpu_reg_values));
+		ret = copy_from_user(&regs, (void *) arg, sizeof(struct vpu_reg_values));
 		CHECK_RET("[REG] copy 'struct reg' failed,%d\n", ret);
 
 		ret = vpu_write_register(&regs);
@@ -666,9 +640,10 @@ static long vpu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 
 out:
 	if (ret) {
-		LOG_ERR("fail, cmd_pid(%d_%d),(process_pid_tgid)=(%s_%d_%d)\n",
-			    cmd, user->open_pid, current->comm, current->pid,
-			    current->tgid);
+		LOG_ERR("fail, cmd(%d), pid(%d), (process, pid, tgid)=(%s, %d, %d)\n",
+				cmd, user->open_pid,
+				current->comm,
+				current->pid, current->tgid);
 	}
 
 	return ret;
@@ -684,9 +659,9 @@ static int vpu_release(struct inode *inode, struct file *flip)
 }
 
 
-/*******************************************************************
- *******************************************************************
- */
+/*******************************************************************************
+*
+********************************************************************************/
 static int vpu_mmap(struct file *flip, struct vm_area_struct *vma)
 {
 	unsigned long length = 0;
@@ -696,10 +671,8 @@ static int vpu_mmap(struct file *flip, struct vm_area_struct *vma)
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 	pfn = vma->vm_pgoff << PAGE_SHIFT;
 
-	LOG_INF("vpu_mmap: vm_pgoff(0x%lx),pfn(0x%x),phy(0x%lx)",
-			vma->vm_pgoff, pfn, vma->vm_pgoff << PAGE_SHIFT);
-	LOG_INF("vpu_mmap: vm_start(0x%lx), vm_end(0x%lx), length(0x%lx)\n",
-			vma->vm_start, vma->vm_end, length);
+	LOG_INF("vpu_mmap: vm_pgoff(0x%lx),pfn(0x%x),phy(0x%lx),vm_start(0x%lx),vm_end(0x%lx),length(0x%lx)\n",
+			vma->vm_pgoff, pfn, vma->vm_pgoff << PAGE_SHIFT, vma->vm_start, vma->vm_end, length);
 
 	switch (pfn) {
 
@@ -710,9 +683,9 @@ static int vpu_mmap(struct file *flip, struct vm_area_struct *vma)
 }
 
 
-/********************************************************************
- ********************************************************************
- */
+/*******************************************************************************
+*
+********************************************************************************/
 static dev_t vpu_devt;
 static struct cdev *vpu_chardev;
 static struct class *vpu_class;
@@ -764,9 +737,9 @@ out:
 	return ret;
 }
 
-/*****************************************************************/
-/* platform_driver */
-/*****************************************************************/
+/*******************************************************************************
+* platform_driver
+********************************************************************************/
 
 static int vpu_probe(struct platform_device *pdev)
 {
@@ -792,12 +765,11 @@ static int vpu_probe(struct platform_device *pdev)
 
 		if (of_property_read_u32(node, "bin-phy-addr", &phy_addr) ||
 			of_property_read_u32(node, "bin-size", &phy_size)) {
-			LOG_ERR("fail to get PhyAddress of vpu binary!\n");
+			LOG_ERR("fail to get physical address of vpu binary!\n");
 			return -ENODEV;
 		}
 
-		LOG_INF("probe 1, phy_addr: 0x%x, phy_size: 0x%x\n",
-				phy_addr, phy_size);
+		LOG_INF("probe 1, phy_addr: 0x%x, phy_size: 0x%x\n", phy_addr, phy_size);
 		vpu_device->bin_base = (uint64_t)ioremap_wc(phy_addr, phy_size);
 		vpu_device->bin_pa = phy_addr;
 		vpu_device->bin_size = phy_size;
@@ -805,7 +777,7 @@ static int vpu_probe(struct platform_device *pdev)
 #endif
 
 	vpu_device->irq_num = irq_of_parse_and_map(node, 0);
-	LOG_INF("probe2, vpu_base_0x%lx, bin_base_0x%lx, irq_num,pdev: %d_%p\n",
+	LOG_INF("probe 2, vpu_base: 0x%lx, bin_base: 0x%lx, irq_num: %d, pdev: %p\n",
 		 vpu_device->vpu_base,  vpu_device->bin_base,
 		 vpu_device->irq_num, vpu_device->dev);
 
@@ -831,13 +803,10 @@ static int vpu_probe(struct platform_device *pdev)
 			goto out;
 		}
 
-		dev = device_create(vpu_class, NULL, vpu_devt, NULL,
-				    VPU_DEV_NAME);
+		dev = device_create(vpu_class, NULL, vpu_devt, NULL, VPU_DEV_NAME);
 		if (IS_ERR(dev)) {
 			ret = PTR_ERR(dev);
-			dev_err(vpu_device->dev,
-				"Failed to create device: /dev/%s, err = %d",
-				VPU_DEV_NAME, ret);
+			dev_err(vpu_device->dev, "Failed to create device: /dev/%s, err = %d", VPU_DEV_NAME, ret);
 			goto out;
 		}
 
@@ -885,8 +854,8 @@ static int vpu_resume(struct platform_device *pdev)
 }
 
 /*******************************************************************************
- *
- */
+*
+********************************************************************************/
 static int __init VPU_INIT(void)
 {
 	int ret = 0;
@@ -899,14 +868,8 @@ static int __init VPU_INIT(void)
 
 	/* Register M4U callback */
 	LOG_DBG("register m4u callback");
-#ifdef CONFIG_MTK_M4U
-	m4u_register_fault_callback(VPU_PORT_OF_IOMMU, vpu_m4u_fault_callback,
-				    NULL);
-#else
-	mtk_iommu_register_fault_callback(VPU_PORT_OF_IOMMU,
-					  vpu_m4u_fault_callback,
-					  NULL);
-#endif
+	m4u_register_fault_callback(VPU_PORT_OF_IOMMU, vpu_m4u_fault_callback, NULL);
+
 	LOG_DBG("platform_driver_register start\n");
 	if (platform_driver_register(&vpu_driver)) {
 		LOG_ERR("failed to register VPU driver");
@@ -925,17 +888,13 @@ static void __exit VPU_EXIT(void)
 	kfree(vpu_device);
 	/* Un-Register M4U callback */
 	LOG_DBG("un-register m4u callback");
-#ifdef CONFIG_MTK_M4U
 	m4u_unregister_fault_callback(VPU_PORT_OF_IOMMU);
-#else
-	mtk_iommu_unregister_fault_callback(VPU_PORT_OF_IOMMU);
-#endif
 }
 
 
 /*******************************************************************************
- *
- */
+*
+********************************************************************************/
 module_init(VPU_INIT);
 module_exit(VPU_EXIT);
 MODULE_DESCRIPTION("MTK VPU Driver");

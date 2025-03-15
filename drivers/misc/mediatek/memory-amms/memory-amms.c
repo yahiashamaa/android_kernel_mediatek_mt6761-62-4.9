@@ -39,6 +39,13 @@
 #include <linux/slab.h>
 #include <mt-plat/mtk_secure_api.h>
 
+#include <linux/kernel.h>
+#ifndef CONFIG_ARM64
+#include <asm/opcodes-sec.h>
+#include <asm/opcodes-virt.h>
+#endif
+#include <mt-plat/mtk_secure_api.h>
+
 struct work_struct *amms_work;
 bool amms_static_free;
 static const struct of_device_id amms_of_ids[] = {
@@ -51,7 +58,7 @@ static irqreturn_t amms_irq_handler(int irq, void *dev_id)
 	if (amms_work)
 		schedule_work(amms_work);
 	else
-		pr_notice("%s:amms_work is null\n", __func__);
+		pr_alert("%s:amms_work is null\n", __func__);
 	return IRQ_HANDLED;
 }
 
@@ -63,22 +70,18 @@ static void amms_work_handler(struct work_struct *work)
 
 	/*below part is for staic memory free */
 	if (!amms_static_free) {
-		addr = mt_secure_call(MTK_SIP_KERNEL_AMMS_GET_FREE_ADDR,
-			0, 0, 0, 0);
-		length = mt_secure_call(MTK_SIP_KERNEL_AMMS_GET_FREE_LENGTH,
-			0, 0, 0, 0);
-		if (pfn_valid(__phys_to_pfn(addr)) &&
-			pfn_valid(__phys_to_pfn(addr + length - 1))) {
-			pr_info("%s:addr = 0x%pa length=0x%pa\n",
-				__func__, &addr, &length);
+		addr = mt_secure_call(MTK_SIP_KERNEL_AMMS_GET_FREE_ADDR, 0, 0, 0);
+		length = mt_secure_call(MTK_SIP_KERNEL_AMMS_GET_FREE_LENGTH, 0, 0, 0);
+		if (pfn_valid(__phys_to_pfn(addr)) && pfn_valid(__phys_to_pfn(addr + length - 1))) {
+			pr_info("%s:addr = 0x%pa length=0x%pa\n", __func__, &addr, &length);
 			free_reserved_memory(addr, addr+length);
 			amms_static_free = true;
 		} else {
-			pr_notice("AMMS: error addr and length is not set properly\n");
-			pr_notice("can not free_reserved_memory\n");
+			pr_alert("AMMS: error addr and length is not set properly\n");
+			pr_alert("can not free_reserved_memory\n");
 		}
 	} else {
-		pr_notice("amms: static memory already free, should not happened\n");
+		pr_alert("amms: static memory already free, should not happened\n");
 	}
 }
 
@@ -93,19 +96,19 @@ static int __init amms_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	pr_info("amms irq num %d.\n", irq_num);
+	pr_debug("amms irq num %d.\n", irq_num);
 
-	if (request_irq(irq_num, (irq_handler_t)amms_irq_handler,
-			   IRQF_TRIGGER_NONE,
-			"amms_irq", NULL) != 0) {
+	if (request_irq(irq_num, (irq_handler_t)amms_irq_handler, IRQF_TRIGGER_NONE, "amms_irq", NULL) != 0) {
 		pr_crit("Fail to request amms_irq interrupt!\n");
 		return -EBUSY;
 	}
 
 	amms_work = kmalloc(sizeof(struct work_struct), GFP_KERNEL);
 
-	if (!amms_work)
+	if (!amms_work) {
+		pr_alert("%s: failed to allocate work queue\n", __func__);
 		return -ENOMEM;
+	}
 
 	INIT_WORK(amms_work, amms_work_handler);
 
@@ -153,4 +156,4 @@ module_init(amms_init);
 module_exit(amms_exit);
 
 MODULE_DESCRIPTION("MEDIATEK Module AMMS Driver");
-MODULE_AUTHOR("<Johnson.Lin@mediatek.com>");
+MODULE_AUTHOR("<chun.fan@mediatek.com>");

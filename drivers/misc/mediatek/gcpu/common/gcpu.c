@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2015 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -60,14 +60,9 @@ static int gcpu_probe(struct platform_device *pdev)
 	/* register for GCPU */
 	gcpu_irq = platform_get_irq(pdev, 0);
 	pr_debug("[GCPU] irq_no: (%d)\n", gcpu_irq);
-	ret = request_irq(gcpu_irq,
-			(irq_handler_t)gcpu_irq_handler,
-			IRQF_TRIGGER_LOW,
-			"gcpu",
-			NULL);
-
+	ret = request_irq(gcpu_irq, (irq_handler_t)gcpu_irq_handler, IRQF_TRIGGER_LOW, "gcpu", NULL);
 	if (ret != 0)
-		pr_info("[GCPU] request irq %d fail %d\n", gcpu_irq, ret);
+		pr_err("[GCPU] Failed to request irq! (%d) irq no: (%d)\n", ret, gcpu_irq);
 	else
 		pr_debug("[GCPU] request irq (%d) succeed!!\n", gcpu_irq);
 
@@ -104,7 +99,7 @@ static int __init gcpu_init(void)
 
 	ret = platform_driver_register(&mtk_gcpu_driver);
 	if (ret)
-		pr_info("[GCPU] init FAIL, ret 0x%x!!!\n", ret);
+		pr_err("[GCPU] init FAIL, ret 0x%x!!!\n", ret);
 
 	return ret;
 }

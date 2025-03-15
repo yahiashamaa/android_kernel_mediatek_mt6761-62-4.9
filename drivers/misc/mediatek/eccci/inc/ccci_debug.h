@@ -1,15 +1,15 @@
 /*
- * Copyright (C) 2016 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
- */
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 
 #ifndef __CCCI_DEBUG_H__
 #define __CCCI_DEBUG_H__
@@ -37,10 +37,10 @@ enum {
 extern unsigned int ccci_debug_enable; /* Exported by CCCI core */
 extern int ccci_log_write(const char *fmt, ...); /* Exported by CCCI Util */
 
-/*****************************************************************************
- ** CCCI dump log define start ****************
- ****************************************************************************/
-/*--------------------------------------------------------------------------*/
+/******************************************************************************************
+** CCCI dump log define start ****************
+******************************************************************************************/
+/*---------------------------------------------------------------------------------------*/
 /* This is used for log to mobile log or uart log */
 #define CCCI_LEGACY_DBG_LOG(idx, tag, fmt, args...) \
 do { \
@@ -52,18 +52,15 @@ do { \
 
 #define CCCI_LEGACY_ALWAYS_LOG(idx, tag, fmt, args...) \
 do { \
-	if (ccci_debug_enable == CCCI_LOG_ALL_MOBILE \
-		|| ccci_debug_enable == CCCI_LOG_CRITICAL_MOBILE) \
+	if (ccci_debug_enable == CCCI_LOG_ALL_MOBILE || ccci_debug_enable == CCCI_LOG_CRITICAL_MOBILE) \
 		pr_debug("[ccci%d/" tag "]" fmt, (idx+1), ##args); \
-	else if (ccci_debug_enable == CCCI_LOG_ALL_UART \
-			|| ccci_debug_enable == CCCI_LOG_CRITICAL_UART) \
+	else if (ccci_debug_enable == CCCI_LOG_ALL_UART || ccci_debug_enable == CCCI_LOG_CRITICAL_UART) \
 		pr_info("[ccci%d/" tag "]" fmt, (idx+1), ##args); \
 } while (0)
 
-#define CCCI_LEGACY_ERR_LOG(idx, tag, fmt, args...) \
-	pr_notice("[ccci%d/" tag "]" fmt, (idx+1), ##args)
+#define CCCI_LEGACY_ERR_LOG(idx, tag, fmt, args...) pr_notice("[ccci%d/" tag "]" fmt, (idx+1), ##args)
 
-/*--------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------------------*/
 /* This log is used for driver init and part of first boot up log */
 #define CCCI_INIT_LOG(idx, tag, fmt, args...) \
 do { \
@@ -108,8 +105,7 @@ do { \
 	CCCI_LEGACY_ERR_LOG(idx, tag, fmt, ##args); \
 } while (0)
 
-#define CCCI_DEBUG_LOG(idx, tag, fmt, args...) \
-	CCCI_LEGACY_DBG_LOG(idx, tag, fmt, ##args)
+#define CCCI_DEBUG_LOG(idx, tag, fmt, args...) CCCI_LEGACY_DBG_LOG(idx, tag, fmt, ##args)
 
 /* This log is used for periodic log */
 #define CCCI_REPEAT_LOG(idx, tag, fmt, args...) \
@@ -139,25 +135,11 @@ do { \
 	ccci_dump_write(idx, CCCI_DUMP_HISTORY, 0, fmt, ##args); \
 	CCCI_LEGACY_DBG_LOG(idx, tag, fmt, ##args); \
 } while (0)
-#define CCCI_HISTORY_TAG_LOG(idx, tag, fmt, args...) \
-do { \
-	ccci_dump_write(idx, CCCI_DUMP_HISTORY, \
-		CCCI_DUMP_TIME_FLAG, fmt, ##args); \
-	CCCI_LEGACY_DBG_LOG(idx, tag, fmt, ##args); \
-} while (0)
-#define CCCI_BUF_LOG_TAG(idx, buf_type, tag, fmt, args...) \
-do { \
-	ccci_dump_write(idx, buf_type, \
-		CCCI_DUMP_TIME_FLAG|CCCI_DUMP_CURR_FLAG,\
-		"[%d]" fmt, (idx+1), ##args); \
-	CCCI_LEGACY_DBG_LOG(idx, tag, fmt, ##args); \
-} while (0)
+/******************************************************************************************
+** CCCI dump log define end ****************
+******************************************************************************************/
 
-/****************************************************************************
- ** CCCI dump log define end ****************
- ****************************************************************************/
-
-/* #define CLDMA_TRACE */
+/*#define CLDMA_TRACE*/
 /* #define PORT_NET_TRACE */
 #define CCCI_SKB_TRACE
 /* #define CCCI_BM_TRACE */

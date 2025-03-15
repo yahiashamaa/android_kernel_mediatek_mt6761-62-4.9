@@ -580,14 +580,10 @@ static void execute_aee(unsigned int i, unsigned int dbg0, unsigned int dbg1)
 			"CRDISPATCH_KEY:Device APC Violation Issue/",
 			subsys_str
 	);
-
-	/* unmask irq for module "i" */
-	unmask_infra_module_irq(i);
-
 }
 
-#endif
-#endif // AEE_FEATURE
+#endif /* DBG_ENABLE */
+#endif /* CONFIG_MTK_AEE_FEATURE && DEVAPC_ENABLE_AEE */
 
 static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 {

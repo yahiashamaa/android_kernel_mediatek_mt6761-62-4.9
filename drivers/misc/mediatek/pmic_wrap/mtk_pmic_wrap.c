@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2015 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -28,21 +28,12 @@
 #include <linux/module.h>
 /*#include <mach/mt_typedefs.h>*/
 #include <linux/timer.h>
-#include <mach/mtk_pmic_wrap.h>
+#include <mtk_pmic_wrap.h>
 #include <linux/syscore_ops.h>
-#include <linux/regmap.h>
-#include <linux/soc/mediatek/pmic_wrap.h>
-#include <linux/of_address.h>
-#include <linux/of_fdt.h>
-#include <linux/of.h>
-#include <linux/of_irq.h>
-#include <linux/of_address.h>
-#include <linux/spinlock.h>
 
 #define PMIC_WRAP_DEVICE "pmic_wrap"
 #define VERSION     "Revision"
 
-#if !defined CONFIG_MTK_PMIC_WRAP
 static struct mt_pmic_wrap_driver mt_wrp = {
 	.driver = {
 		   .name = "pmic_wrap",
@@ -64,15 +55,15 @@ int check_pmic_wrap_init(void)
 		return 0;
 }
 
-/* ************************************************************************* */
-/* --external API for pmic_wrap user---------------------------------------- */
-/* ************************************************************************* */
+/* ****************************************************************************** */
+/* --external API for pmic_wrap user------------------------------------------------- */
+/* ****************************************************************************** */
 s32 pwrap_wacs2(u32 write, u32 adr, u32 wdata, u32 *rdata)
 {
 	if (mt_wrp.wacs2_hal != NULL)
 		return mt_wrp.wacs2_hal(write, adr, wdata, rdata);
 
-	pr_notice("[WRAP]driver need registered!!");
+	pr_err("[WRAP]driver need registered!!");
 	return -5;
 
 }
@@ -85,11 +76,9 @@ EXPORT_SYMBOL(pwrap_read);
 
 s32 pwrap_write(u32 adr, u32 wdata)
 {
-/*
- *#if defined PWRAP_TRACE
- *tracepwrap(adr, wdata);
- *#endif
- */
+#if defined PWRAP_TRACE
+	tracepwrap(adr, wdata);
+#endif
 	return pwrap_wacs2(PWRAP_WRITE, adr, wdata, 0);
 }
 EXPORT_SYMBOL(pwrap_write);
@@ -124,16 +113,15 @@ static ssize_t mt_pwrap_show(struct device_driver *driver, char *buf)
 	if (mt_wrp.show_hal != NULL)
 		return mt_wrp.show_hal(buf);
 
-	return snprintf(buf, PAGE_SIZE, "%s\n", "[WRAP]need register!! ");
+	return snprintf(buf, PAGE_SIZE, "%s\n", "[WRAP]driver need registered!! ");
 }
 
-static ssize_t mt_pwrap_store(struct device_driver *driver,
-		const char *buf, size_t count)
+static ssize_t mt_pwrap_store(struct device_driver *driver, const char *buf, size_t count)
 {
 	if (mt_wrp.store_hal != NULL)
 		return mt_wrp.store_hal(buf, count);
 
-	pr_notice("[WRAP]driver need registered!!");
+	pr_err("[WRAP]driver need registered!!");
 	return count;
 }
 
@@ -167,10 +155,10 @@ static int __init mt_pwrap_init(void)
 
 	ret = driver_register(&mt_wrp.driver);
 	if (ret)
-		pr_notice("[WRAP]Fail to register mt_wrp");
+		pr_err("[WRAP]Fail to register mt_wrp");
 	ret = driver_create_file(&mt_wrp.driver, &driver_attr_pwrap);
 	if (ret)
-		pr_notice("[WRAP]Fail to create mt_wrp sysfs files");
+		pr_err("[WRAP]Fail to create mt_wrp sysfs files");
 	/* PWRAPLOG("pwrap_init_ops\n"); */
 	register_syscore_ops(&pwrap_syscore_ops);
 	return ret;
@@ -205,62 +193,6 @@ postcore_initcall(mt_pwrap_init);
 /* return 0; */
 /* } */
 /* device_initcall(pwrap_init_ops); */
-#else
-
-static struct regmap *pmic_regmap;
-static spinlock_t   wrp_lock = __SPIN_LOCK_UNLOCKED(lock);
-
-s32 pwrap_read(u32 adr, u32 *rdata)
-{
-	int ret = 0;
-	unsigned long flags = 0;
-
-	if (pmic_regmap) {
-		spin_lock_irqsave(&wrp_lock, flags);
-		ret = regmap_read(pmic_regmap, adr, rdata);
-		spin_unlock_irqrestore(&wrp_lock, flags);
-	} else
-		pr_notice("%s %d Error.\n", __func__, __LINE__);
-	return ret;
-}
-EXPORT_SYMBOL(pwrap_read);
-
-s32 pwrap_write(u32 adr, u32 wdata)
-{
-	int ret = 0;
-	unsigned long flags = 0;
-
-	if (pmic_regmap) {
-		spin_lock_irqsave(&wrp_lock, flags);
-		ret = regmap_write(pmic_regmap, adr, wdata);
-		spin_unlock_irqrestore(&wrp_lock, flags);
-	} else
-		pr_notice("%s %d Error.\n", __func__, __LINE__);
-	return ret;
-}
-EXPORT_SYMBOL(pwrap_write);
-
-static int __init mt_pwrap_init(void)
-{
-	struct device_node *node, *pwrap_node;
-
-	pr_info("%s\n", __func__);
-	node = of_find_compatible_node(NULL, NULL, "mediatek,pwraph");
-	pwrap_node = of_parse_phandle(node, "mediatek,pwrap-regmap", 0);
-	if (pwrap_node) {
-		pmic_regmap = pwrap_node_to_regmap(pwrap_node);
-		if (IS_ERR(pmic_regmap)) {
-			pr_notice("%s %d Error.\n", __func__, __LINE__);
-			return PTR_ERR(pmic_regmap);
-		}
-	} else {
-		pr_notice("%s %d Error.\n", __func__, __LINE__);
-		return -EINVAL;
-	}
-	return 0;
-}
-subsys_initcall(mt_pwrap_init);
-#endif
 
 MODULE_AUTHOR("mediatek");
 MODULE_DESCRIPTION("pmic_wrapper Driver  Revision");

@@ -1,14 +1,15 @@
 /*
  * Copyright (C) 2011-2015 MediaTek Inc.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License version 2 as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program.
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <linux/types.h>
@@ -58,8 +59,7 @@ static DEFINE_MUTEX(sspm_timesync_mutex);
 static unsigned int sspm_sync_cnt;
 #endif
 
-static void sspm_timesync_timestamp(unsigned long long src, unsigned int *ts_h,
-	unsigned int *ts_l)
+static void sspm_timesync_timestamp(unsigned long long src, unsigned int *ts_h, unsigned int *ts_l)
 {
 	*ts_l = (unsigned int)(src & 0x00000000FFFFFFFF);
 	*ts_h = (unsigned int)((src & 0xFFFFFFFF00000000) >> 32);
@@ -104,7 +104,7 @@ static void __tinysys_time_sync(int mode)
 		sspm_timesync_clk_get(&ts_ctl->clk_h, &ts_ctl->clk_l);
 
 		ret = sspm_ipi_send_sync(IPI_ID_PLATFORM, IPI_OPT_POLLING,
-		    &ipi_data, sizeof(ipi_data) / MBOX_SLOT_SIZE, &ackdata, 1);
+				&ipi_data, sizeof(ipi_data) / MBOX_SLOT_SIZE, &ackdata, 1);
 		if (ret != 0)
 			pr_err("SSPM: logger IPI fail ret=%d\n", ret);
 
@@ -120,8 +120,7 @@ static void tinysys_time_sync(void)
 static void timesync_ws(struct work_struct *ws)
 {
 #if defined(TINYSYS_TIME_TESTING) && defined(DEBUG)
-	pr_debug("resync time about %d sec (%d)\n", TIMESYNC_TIMEOUT,
-		sspm_sync_cnt++);
+	pr_debug("resync time about %d sec (%d)\n", TIMESYNC_TIMEOUT, sspm_sync_cnt++);
 #endif
 	tinysys_time_sync();
 }
@@ -140,8 +139,7 @@ static void tinysys_time_verify(void)
 	__tinysys_time_sync(1);
 }
 
-static ssize_t sspm_time_sync_store(struct device *kobj,
-	struct device_attribute *attr, const char *buf, size_t n)
+static ssize_t sspm_time_sync_store(struct device *kobj, struct device_attribute *attr, const char *buf, size_t n)
 {
 	unsigned int sync;
 
@@ -162,7 +160,7 @@ static ssize_t sspm_time_sync_store(struct device *kobj,
 
 	return n;
 }
-DEVICE_ATTR(sspm_time_sync, 0220, NULL, sspm_time_sync_store);
+DEVICE_ATTR(sspm_time_sync, S_IWUSR | S_IWGRP, NULL, sspm_time_sync_store);
 #endif
 
 unsigned int __init sspm_timesync_init(phys_addr_t start, phys_addr_t limit)
@@ -181,8 +179,7 @@ unsigned int __init sspm_timesync_init(phys_addr_t start, phys_addr_t limit)
 	last_ofs += ts_ctl->size;
 
 	if (last_ofs >= limit) {
-		pr_err("SSPM:%s() initial fail, last_ofs=%u, limit=%u\n",
-			__func__, last_ofs, (unsigned int) limit);
+		pr_err("SSPM:%s() initial fail, last_ofs=%u, limit=%u\n", __func__, last_ofs, (unsigned int) limit);
 		goto error;
 	}
 

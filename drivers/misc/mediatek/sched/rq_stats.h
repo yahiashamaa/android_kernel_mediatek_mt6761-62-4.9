@@ -1,14 +1,14 @@
-/*
- * Copyright (C) 2017 MediaTek Inc.
+/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
  */
 
 #define CPU_LOAD_AVG_DEFAULT_MS 20
@@ -36,13 +36,12 @@ extern struct workqueue_struct *rq_wq;
 
 /* For heavy task detection */
 extern int sched_get_nr_heavy_running_avg(int cid, int *avg);
-extern void sched_update_nr_heavy_prod(int invoker,
-	struct task_struct *p, int cpu, int heavy_nr_inc, bool ack_cap);
+extern void sched_update_nr_heavy_prod(int invoker, struct task_struct *p,
+			int cpu, int heavy_nr_inc, bool ack_cap);
 extern int reset_heavy_task_stats(int cpu);
 extern int is_ack_curcap(int cpu);
 extern int is_heavy_task(struct task_struct *p);
-/* need to invoke if any threshold of htasks changed */
-extern void heavy_thresh_chg_notify(void);
+extern void heavy_thresh_chg_notify(void); /* need to invoke if any threshold of htasks changed */
 /* For over-utilized task tracking */
 extern void overutil_thresh_chg_notify(void);
 extern int get_overutil_stats(char *buf, int buf_size);

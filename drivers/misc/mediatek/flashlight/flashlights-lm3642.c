@@ -52,15 +52,14 @@
 #define LM3642_REG_CURRENT_CONTROL (0x09)
 
 #define LM3642_REG_ENABLE (0x0A)
-#define LM3642_ENABLE_STANDBY (0x00)
-#define LM3642_ENABLE_TORCH (0x02)
-#define LM3642_ENABLE_FLASH (0x03)
-
 #define LM3642_REG_FLAG (0x0B)
+#define LM3642_ENABLE_STANDBY (0x20)
+#define LM3642_ENABLE_TORCH (0x22)
+#define LM3642_ENABLE_FLASH (0x23)
 
 /* define level */
 #define LM3642_LEVEL_NUM 18
-#define LM3642_LEVEL_TORCH 4
+#define LM3642_LEVEL_TORCH 6
 #define LM3642_HW_TIMEOUT 800 /* ms */
 
 /* define mutex and work queue */
@@ -82,6 +81,8 @@ struct lm3642_platform_data {
 	struct flashlight_device_id *dev_id;
 };
 
+static struct lm3642_platform_data *lm3642_pdata;
+
 /* lm3642 chip data */
 struct lm3642_chip_data {
 	struct i2c_client *client;
@@ -99,7 +100,7 @@ static const int lm3642_current[LM3642_LEVEL_NUM] = {
 };
 
 static const unsigned char lm3642_flash_level[LM3642_LEVEL_NUM] = {
-	0x00, 0x10, 0x20, 0x30, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+	0x00, 0x10, 0x20, 0x30, 0x52, 0x73, 0x04, 0x05, 0x06, 0x07,
 	0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F
 };
 
@@ -201,9 +202,26 @@ static int lm3642_set_level(int level)
 	return lm3642_write_reg(lm3642_i2c_client, reg, val);
 }
 
-static int lm3642_get_flag(void)
+extern int lm3642_read_flag(void)
 {
 	return lm3642_read_reg(lm3642_i2c_client, LM3642_REG_FLAG);
+}
+
+extern int lm3642_strobe_trigger(int en)
+{
+	unsigned char val;
+
+	pr_info("lm3642_strobe_trigger: en:%d REG_EN:%02x\n",
+		en, lm3642_read_reg(lm3642_i2c_client, LM3642_REG_ENABLE));
+	if (en == 1)
+		val = LM3642_ENABLE_FLASH;
+	else
+		val = LM3642_ENABLE_STANDBY;
+	pr_info("status: %d\n", lm3642_read_flag());
+	lm3642_write_reg(lm3642_i2c_client, LM3642_REG_ENABLE, val);
+	pr_info("read level: %02x\n", lm3642_read_reg(lm3642_i2c_client, LM3642_REG_CURRENT_CONTROL));
+	pr_info("read enable: %02x\n", lm3642_read_reg(lm3642_i2c_client, LM3642_REG_ENABLE));
+	return 0;
 }
 
 /* flashlight init */
@@ -212,13 +230,16 @@ int lm3642_init(void)
 	int ret;
 
 	/* get silicon revision */
-	is_lm3642lt = lm3642_read_reg(
-			lm3642_i2c_client, LM3642_REG_SILICON_REVISION);
+	is_lm3642lt = lm3642_read_reg(lm3642_i2c_client, LM3642_REG_SILICON_REVISION);
 	pr_info("LM3642(LT) revision(%d).\n", is_lm3642lt);
+	if (is_lm3642lt == -121) {
+		pr_info("lm3642 is not availible %p\n", lm3642_pdata);
+		flashlight_dev_unregister_by_device_id(lm3642_pdata->dev_id);
+		return -1;
+	}
 
 	/* disable */
-	ret = lm3642_write_reg(lm3642_i2c_client, LM3642_REG_ENABLE,
-			LM3642_ENABLE_STANDBY);
+	ret = lm3642_write_reg(lm3642_i2c_client, LM3642_REG_ENABLE, LM3642_ENABLE_STANDBY);
 
 	/* set flash ramp time and timeout */
 	ret = lm3642_write_reg(lm3642_i2c_client, LM3642_REG_FLASH_FEATURE,
@@ -226,6 +247,7 @@ int lm3642_init(void)
 			LM3642_FLASH_RAMP_TIME |
 			LM3642_FLASH_TIMEOUT);
 
+	lm3642_set_level(5);
 	return ret;
 }
 
@@ -264,8 +286,6 @@ static int lm3642_ioctl(unsigned int cmd, unsigned long arg)
 	struct flashlight_dev_arg *fl_arg;
 	int channel;
 	ktime_t ktime;
-	unsigned int s;
-	unsigned int ns;
 
 	fl_arg = (struct flashlight_dev_arg *)arg;
 	channel = fl_arg->channel;
@@ -288,13 +308,13 @@ static int lm3642_ioctl(unsigned int cmd, unsigned long arg)
 				channel, (int)fl_arg->arg);
 		if (fl_arg->arg == 1) {
 			if (lm3642_timeout_ms) {
-				s = lm3642_timeout_ms / 1000;
-				ns = lm3642_timeout_ms % 1000 * 1000000;
-				ktime = ktime_set(s, ns);
-				hrtimer_start(&lm3642_timer, ktime,
-						HRTIMER_MODE_REL);
+				ktime = ktime_set(lm3642_timeout_ms / 1000,
+						(lm3642_timeout_ms % 1000) * 1000000);
+				hrtimer_start(&lm3642_timer, ktime, HRTIMER_MODE_REL);
 			}
 			lm3642_enable();
+		} else if (fl_arg->arg == 2) {
+			lm3642_strobe_trigger(1);
 		} else {
 			lm3642_disable();
 			hrtimer_cancel(&lm3642_timer);
@@ -321,11 +341,6 @@ static int lm3642_ioctl(unsigned int cmd, unsigned long arg)
 	case FLASH_IOC_GET_HW_TIMEOUT:
 		pr_debug("FLASH_IOC_GET_HW_TIMEOUT(%d)\n", channel);
 		fl_arg->arg = LM3642_HW_TIMEOUT;
-		break;
-
-	case FLASH_IOC_GET_HW_FAULT:
-		pr_debug("FLASH_IOC_GET_HW_FAULT(%d)\n", channel);
-		fl_arg->arg = lm3642_get_flag();
 		break;
 
 	default:
@@ -358,7 +373,8 @@ static int lm3642_set_driver(int set)
 	if (set) {
 		if (!use_count)
 			ret = lm3642_init();
-		use_count++;
+		if (ret != -1)
+			use_count++;
 		pr_debug("Set driver: %d\n", use_count);
 	} else {
 		use_count--;
@@ -400,7 +416,7 @@ static struct flashlight_operations lm3642_ops = {
  *****************************************************************************/
 static int lm3642_chip_init(struct lm3642_chip_data *chip)
 {
-	/* NOTE: Chip initialication move to "set driver" for power saving.
+	/* NOTE: Chip initialication move to "set driver" operation for power saving issue.
 	 * lm3642_init();
 	 */
 
@@ -430,8 +446,7 @@ static int lm3642_parse_dt(struct device *dev,
 		pr_info("Parse no dt, decouple.\n");
 
 	pdata->dev_id = devm_kzalloc(dev,
-			pdata->channel_num *
-			sizeof(struct flashlight_device_id),
+			pdata->channel_num * sizeof(struct flashlight_device_id),
 			GFP_KERNEL);
 	if (!pdata->dev_id)
 		return -ENOMEM;
@@ -443,16 +458,14 @@ static int lm3642_parse_dt(struct device *dev,
 			goto err_node_put;
 		if (of_property_read_u32(cnp, "part", &pdata->dev_id[i].part))
 			goto err_node_put;
-		snprintf(pdata->dev_id[i].name, FLASHLIGHT_NAME_SIZE,
-				LM3642_NAME);
+		snprintf(pdata->dev_id[i].name, FLASHLIGHT_NAME_SIZE, LM3642_NAME);
 		pdata->dev_id[i].channel = i;
 		pdata->dev_id[i].decouple = decouple;
 
 		pr_info("Parse dt (type,ct,part,name,channel,decouple)=(%d,%d,%d,%s,%d,%d).\n",
 				pdata->dev_id[i].type, pdata->dev_id[i].ct,
 				pdata->dev_id[i].part, pdata->dev_id[i].name,
-				pdata->dev_id[i].channel,
-				pdata->dev_id[i].decouple);
+				pdata->dev_id[i].channel, pdata->dev_id[i].decouple);
 		i++;
 	}
 
@@ -463,8 +476,7 @@ err_node_put:
 	return -EINVAL;
 }
 
-static int lm3642_i2c_probe(
-		struct i2c_client *client, const struct i2c_device_id *id)
+static int lm3642_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct lm3642_chip_data *chip;
 	int err;
@@ -575,6 +587,8 @@ static int lm3642_probe(struct platform_device *pdev)
 			goto err_free;
 	}
 
+	lm3642_pdata = pdata;
+
 	/* init work queue */
 	INIT_WORK(&lm3642_work, lm3642_work_disable);
 
@@ -589,9 +603,7 @@ static int lm3642_probe(struct platform_device *pdev)
 	/* register flashlight device */
 	if (pdata->channel_num) {
 		for (i = 0; i < pdata->channel_num; i++)
-			if (flashlight_dev_register_by_device_id(
-						&pdata->dev_id[i],
-						&lm3642_ops)) {
+			if (flashlight_dev_register_by_device_id(&pdata->dev_id[i], &lm3642_ops)) {
 				err = -EFAULT;
 				goto err_free;
 			}
@@ -626,8 +638,7 @@ static int lm3642_remove(struct platform_device *pdev)
 	/* unregister flashlight device */
 	if (pdata && pdata->channel_num)
 		for (i = 0; i < pdata->channel_num; i++)
-			flashlight_dev_unregister_by_device_id(
-					&pdata->dev_id[i]);
+			flashlight_dev_unregister_by_device_id(&pdata->dev_id[i]);
 	else
 		flashlight_dev_unregister(LM3642_NAME);
 

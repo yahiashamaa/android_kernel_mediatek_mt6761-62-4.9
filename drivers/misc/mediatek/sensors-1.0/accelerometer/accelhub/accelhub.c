@@ -1,34 +1,29 @@
 /* accelhub motion sensor driver
  *
- * Copyright (C) 2016 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
  */
-
-#define pr_fmt(fmt) "[Gsensor] " fmt
-
-#include "accelhub.h"
-#include "SCP_power_monitor.h"
-#include <SCP_sensorHub.h>
-#include <accel.h>
 #include <hwmsensor.h>
+#include "accelhub.h"
+#include <accel.h>
+#include <SCP_sensorHub.h>
+#include "SCP_power_monitor.h"
 
 #define DEBUG 1
 #define SW_CALIBRATION
-#define ACCELHUB_AXIS_X 0
-#define ACCELHUB_AXIS_Y 1
-#define ACCELHUB_AXIS_Z 2
-#define ACCELHUB_AXES_NUM 3
-#define ACCELHUB_DATA_LEN 6
-#define ACCELHUB_DEV_NAME                                                      \
-	"accel_hub_pl" /* name must different with accel accelhub */
+#define ACCELHUB_AXIS_X          0
+#define ACCELHUB_AXIS_Y          1
+#define ACCELHUB_AXIS_Z          2
+#define ACCELHUB_AXES_NUM        3
+#define ACCELHUB_DATA_LEN        6
+#define ACCELHUB_DEV_NAME        "accel_hub_pl"	/* name must different with accel accelhub */
 /* dadadadada */
 typedef enum {
 	ACCELHUB_TRC_FILTER = 0x01,
@@ -41,7 +36,6 @@ struct accelhub_ipi_data {
 	/*misc */
 	atomic_t trace;
 	atomic_t suspend;
-	atomic_t selftest_status;
 	int32_t static_cali[ACCELHUB_AXES_NUM];
 	uint8_t static_cali_status;
 	int32_t dynamic_cali[ACCELHUB_AXES_NUM];
@@ -52,7 +46,6 @@ struct accelhub_ipi_data {
 	bool factory_enable;
 	bool android_enable;
 	struct completion calibration_done;
-	struct completion selftest_done;
 };
 
 static struct acc_init_info accelhub_init_info;
@@ -62,6 +55,11 @@ static struct accelhub_ipi_data *obj_ipi_data;
 static int gsensor_init_flag = -1;
 static DEFINE_SPINLOCK(calibration_lock);
 
+#define GSE_TAG                  "[Gsensor] "
+#define GSE_FUN(f)               pr_debug(GSE_TAG"%s\n", __func__)
+#define GSE_PR_ERR(fmt, args...)    pr_err(GSE_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
+#define GSE_LOG(fmt, args...)    pr_debug(GSE_TAG fmt, ##args)
+
 static int gsensor_get_data(int *x, int *y, int *z, int *status);
 
 int accelhub_SetPowerMode(bool enable)
@@ -70,7 +68,7 @@ int accelhub_SetPowerMode(bool enable)
 
 	err = sensor_enable_to_hub(ID_ACCELEROMETER, enable);
 	if (err < 0) {
-		pr_err("SCP_sensorHub_req_send fail!\n");
+		GSE_PR_ERR("SCP_sensorHub_req_send fail!\n");
 		return err;
 	}
 	return err;
@@ -94,12 +92,10 @@ static int accelhub_ResetCalibration(void)
 	int err = 0;
 	unsigned char dat[2];
 
-	err = sensor_set_cmd_to_hub(ID_ACCELEROMETER, CUST_ACTION_RESET_CALI,
-				    dat);
+	err = sensor_set_cmd_to_hub(ID_ACCELEROMETER, CUST_ACTION_RESET_CALI, dat);
 	if (err < 0) {
-		pr_err(
-			"sensor_set_cmd_to_hub fail, (ID: %d),(action: %d)\n",
-			ID_ACCELEROMETER, CUST_ACTION_RESET_CALI);
+		GSE_PR_ERR("sensor_set_cmd_to_hub fail, (ID: %d),(action: %d)\n", ID_ACCELEROMETER,
+			CUST_ACTION_RESET_CALI);
 	}
 
 	memset(obj->static_cali, 0x00, sizeof(obj->static_cali));
@@ -107,8 +103,7 @@ static int accelhub_ResetCalibration(void)
 	return err;
 }
 
-static int accelhub_ReadCalibrationEx(int act[ACCELHUB_AXES_NUM],
-				      int raw[ACCELHUB_AXES_NUM])
+static int accelhub_ReadCalibrationEx(int act[ACCELHUB_AXES_NUM], int raw[ACCELHUB_AXES_NUM])
 {
 	/*raw: the raw calibration data; act: the actual calibration data */
 	struct accelhub_ipi_data *obj = obj_ipi_data;
@@ -128,11 +123,9 @@ static int accelhub_WriteCalibration_scp(int dat[ACCELHUB_AXES_NUM])
 {
 	int err = 0;
 
-	err = sensor_set_cmd_to_hub(ID_ACCELEROMETER, CUST_ACTION_SET_CALI,
-				    dat);
+	err = sensor_set_cmd_to_hub(ID_ACCELEROMETER, CUST_ACTION_SET_CALI, dat);
 	if (err < 0)
-		pr_err(
-			"sensor_set_cmd_to_hub fail, (ID: %d),(action: %d)\n",
+		GSE_PR_ERR("sensor_set_cmd_to_hub fail, (ID: %d),(action: %d)\n",
 			ID_ACCELEROMETER, CUST_ACTION_SET_CALI);
 	return err;
 }
@@ -145,19 +138,18 @@ static int accelhub_WriteCalibration(int dat[ACCELHUB_AXES_NUM])
 
 	err = accelhub_ReadCalibrationEx(cali, raw);
 	if (err) {
-		pr_err("read offset fail, %d\n", err);
+		GSE_PR_ERR("read offset fail, %d\n", err);
 		return err;
 	}
 
-	pr_debug("OLDOFF: (%+3d %+3d %+3d), cali: (%+3d %+3d %+3d)\n",
-		raw[ACCELHUB_AXIS_X], raw[ACCELHUB_AXIS_Y],
-		raw[ACCELHUB_AXIS_Z], obj->static_cali[ACCELHUB_AXIS_X],
-		obj->static_cali[ACCELHUB_AXIS_Y],
+	GSE_LOG("OLDOFF: (%+3d %+3d %+3d), cali: (%+3d %+3d %+3d)\n",
+		raw[ACCELHUB_AXIS_X], raw[ACCELHUB_AXIS_Y], raw[ACCELHUB_AXIS_Z],
+		obj->static_cali[ACCELHUB_AXIS_X], obj->static_cali[ACCELHUB_AXIS_Y],
 		obj->static_cali[ACCELHUB_AXIS_Z]);
 
 	err = accelhub_WriteCalibration_scp(dat);
 	if (err < 0) {
-		pr_err("accelhub_WriteCalibration_scp fail\n");
+		GSE_PR_ERR("accelhub_WriteCalibration_scp fail\n");
 		return err;
 	}
 	/*calculate the real offset expected by caller */
@@ -165,8 +157,7 @@ static int accelhub_WriteCalibration(int dat[ACCELHUB_AXES_NUM])
 	cali[ACCELHUB_AXIS_Y] += dat[ACCELHUB_AXIS_Y];
 	cali[ACCELHUB_AXIS_Z] += dat[ACCELHUB_AXIS_Z];
 
-	pr_debug("UPDATE: (%+3d %+3d %+3d)\n", dat[ACCELHUB_AXIS_X],
-		dat[ACCELHUB_AXIS_Y], dat[ACCELHUB_AXIS_Z]);
+	GSE_LOG("UPDATE: (%+3d %+3d %+3d)\n", dat[ACCELHUB_AXIS_X], dat[ACCELHUB_AXIS_Y], dat[ACCELHUB_AXIS_Z]);
 
 	obj->static_cali[ACCELHUB_AXIS_X] = cali[ACCELHUB_AXIS_X];
 	obj->static_cali[ACCELHUB_AXIS_Y] = cali[ACCELHUB_AXIS_Y];
@@ -182,7 +173,7 @@ static int accelhub_ReadAllReg(char *buf, int bufsize)
 
 	err = accelhub_SetPowerMode(true);
 	if (err) {
-		pr_err("Power on accelhub error %d!\n", err);
+		GSE_PR_ERR("Power on accelhub error %d!\n", err);
 		return err;
 	}
 
@@ -219,19 +210,18 @@ static int accelhub_ReadSensorData(char *buf, int bufsize)
 		return -1;
 	err = sensor_get_data_from_hub(ID_ACCELEROMETER, &data);
 	if (err < 0) {
-		pr_err("sensor_get_data_from_hub fail!\n");
+		GSE_PR_ERR("sensor_get_data_from_hub fail!\n");
 		return err;
 	}
 	time_stamp = data.time_stamp;
 	acc[ACCELHUB_AXIS_X] = data.accelerometer_t.x;
 	acc[ACCELHUB_AXIS_Y] = data.accelerometer_t.y;
 	acc[ACCELHUB_AXIS_Z] = data.accelerometer_t.z;
-	status = data.accelerometer_t.status;
+	status				 = data.accelerometer_t.status;
 
-	sprintf(buf, "%04x %04x %04x %04x", acc[ACCELHUB_AXIS_X],
-		acc[ACCELHUB_AXIS_Y], acc[ACCELHUB_AXIS_Z], status);
+	sprintf(buf, "%04x %04x %04x %04x", acc[ACCELHUB_AXIS_X], acc[ACCELHUB_AXIS_Y], acc[ACCELHUB_AXIS_Z], status);
 	if (atomic_read(&obj->trace) & ACCELHUB_TRC_IOCTL)
-		pr_debug("gsensor data: %s!\n", buf);
+		GSE_LOG("gsensor data: %s!\n", buf);
 
 	return 0;
 }
@@ -261,38 +251,34 @@ static ssize_t show_cali_value(struct device_driver *ddri, char *buf)
 	struct accelhub_ipi_data *obj = obj_ipi_data;
 	int len = 0;
 
-	len += snprintf(buf + len, PAGE_SIZE - len,
-			"[SW ][%d] (%+3d, %+3d, %+3d)\n", 1,
-			obj->static_cali[ACCELHUB_AXIS_X],
-			obj->static_cali[ACCELHUB_AXIS_Y],
-			obj->static_cali[ACCELHUB_AXIS_Z]);
+	len +=
+	    snprintf(buf + len, PAGE_SIZE - len, "[SW ][%d] (%+3d, %+3d, %+3d)\n",
+	    1, obj->static_cali[ACCELHUB_AXIS_X], obj->static_cali[ACCELHUB_AXIS_Y],
+	    obj->static_cali[ACCELHUB_AXIS_Z]);
 
 	return len;
 }
 
-static ssize_t store_trace_value(struct device_driver *ddri, const char *buf,
-				 size_t count)
+static ssize_t store_trace_value(struct device_driver *ddri, const char *buf, size_t count)
 {
 	struct accelhub_ipi_data *obj = obj_ipi_data;
 	int trace = 0;
 	int res = 0;
 
 	if (obj == NULL) {
-		pr_err("obj is null!!\n");
+		GSE_PR_ERR("obj is null!!\n");
 		return 0;
 	}
 	if (sscanf(buf, "0x%x", &trace) == 1) {
 		atomic_set(&obj->trace, trace);
-		res = sensor_set_cmd_to_hub(ID_ACCELEROMETER,
-					    CUST_ACTION_SET_TRACE, &trace);
+		res = sensor_set_cmd_to_hub(ID_ACCELEROMETER, CUST_ACTION_SET_TRACE, &trace);
 		if (res < 0) {
-			pr_err(
-				"sensor_set_cmd_to_hub fail, (ID: %d),(action: %d)\n",
-				ID_ACCELEROMETER, CUST_ACTION_SET_TRACE);
+			GSE_PR_ERR("sensor_set_cmd_to_hub fail, (ID: %d),(action: %d)\n", ID_ACCELEROMETER,
+				CUST_ACTION_SET_TRACE);
 			return 0;
 		}
 	} else {
-		pr_err("invalid content: '%s', length = %zu\n", buf, count);
+		GSE_PR_ERR("invalid content: '%s', length = %zu\n", buf, count);
 		return 0;
 	}
 
@@ -304,14 +290,12 @@ static ssize_t show_chip_orientation(struct device_driver *ddri, char *buf)
 	ssize_t _tLength = 0;
 	struct accelhub_ipi_data *obj = obj_ipi_data;
 
-	_tLength = snprintf(buf, PAGE_SIZE, "default direction = %d\n",
-			    obj->direction);
+	_tLength = snprintf(buf, PAGE_SIZE, "default direction = %d\n", obj->direction);
 
 	return _tLength;
 }
 
-static ssize_t store_chip_orientation(struct device_driver *ddri,
-				      const char *buf, size_t tCount)
+static ssize_t store_chip_orientation(struct device_driver *ddri, const char *buf, size_t tCount)
 {
 	int _nDirection = 0, ret = 0;
 	struct accelhub_ipi_data *obj = obj_ipi_data;
@@ -320,33 +304,30 @@ static ssize_t store_chip_orientation(struct device_driver *ddri,
 		return 0;
 	ret = kstrtoint(buf, 10, &_nDirection);
 	if (ret != 0) {
-		pr_debug("kstrtoint fail\n");
+		GSE_LOG("kstrtoint fail\n");
 		return 0;
 	}
 	obj->direction = _nDirection;
-	ret = sensor_set_cmd_to_hub(ID_ACCELEROMETER, CUST_ACTION_SET_DIRECTION,
-				    &_nDirection);
+	ret = sensor_set_cmd_to_hub(ID_ACCELEROMETER, CUST_ACTION_SET_DIRECTION, &_nDirection);
 	if (ret < 0) {
-		pr_err(
-			"sensor_set_cmd_to_hub fail, (ID: %d),(action: %d)\n",
-			ID_ACCELEROMETER, CUST_ACTION_SET_DIRECTION);
+		GSE_PR_ERR("sensor_set_cmd_to_hub fail, (ID: %d),(action: %d)\n", ID_ACCELEROMETER,
+			CUST_ACTION_SET_DIRECTION);
 		return 0;
 	}
 
-	pr_debug("[%s] set direction: %d\n", __func__, _nDirection);
+	GSE_LOG("[%s] set direction: %d\n", __func__, _nDirection);
 
 	return tCount;
 }
 
 static int gsensor_factory_enable_calibration(void);
-static ssize_t store_test_cali(struct device_driver *ddri, const char *buf,
-			       size_t tCount)
+static ssize_t store_test_cali(struct device_driver *ddri, const char *buf, size_t tCount)
 {
 	int enable = 0, ret = 0;
 
 	ret = kstrtoint(buf, 10, &enable);
 	if (ret != 0) {
-		pr_debug("kstrtoint fail\n");
+		GSE_LOG("kstrtoint fail\n");
 		return 0;
 	}
 	if (enable == 1)
@@ -354,20 +335,20 @@ static ssize_t store_test_cali(struct device_driver *ddri, const char *buf,
 	return tCount;
 }
 
-static DRIVER_ATTR(chipinfo, 0444, show_chipinfo_value, NULL);
-static DRIVER_ATTR(sensordata, 0444, show_sensordata_value, NULL);
-static DRIVER_ATTR(cali, 0644, show_cali_value, NULL);
-static DRIVER_ATTR(trace, 0644, NULL, store_trace_value);
-static DRIVER_ATTR(orientation, 0644, show_chip_orientation,
-		   store_chip_orientation);
-static DRIVER_ATTR(test_cali, 0644, NULL, store_test_cali);
+static DRIVER_ATTR(chipinfo, S_IRUGO, show_chipinfo_value, NULL);
+static DRIVER_ATTR(sensordata, S_IRUGO, show_sensordata_value, NULL);
+static DRIVER_ATTR(cali, S_IWUSR | S_IRUGO, show_cali_value, NULL);
+static DRIVER_ATTR(trace, S_IWUSR | S_IRUGO, NULL, store_trace_value);
+static DRIVER_ATTR(orientation, S_IWUSR | S_IRUGO, show_chip_orientation, store_chip_orientation);
+static DRIVER_ATTR(test_cali, S_IWUSR | S_IRUGO, NULL, store_test_cali);
 
 static struct driver_attribute *accelhub_attr_list[] = {
-	&driver_attr_chipinfo,   /*chip information */
-	&driver_attr_sensordata, /*dump sensor data */
-	&driver_attr_cali,       /*show calibration data */
-	&driver_attr_trace,      /*trace log */
-	&driver_attr_orientation, &driver_attr_test_cali,
+	&driver_attr_chipinfo,	/*chip information */
+	&driver_attr_sensordata,	/*dump sensor data */
+	&driver_attr_cali,	/*show calibration data */
+	&driver_attr_trace,	/*trace log */
+	&driver_attr_orientation,
+	&driver_attr_test_cali,
 };
 
 static int accelhub_create_attr(struct device_driver *driver)
@@ -381,8 +362,7 @@ static int accelhub_create_attr(struct device_driver *driver)
 	for (idx = 0; idx < num; idx++) {
 		err = driver_create_file(driver, accelhub_attr_list[idx]);
 		if (err != 0) {
-			pr_err("driver_create_file (%s) = %d\n",
-				   accelhub_attr_list[idx]->attr.name, err);
+			GSE_PR_ERR("driver_create_file (%s) = %d\n", accelhub_attr_list[idx]->attr.name, err);
 			break;
 		}
 	}
@@ -412,7 +392,7 @@ static void scp_init_work_done(struct work_struct *work)
 #endif
 
 	if (atomic_read(&obj->scp_init_done) == 0) {
-		pr_debug("scp is not ready to send cmd\n");
+		GSE_LOG("scp is not ready to send cmd\n");
 		return;
 	}
 	if (atomic_xchg(&obj->first_ready_after_boot, 1) == 0)
@@ -420,7 +400,7 @@ static void scp_init_work_done(struct work_struct *work)
 #ifdef MTK_OLD_FACTORY_CALIBRATION
 	err = accelhub_WriteCalibration_scp(obj->static_cali);
 	if (err < 0)
-		pr_err("accelhub_WriteCalibration_scp fail\n");
+		GSE_PR_ERR("accelhub_WriteCalibration_scp fail\n");
 #else
 	spin_lock(&calibration_lock);
 	cfg_data[0] = obj->dynamic_cali[0];
@@ -431,10 +411,9 @@ static void scp_init_work_done(struct work_struct *work)
 	cfg_data[4] = obj->static_cali[1];
 	cfg_data[5] = obj->static_cali[2];
 	spin_unlock(&calibration_lock);
-	err = sensor_cfg_to_hub(ID_ACCELEROMETER, (uint8_t *)cfg_data,
-				sizeof(cfg_data));
+	err = sensor_cfg_to_hub(ID_ACCELEROMETER, (uint8_t *)cfg_data, sizeof(cfg_data));
 	if (err < 0)
-		pr_err("sensor_cfg_to_hub fail\n");
+		GSE_PR_ERR("sensor_cfg_to_hub fail\n");
 #endif
 }
 
@@ -444,15 +423,14 @@ static int gsensor_recv_data(struct data_unit_t *event, void *reserved)
 	struct acc_data data;
 	struct accelhub_ipi_data *obj = obj_ipi_data;
 
-	data.x = event->accelerometer_t.x;
-	data.y = event->accelerometer_t.y;
-	data.z = event->accelerometer_t.z;
-	data.status = event->accelerometer_t.status;
-	data.timestamp = (int64_t)event->time_stamp;
-	data.reserved[0] = event->reserve[0];
+		data.x = event->accelerometer_t.x;
+		data.y = event->accelerometer_t.y;
+		data.z = event->accelerometer_t.z;
+		data.status = event->accelerometer_t.status;
+		data.timestamp = (int64_t)event->time_stamp;
+		data.reserved[0] = event->reserve[0];
 
-	if (event->flush_action == DATA_ACTION &&
-	    READ_ONCE(obj->android_enable) == true)
+	if (event->flush_action == DATA_ACTION)
 		err = acc_data_report(&data);
 	else if (event->flush_action == FLUSH_ACTION)
 		err = acc_flush_report();
@@ -462,12 +440,9 @@ static int gsensor_recv_data(struct data_unit_t *event, void *reserved)
 		data.z = event->accelerometer_t.z_bias;
 		err = acc_bias_report(&data);
 		spin_lock(&calibration_lock);
-		obj->dynamic_cali[ACCELHUB_AXIS_X] =
-			event->accelerometer_t.x_bias;
-		obj->dynamic_cali[ACCELHUB_AXIS_Y] =
-			event->accelerometer_t.y_bias;
-		obj->dynamic_cali[ACCELHUB_AXIS_Z] =
-			event->accelerometer_t.z_bias;
+		obj->dynamic_cali[ACCELHUB_AXIS_X] = event->accelerometer_t.x_bias;
+		obj->dynamic_cali[ACCELHUB_AXIS_Y] = event->accelerometer_t.y_bias;
+		obj->dynamic_cali[ACCELHUB_AXIS_Z] = event->accelerometer_t.z_bias;
 		spin_unlock(&calibration_lock);
 	} else if (event->flush_action == CALI_ACTION) {
 		data.x = event->accelerometer_t.x_bias;
@@ -476,25 +451,16 @@ static int gsensor_recv_data(struct data_unit_t *event, void *reserved)
 		if (event->accelerometer_t.status == 0)
 			err = acc_cali_report(&data);
 		spin_lock(&calibration_lock);
-		obj->static_cali[ACCELHUB_AXIS_X] =
-			event->accelerometer_t.x_bias;
-		obj->static_cali[ACCELHUB_AXIS_Y] =
-			event->accelerometer_t.y_bias;
-		obj->static_cali[ACCELHUB_AXIS_Z] =
-			event->accelerometer_t.z_bias;
-		obj->static_cali_status =
-			(uint8_t)event->accelerometer_t.status;
+		obj->static_cali[ACCELHUB_AXIS_X] = event->accelerometer_t.x_bias;
+		obj->static_cali[ACCELHUB_AXIS_Y] = event->accelerometer_t.y_bias;
+		obj->static_cali[ACCELHUB_AXIS_Z] = event->accelerometer_t.z_bias;
+		obj->static_cali_status = (uint8_t)event->accelerometer_t.status;
 		spin_unlock(&calibration_lock);
 		complete(&obj->calibration_done);
-	} else if (event->flush_action == TEST_ACTION) {
-		atomic_set(&obj->selftest_status,
-			event->accelerometer_t.status);
-		complete(&obj->selftest_done);
 	}
 	return err;
 }
-static int gsensor_factory_enable_sensor(bool enabledisable,
-					 int64_t sample_periods_ms)
+static int gsensor_factory_enable_sensor(bool enabledisable, int64_t sample_periods_ms)
 {
 	int err = 0;
 	struct accelhub_ipi_data *obj = obj_ipi_data;
@@ -504,16 +470,15 @@ static int gsensor_factory_enable_sensor(bool enabledisable,
 	else
 		WRITE_ONCE(obj->factory_enable, false);
 	if (enabledisable == true) {
-		err = sensor_set_delay_to_hub(ID_ACCELEROMETER,
-					      sample_periods_ms);
+		err = sensor_set_delay_to_hub(ID_ACCELEROMETER, sample_periods_ms);
 		if (err) {
-			pr_err("sensor_set_delay_to_hub failed!\n");
+			GSE_PR_ERR("sensor_set_delay_to_hub failed!\n");
 			return -1;
 		}
 	}
 	err = sensor_enable_to_hub(ID_ACCELEROMETER, enabledisable);
 	if (err) {
-		pr_err("sensor_enable_to_hub failed!\n");
+		GSE_PR_ERR("sensor_enable_to_hub failed!\n");
 		return -1;
 	}
 	return 0;
@@ -524,7 +489,7 @@ static int gsensor_factory_get_data(int32_t data[3], int *status)
 }
 static int gsensor_factory_get_raw_data(int32_t data[3])
 {
-	pr_debug("don't support gsensor_factory_get_raw_data!\n");
+	GSE_LOG("don't support gsensor_factory_get_raw_data!\n");
 	return 0;
 }
 static int gsensor_factory_enable_calibration(void)
@@ -538,7 +503,7 @@ static int gsensor_factory_clear_cali(void)
 
 	err = accelhub_ResetCalibration();
 	if (err) {
-		pr_err("gsensor_ResetCalibration failed!\n");
+		GSE_PR_ERR("gsensor_ResetCalibration failed!\n");
 		return -1;
 	}
 #endif
@@ -551,7 +516,7 @@ static int gsensor_factory_set_cali(int32_t data[3])
 
 	err = accelhub_WriteCalibration(data);
 	if (err) {
-		pr_err("gsensor_WriteCalibration failed!\n");
+		GSE_PR_ERR("gsensor_WriteCalibration failed!\n");
 		return -1;
 	}
 #endif
@@ -568,15 +533,14 @@ static int gsensor_factory_get_cali(int32_t data[3])
 #ifdef MTK_OLD_FACTORY_CALIBRATION
 	err = accelhub_ReadCalibration(data);
 	if (err) {
-		pr_err("gsensor_ReadCalibration failed!\n");
+		GSE_PR_ERR("gsensor_ReadCalibration failed!\n");
 		return -1;
 	}
 #else
 	init_completion(&obj->calibration_done);
-	err = wait_for_completion_timeout(&obj->calibration_done,
-					  msecs_to_jiffies(3000));
+	err = wait_for_completion_timeout(&obj->calibration_done, msecs_to_jiffies(3000));
 	if (!err) {
-		pr_err("gsensor_factory_get_cali fail!\n");
+		GSE_PR_ERR("gsensor_factory_get_cali fail!\n");
 		return -1;
 	}
 	spin_lock(&calibration_lock);
@@ -586,7 +550,7 @@ static int gsensor_factory_get_cali(int32_t data[3])
 	status = obj->static_cali_status;
 	spin_unlock(&calibration_lock);
 	if (status != 0) {
-		pr_debug("gsensor static cali detect shake!\n");
+		GSE_LOG("gsensor static cali detect shake!\n");
 		return -2;
 	}
 #endif
@@ -594,19 +558,7 @@ static int gsensor_factory_get_cali(int32_t data[3])
 }
 static int gsensor_factory_do_self_test(void)
 {
-	int ret = 0;
-	struct accelhub_ipi_data *obj = obj_ipi_data;
-
-	ret = sensor_selftest_to_hub(ID_ACCELEROMETER);
-	if (ret < 0)
-		return -1;
-
-	init_completion(&obj->selftest_done);
-	ret = wait_for_completion_timeout(&obj->selftest_done,
-					  msecs_to_jiffies(3000));
-	if (!ret)
-		return -1;
-	return atomic_read(&obj->selftest_status);
+	return 0;
 }
 
 static struct accel_factory_fops gsensor_factory_fops = {
@@ -645,12 +597,12 @@ static int gsensor_enable_nodata(int en)
 	if (atomic_read(&obj->suspend) == 0) {
 		err = accelhub_SetPowerMode(en);
 		if (err < 0) {
-			pr_err("scp_gsensor_enable_nodata fail!\n");
+			GSE_PR_ERR("scp_gsensor_enable_nodata fail!\n");
 			return -1;
 		}
 	}
 
-	pr_debug("scp_gsensor_enable_nodata OK!!!\n");
+	GSE_LOG("scp_gsensor_enable_nodata OK!!!\n");
 	return 0;
 }
 
@@ -664,10 +616,10 @@ static int gsensor_set_delay(u64 ns)
 	delayms = (unsigned int)ns / 1000 / 1000;
 	err = sensor_set_delay_to_hub(ID_ACCELEROMETER, delayms);
 	if (err < 0) {
-		pr_err("gsensor_set_delay fail!\n");
+		GSE_PR_ERR("gsensor_set_delay fail!\n");
 		return err;
 	}
-	pr_debug("gsensor_set_delay (%d)\n", delayms);
+	GSE_LOG("gsensor_set_delay (%d)\n", delayms);
 	return 0;
 #elif defined CONFIG_NANOHUB
 	return 0;
@@ -676,14 +628,12 @@ static int gsensor_set_delay(u64 ns)
 #endif
 }
 
-static int gsensor_batch(int flag, int64_t samplingPeriodNs,
-			 int64_t maxBatchReportLatencyNs)
+static int gsensor_batch(int flag, int64_t samplingPeriodNs, int64_t maxBatchReportLatencyNs)
 {
 #if defined CONFIG_MTK_SCP_SENSORHUB_V1
 	gsensor_set_delay(samplingPeriodNs);
 #endif
-	return sensor_batch_to_hub(ID_ACCELEROMETER, flag, samplingPeriodNs,
-				   maxBatchReportLatencyNs);
+	return sensor_batch_to_hub(ID_ACCELEROMETER, flag, samplingPeriodNs, maxBatchReportLatencyNs);
 }
 
 static int gsensor_flush(void)
@@ -717,17 +667,17 @@ static int gsensor_get_data(int *x, int *y, int *z, int *status)
 
 	err = accelhub_ReadSensorData(buff, ACCELHUB_BUFSIZE);
 	if (err < 0) {
-		pr_err("accelhub_ReadSensorData fail!!\n");
+		GSE_PR_ERR("accelhub_ReadSensorData fail!!\n");
 		return -1;
 	}
 	err = sscanf(buff, "%x %x %x %x", x, y, z, status);
 	if (err != 4) {
-		pr_err("sscanf fail!!\n");
+		GSE_PR_ERR("sscanf fail!!\n");
 		return -1;
 	}
 
 	if (atomic_read(&obj->trace) & ACCELHUB_TRC_RAWDATA)
-		pr_debug("x = %d, y = %d, z = %d\n", *x, *y, *z);
+		GSE_LOG("x = %d, y = %d, z = %d\n", *x, *y, *z);
 
 	return 0;
 }
@@ -756,11 +706,11 @@ static struct scp_power_monitor scp_ready_notifier = {
 static int accelhub_probe(struct platform_device *pdev)
 {
 	struct accelhub_ipi_data *obj;
-	struct acc_control_path ctl = {0};
-	struct acc_data_path data = {0};
+	struct acc_control_path ctl = { 0 };
+	struct acc_data_path data = { 0 };
 	int err = 0;
 
-	pr_debug("%s\n", __func__);
+	GSE_FUN();
 	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
 	if (!obj) {
 		err = -ENOMEM;
@@ -779,27 +729,23 @@ static int accelhub_probe(struct platform_device *pdev)
 	atomic_set(&obj->suspend, 0);
 	atomic_set(&obj->scp_init_done, 0);
 	atomic_set(&obj->first_ready_after_boot, 0);
-	atomic_set(&obj->selftest_status, 0);
 	WRITE_ONCE(obj->factory_enable, false);
 	WRITE_ONCE(obj->android_enable, false);
 	init_completion(&obj->calibration_done);
-	init_completion(&obj->selftest_done);
 	scp_power_monitor_register(&scp_ready_notifier);
-	err = scp_sensorHub_data_registration(ID_ACCELEROMETER,
-					      gsensor_recv_data);
+	err = scp_sensorHub_data_registration(ID_ACCELEROMETER, gsensor_recv_data);
 	if (err < 0) {
-		pr_err("scp_sensorHub_data_registration failed\n");
+		GSE_PR_ERR("scp_sensorHub_data_registration failed\n");
 		goto exit_kfree;
 	}
 	err = accel_factory_device_register(&gsensor_factory_device);
 	if (err) {
-		pr_err("gsensor_factory_device register failed\n");
+		GSE_PR_ERR("gsensor_factory_device register failed\n");
 		goto exit_kfree;
 	}
-	err = accelhub_create_attr(
-		&accelhub_init_info.platform_diver_addr->driver);
+	err = accelhub_create_attr(&accelhub_init_info.platform_diver_addr->driver);
 	if (err) {
-		pr_err("create attribute err = %d\n", err);
+		GSE_PR_ERR("create attribute err = %d\n", err);
 		goto exit_create_attr_failed;
 	}
 
@@ -819,7 +765,7 @@ static int accelhub_probe(struct platform_device *pdev)
 #endif
 	err = acc_register_control_path(&ctl);
 	if (err) {
-		pr_err("register acc control path err\n");
+		GSE_PR_ERR("register acc control path err\n");
 		goto exit_create_attr_failed;
 	}
 
@@ -827,20 +773,20 @@ static int accelhub_probe(struct platform_device *pdev)
 	data.vender_div = 1000;
 	err = acc_register_data_path(&data);
 	if (err) {
-		pr_err("register acc data path err\n");
+		GSE_PR_ERR("register acc data path err\n");
 		goto exit_create_attr_failed;
 	}
 	gsensor_init_flag = 0;
-	pr_debug("%s: OK\n", __func__);
+	GSE_LOG("%s: OK\n", __func__);
 	return 0;
 
-exit_create_attr_failed:
+ exit_create_attr_failed:
 	accelhub_delete_attr(&(accelhub_init_info.platform_diver_addr->driver));
-exit_kfree:
+ exit_kfree:
 	kfree(obj);
 	obj_ipi_data = NULL;
-exit:
-	pr_err("%s: err = %d\n", __func__, err);
+ exit:
+	GSE_PR_ERR("%s: err = %d\n", __func__, err);
 	gsensor_init_flag = -1;
 	return err;
 }
@@ -849,10 +795,9 @@ static int accelhub_remove(struct platform_device *pdev)
 {
 	int err = 0;
 
-	err = accelhub_delete_attr(
-		&accelhub_init_info.platform_diver_addr->driver);
+	err = accelhub_delete_attr(&accelhub_init_info.platform_diver_addr->driver);
 	if (err)
-		pr_err("accelhub_delete_attr fail: %d\n", err);
+		GSE_PR_ERR("accelhub_delete_attr fail: %d\n", err);
 	accel_factory_device_deregister(&gsensor_factory_device);
 
 	kfree(platform_get_drvdata(pdev));
@@ -870,14 +815,14 @@ static int accelhub_resume(struct platform_device *pdev)
 }
 
 static struct platform_device accelhub_device = {
-	.name = ACCELHUB_DEV_NAME, .id = -1,
+	.name = ACCELHUB_DEV_NAME,
+	.id = -1,
 };
 
 static struct platform_driver accelhub_driver = {
 	.driver = {
-
-			.name = ACCELHUB_DEV_NAME,
-		},
+		   .name = ACCELHUB_DEV_NAME,
+		   },
 	.probe = accelhub_probe,
 	.remove = accelhub_remove,
 	.suspend = accelhub_suspend,
@@ -886,10 +831,10 @@ static struct platform_driver accelhub_driver = {
 
 static int gsensor_local_init(void)
 {
-	pr_debug("%s\n", __func__);
+	GSE_FUN();
 
 	if (platform_driver_register(&accelhub_driver)) {
-		pr_err("add driver error\n");
+		GSE_PR_ERR("add driver error\n");
 		return -1;
 	}
 	if (-1 == gsensor_init_flag)
@@ -899,7 +844,7 @@ static int gsensor_local_init(void)
 
 static int gsensor_local_remove(void)
 {
-	pr_debug("%s\n", __func__);
+	GSE_FUN();
 	platform_driver_unregister(&accelhub_driver);
 	return 0;
 }
@@ -914,7 +859,7 @@ static int __init accelhub_init(void)
 {
 
 	if (platform_device_register(&accelhub_device)) {
-		pr_err("accel platform device error\n");
+		GSE_PR_ERR("accel platform device error\n");
 		return -1;
 	}
 	acc_driver_add(&accelhub_init_info);
@@ -923,8 +868,9 @@ static int __init accelhub_init(void)
 
 static void __exit accelhub_exit(void)
 {
-	pr_debug("%s\n", __func__);
+	GSE_FUN();
 }
+
 module_init(accelhub_init);
 module_exit(accelhub_exit);
 MODULE_LICENSE("GPL");

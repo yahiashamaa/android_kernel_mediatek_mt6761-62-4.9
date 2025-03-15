@@ -14,9 +14,25 @@
 ifeq ($(CONFIG_FTRACE),y)
 ifeq ($(CONFIG_TRACING),y)
 obj-y += met_smi.o
-obj-$(CONFIG_MACH_MT6758) += met_smi_config_mt6758.o
-obj-$(CONFIG_MACH_MT6765) += met_smi_config_mt6765.o
-obj-$(CONFIG_MACH_MT6761) += met_smi_config_mt6761.o
-obj-$(CONFIG_MACH_MT3967) += met_smi_config_mt3967.o
 endif
+endif
+
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6759"))
+ccflags-y += -DSMI_MET_ALA
+obj-y += met_smi_configuration_6759.o
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6763"))
+ccflags-y += -DSMI_MET_BIA
+obj-y += met_smi_configuration_6763.o
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6758"))
+ccflags-y += -DSMI_MET_VIN
+obj-y += met_smi_configuration_6758.o
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739"))
+ccflags-y += -DSMI_MET_ZIO
+obj-y += met_smi_configuration_6739.o
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6775"))
+ccflags-y += -DSMI_MET_CAN
+obj-y += met_smi_configuration_6775.o
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6771"))
+ccflags-y += -DSMI_MET_SYL
+obj-y += met_smi_configuration_6771.o
 endif

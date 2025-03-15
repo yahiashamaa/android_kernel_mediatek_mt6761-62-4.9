@@ -27,8 +27,7 @@
 #define MD_CORE_TOTAL_NUM   (9)
 #endif
 #define MD_CORE_NAME_LEN    (11)
-/* +1 for end '\0', +5 for 16, +16 for str TDD FDD */
-#define MD_CORE_NAME_DEBUG  (MD_CORE_NAME_LEN + 1 + 5 + 16)
+#define MD_CORE_NAME_DEBUG  (MD_CORE_NAME_LEN + 1 + 5 + 16) /* +1 for end '\0', +5 for 16, +16 for str TDD FDD */
 #define EX_BRIEF_FATALERR_SIZE	(276)
 
 typedef struct EX_STEP_V3 {
@@ -71,7 +70,6 @@ typedef union {
 typedef enum {
 	MD_EX_CLASS_ASSET,
 	MD_EX_CLASS_FATAL,
-	MD_EX_CLASS_CUSTOM,
 	MD_EX_CLASS_INVALID,
 } EXCEPTION_CLASS;
 
@@ -145,9 +143,9 @@ typedef enum {
 	CACHE_ERROR_EXCEPTION = 0x21,
 
 	/* These are used to replace TLB_MISS_LOAD/STORE_EXCEPTION
-	 * codes when using tlb refill exception vector.
-	 * TLB_MISS_LOAD/STORE_EXCEPTION code is used for tlb invalid
-	 */
+	* codes when using tlb refill exception vector.
+	* TLB_MISS_LOAD/STORE_EXCEPTION code is used for tlb invalid
+	*/
 	TLB_REFILL_LOAD_EXCEPTION = 0x22,
 	TLB_REFILL_STORE_EXCEPTION = 0x23,
 	TLB_REFILL_MAX_NUM,
@@ -162,8 +160,6 @@ typedef enum {
 	ASSERT_FAIL_EXCEPTION = 0x50,
 	ASSERT_DUMP_EXTENDED_RECORD = 0x51,
 	ASSERT_FAIL_NATIVE = 0x52,
-	ASSERT_CUSTOM_ADDR = 0x53,
-	ASSERT_CUSTOM_MODID = 0x54,
 	ASSERT_FAIL_MAX_NUM,
 	/* cross core triggered */
 	CC_INVALID_EXCEPTION = 0x60,
@@ -191,15 +187,10 @@ typedef struct dump_info_fatal {
 	int err_code1;
 	int err_code2;
 	int err_code3;
-	unsigned int error_address;
-	unsigned int error_pc;
 	char *ExStr;
 	char *err_sec;
 	char offender[64];
-	/*must be larger than EX_FATAL_V3_T filename:
-	 * pre-fix + fatal_fname
-	 */
-	char fatal_fname[EX_BRIEF_FATALERR_SIZE];
+	char fatal_fname[EX_BRIEF_FATALERR_SIZE]; /*must be larger than EX_FATAL_V3_T filename: pre-fix + fatal_fname*/
 } DUMP_INFO_FATAL;
 
 enum {
@@ -227,8 +218,7 @@ struct mdee_dumper_v3 {
 	DEBUG_INFO_T debug_info;
 	unsigned char ex_core_num;
 	unsigned char ex_type;
-	/* request by modem, change to 2k: include EX_PL_LOG_T*/
-	unsigned char ex_pl_info[MD_HS1_FAIL_DUMP_SIZE];
+	unsigned char ex_pl_info[MD_HS1_FAIL_DUMP_SIZE]; /* request by modem, change to 2k: include EX_PL_LOG_T*/
 };
 #endif	/* __MDEE_DUMPER_V3_H__ */
 

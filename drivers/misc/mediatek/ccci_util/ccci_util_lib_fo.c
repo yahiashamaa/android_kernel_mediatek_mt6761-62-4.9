@@ -48,10 +48,9 @@
 #include <mt-plat/mtk_meminfo.h>
 #include "ccci_util_log.h"
 #include "ccci_util_lib_main.h"
-/*************************************************************************
- **** Local debug option for this file only ******************************
- *************************************************************************
- */
+/**************************************************************************
+**** Local debug option for this file only ********************************
+**************************************************************************/
 /* #define LK_LOAD_MD_INFO_DEBUG_EN */
 
 #define CCCI_MEM_ALIGN      (SZ_32M)
@@ -128,10 +127,8 @@ static int lk_load_img_err_no[MAX_MD_NUM_AT_LK];
 
 static void __iomem *s_g_lk_inf_base;
 static unsigned int s_g_tag_cnt;
-/* Note, this for tag info solution version */
-static unsigned int s_g_lk_info_tag_version;
-/* Note, this for feature option solution version */
-static int s_g_curr_ccci_fo_version;
+static unsigned int s_g_lk_info_tag_version; /* Note, this for tag info solution version */
+static int s_g_curr_ccci_fo_version; /* Note, this for feature option solution version */
 
 /*------------------------------------------*/
 /* RAT configure setting */
@@ -144,12 +141,7 @@ static int s_g_curr_ccci_fo_version;
 #define MD_CAP_TDD_LTE		(1<<3)
 #define MD_CAP_FDD_LTE		(1<<4)
 #define MD_CAP_CDMA2000		(1<<5)
-#define MD_CAP_MASK		(MD_CAP_GSM\
-						|MD_CAP_TDS_CDMA\
-						|MD_CAP_WCDMA\
-						|MD_CAP_TDD_LTE\
-						|MD_CAP_FDD_LTE\
-						|MD_CAP_CDMA2000)
+#define MD_CAP_MASK		(MD_CAP_GSM|MD_CAP_TDS_CDMA|MD_CAP_WCDMA|MD_CAP_TDD_LTE|MD_CAP_FDD_LTE|MD_CAP_CDMA2000)
 #define MD_CAP_BIT_NUM		(6)
 
 /*------------------------------------------*/
@@ -165,71 +157,6 @@ static int s_g_curr_ccci_fo_version;
 #define LEGACY_UBIN_START_ID	(8)
 #define LEGACY_UBIN_END_ID	(21)
 
-static unsigned int get_capability_bit(char cap_str[])
-{
-	if (cap_str == NULL)
-		return 0;
-	if ((strcmp(cap_str, "LF") == 0)
-		|| (strcmp(cap_str, "Lf") == 0)
-		|| (strcmp(cap_str, "lf") == 0))
-		return MD_CAP_FDD_LTE;
-	if ((strcmp(cap_str, "LT") == 0)
-		|| (strcmp(cap_str, "Lt") == 0)
-		|| (strcmp(cap_str, "lt") == 0))
-		return MD_CAP_TDD_LTE;
-	if ((strcmp(cap_str, "W") == 0) || (strcmp(cap_str, "w") == 0))
-		return MD_CAP_WCDMA;
-	if ((strcmp(cap_str, "C") == 0) || (strcmp(cap_str, "c") == 0))
-		return MD_CAP_CDMA2000;
-	if ((strcmp(cap_str, "T") == 0) || (strcmp(cap_str, "t") == 0))
-		return MD_CAP_TDS_CDMA;
-	if ((strcmp(cap_str, "G") == 0) || (strcmp(cap_str, "g") == 0))
-		return MD_CAP_GSM;
-
-	return 0;
-}
-
-#define MAX_CAP_STR_LENGTH	16
-static unsigned int ccci_rat_str_to_bitmap(char str[])
-{
-	char tmp_str[MAX_CAP_STR_LENGTH];
-	int tmp_str_curr_pos = 0;
-	unsigned int capability_bit_map = 0;
-	int str_len;
-	int i;
-
-	if (str == NULL)
-		return 0;
-
-	str_len = strlen(str);
-	for (i = 0; i < str_len; i++) {
-		if (str[i] == ' ')
-			continue;
-		if (str[i] == '\t')
-			continue;
-		if ((str[i] == '/') || (str[i] == '_')) {
-			if (tmp_str_curr_pos) {
-				tmp_str[tmp_str_curr_pos] = 0;
-				capability_bit_map
-					|= get_capability_bit(tmp_str);
-			}
-			tmp_str_curr_pos = 0;
-			continue;
-		}
-		if (tmp_str_curr_pos < (MAX_CAP_STR_LENGTH-1)) {
-			tmp_str[tmp_str_curr_pos] = str[i];
-			tmp_str_curr_pos++;
-		} else
-			break;
-	}
-	if (tmp_str_curr_pos) {
-		tmp_str[tmp_str_curr_pos] = 0;
-		capability_bit_map |= get_capability_bit(tmp_str);
-	}
-
-	return capability_bit_map;
-}
-
 static const unsigned int ubin_convert_table_src[] = {
 	(MD_CAP_GSM|MD_CAP_TDD_LTE|MD_CAP_FDD_LTE|MD_CAP_CDMA2000),
 	(MD_CAP_GSM|MD_CAP_WCDMA|MD_CAP_CDMA2000)
@@ -244,12 +171,9 @@ static unsigned int compatible_convert(unsigned int src_rat)
 {
 	int i;
 
-	for (i = 0;
-		 i < (sizeof(ubin_convert_table_src)/sizeof(unsigned int));
-		 i++) {
+	for (i = 0; i < (sizeof(ubin_convert_table_src)/sizeof(unsigned int)); i++) {
 		if (ubin_convert_table_src[i] == src_rat) {
-			CCCI_UTIL_INF_MSG(
-				"ccci rat convert from 0x%x to 0x%x\r\n",
+			CCCI_UTIL_INF_MSG("ccci rat convert from 0x%x to 0x%x\r\n",
 				src_rat, ubin_convert_table_des[i]);
 			return ubin_convert_table_des[i];
 		}
@@ -284,36 +208,20 @@ static unsigned int ap_rat_bitmap_to_md_bitmap(unsigned int rat_cfg)
 }
 
 static unsigned int legacy_ubin_rat_map[] = {
-	/* ultg */
-	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_TDS_CDMA|MD_CAP_GSM),
-	/* ulwg */
-	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_GSM),
-	/* ulwtg */
-	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_TDS_CDMA|MD_CAP_GSM),
-	/* ulwcg */
-	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000|MD_CAP_GSM),
-	/* ulwctg */
-	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000
-	|MD_CAP_TDS_CDMA|MD_CAP_GSM),
-	/* ulttg */
-	(MD_CAP_TDD_LTE|MD_CAP_TDS_CDMA|MD_CAP_GSM),
-	/* ulfwg */
-	(MD_CAP_FDD_LTE|MD_CAP_WCDMA|MD_CAP_GSM),
-	/* ulfwcg */
-	(MD_CAP_FDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000|MD_CAP_GSM),
-	/* ulctg */
-	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_CDMA2000|MD_CAP_TDS_CDMA
-	|MD_CAP_GSM),
-	/* ultctg */
-	(MD_CAP_TDD_LTE|MD_CAP_CDMA2000|MD_CAP_TDS_CDMA|MD_CAP_GSM),
-	/*ultwg */
-	(MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_GSM),
-	/* ultwcg */
-	(MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000|MD_CAP_GSM),
-	/* ulftg */
-	(MD_CAP_FDD_LTE|MD_CAP_TDS_CDMA|MD_CAP_GSM),
-	/* ulfctg */
-	(MD_CAP_FDD_LTE|MD_CAP_CDMA2000|MD_CAP_TDS_CDMA|MD_CAP_GSM)
+	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_TDS_CDMA|MD_CAP_GSM), /* ultg */
+	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_GSM), /* ulwg */
+	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_TDS_CDMA|MD_CAP_GSM), /* ulwtg */
+	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000|MD_CAP_GSM), /* ulwcg */
+	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000|MD_CAP_TDS_CDMA|MD_CAP_GSM), /* ulwctg */
+	(MD_CAP_TDD_LTE|MD_CAP_TDS_CDMA|MD_CAP_GSM), /* ulttg */
+	(MD_CAP_FDD_LTE|MD_CAP_WCDMA|MD_CAP_GSM), /* ulfwg */
+	(MD_CAP_FDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000|MD_CAP_GSM), /* ulfwcg */
+	(MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_CDMA2000|MD_CAP_TDS_CDMA|MD_CAP_GSM), /* ulctg */
+	(MD_CAP_TDD_LTE|MD_CAP_CDMA2000|MD_CAP_TDS_CDMA|MD_CAP_GSM), /* ultctg */
+	(MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_GSM), /*ultwg */
+	(MD_CAP_TDD_LTE|MD_CAP_WCDMA|MD_CAP_CDMA2000|MD_CAP_GSM), /* ultwcg */
+	(MD_CAP_FDD_LTE|MD_CAP_TDS_CDMA|MD_CAP_GSM), /* ulftg */
+	(MD_CAP_FDD_LTE|MD_CAP_CDMA2000|MD_CAP_TDS_CDMA|MD_CAP_GSM)/* ulfctg */
 };
 
 static unsigned int ubin_md_support_id_to_rat(int md_support_id)
@@ -329,9 +237,7 @@ static int find_ccci_tag_inf(char *name, char *buf, unsigned int size)
 {
 	unsigned int i;
 
-	/* For strcmp/strncmp should not be used on device memory,
-	 * so prepare a temp buffer.
-	 */
+	/* For strcmp/strncmp should not be used on device memory, so prepare a temp buffer. */
 	char tag_name[64];
 	unsigned int data_offset;
 	unsigned int data_size;
@@ -366,8 +272,7 @@ static int find_ccci_tag_inf(char *name, char *buf, unsigned int size)
 			data_size = tag.v1.data_size;
 			next_tag_offset = tag.v1.next_tag_offset;
 		}
-		memcpy_fromio(&tmp_buf, (void *)(s_g_lk_inf_base + data_offset),
-			sizeof(int));
+		memcpy_fromio(&tmp_buf, (void *)(s_g_lk_inf_base + data_offset), sizeof(int));
 
 		#ifdef LK_LOAD_MD_INFO_DEBUG_EN
 		CCCI_UTIL_INF_MSG("tag->name:%s\n", tag_name);
@@ -384,9 +289,7 @@ static int find_ccci_tag_inf(char *name, char *buf, unsigned int size)
 		}
 		/* found it */
 		cpy_size = size > data_size?data_size:size;
-		memcpy_fromio(buf,
-			(void *)(s_g_lk_inf_base + data_offset),
-			cpy_size);
+		memcpy_fromio(buf, (void *)(s_g_lk_inf_base + data_offset), cpy_size);
 
 		return cpy_size;
 	}
@@ -459,9 +362,7 @@ struct fos_item {
 #define MTK_C2K_LTE_MODE	(0)
 #endif
 
-/* array for store default option setting,
- * option value may be updated at init if needed
- */
+/* array for store default option setting, option value may be updated at init if needed */
 static struct fos_item ccci_fos_setting[] = {
 	{"opt_md1_support", MTK_MD1_SUPPORT},
 	{"opt_md2_support", MTK_MD2_SUPPORT},
@@ -473,7 +374,7 @@ static struct fos_item ccci_fos_setting[] = {
 	{"opt_c2k_lte_mode", MTK_C2K_LTE_MODE},
 };
 
-/* ccci option relate public function for option */
+/*---------------- ccci option relate public function for option ----------------------------------------*/
 int ccci_get_opt_val(char *opt_name)
 {
 	int i;
@@ -482,8 +383,7 @@ int ccci_get_opt_val(char *opt_name)
 	for (i = 0; i < ARRAY_SIZE(ccci_fos_setting); i++) {
 		if (strcmp(opt_name, ccci_fos_setting[i].name) == 0) {
 			ret = ccci_fos_setting[i].value;
-			CCCI_UTIL_INF_MSG("ccci_get_opt_val:%s->%d\n",
-				opt_name, ret);
+			CCCI_UTIL_INF_MSG("ccci_get_opt_val:%s->%d\n", opt_name, ret);
 			return ret;
 		}
 	}
@@ -493,7 +393,7 @@ int ccci_get_opt_val(char *opt_name)
 	return -1;
 }
 
-/* ccci option relate private function for option */
+/*---------------- ccci option relate private function for option ----------------------------------------*/
 static int ccci_update_opt_tbl(char *opt_name, int val)
 {
 	int i;
@@ -541,8 +441,7 @@ static void parse_option_setting_from_lk(void)
 	int using_lk_setting;
 	int opt_list_size = ccci_get_opt_tbl_item_num();
 
-	if (find_ccci_tag_inf("opt_using_lk_val", (char *)&val, sizeof(int))
-			!= sizeof(int))
+	if (find_ccci_tag_inf("opt_using_lk_val", (char *)&val, sizeof(int)) != sizeof(int))
 		using_lk_setting = 0;
 	else if (val > 0)
 		using_lk_setting = 1;
@@ -554,8 +453,7 @@ static void parse_option_setting_from_lk(void)
 			name = ccci_get_opt_name_by_idx(i);
 			if (name == NULL)
 				continue;
-			if (find_ccci_tag_inf(name, (char *)&val, sizeof(int))
-					!= sizeof(int))
+			if (find_ccci_tag_inf(name, (char *)&val, sizeof(int)) != sizeof(int))
 				CCCI_UTIL_ERR_MSG("%s using default\n", name);
 			else {
 				using_default = 0;
@@ -567,7 +465,7 @@ static void parse_option_setting_from_lk(void)
 	if (using_default)
 		CCCI_UTIL_INF_MSG("All option using default setting\n");
 	else {
-		CCCI_UTIL_INF_MSG("LK has new setting, Dump final\n");
+		CCCI_UTIL_INF_MSG("LK has new setting, Dump final option setting\n");
 		ccci_dump_opt_tbl();
 	}
 
@@ -615,8 +513,7 @@ static int parse_meta_boot_arguments(unsigned int *raw_ptr)
 	/* unsigned int tag_size = lk_tag_header(2) + uchar[4](1) */
 	/* unsigned int tag_key_value                             */
 	/* uchar[0]kuchar[0],uchar[0],uchar[0],uchar[0]           */
-	if (*raw_ptr != ((sizeof(struct lk_tag_header)
-			+ sizeof(md_info_tag_array))>>2)) {
+	if (*raw_ptr != ((sizeof(struct lk_tag_header) + sizeof(md_info_tag_array))>>2)) {
 		CCCI_UTIL_ERR_MSG("md info tag size mis-sync.(%d)\n", *raw_ptr);
 		return -1;
 	}
@@ -668,10 +565,8 @@ static int parse_meta_boot_arguments(unsigned int *raw_ptr)
 }
 
 /*---- Memeory info parsing section --------------------- */
-/* MD ROM+RAM */
-static unsigned int md_resv_mem_size[MAX_MD_NUM_AT_LK];
-/* share memory */
-static unsigned int md_resv_smem_size[MAX_MD_NUM_AT_LK];
+static unsigned int md_resv_mem_size[MAX_MD_NUM_AT_LK];	/* MD ROM+RAM */
+static unsigned int md_resv_smem_size[MAX_MD_NUM_AT_LK];	/* share memory */
 static unsigned int md_resv_size_list[MAX_MD_NUM_AT_LK];
 static unsigned int resv_smem_size;
 static unsigned int md1md3_resv_smem_size;
@@ -701,122 +596,50 @@ static struct _ccb_layout ccb_info;
 static unsigned int md1_phy_cap_size;
 static unsigned int md1_bank4_cache_offset;
 
-/* cacheable share memory */
-struct _csmem_item {
-	unsigned long long csmem_buffer_addr;
-	unsigned int md_offset;
-	unsigned int csmem_buffer_size;
-	unsigned int item_cnt;
-};
-static struct _csmem_item csmem_info;
-static struct _csmem_item *csmem_layout;
-
-static void cshare_memory_info_parsing(void)
-{
-	unsigned int size;
-
-	memset(&csmem_info, 0, sizeof(struct _csmem_item));
-	if (find_ccci_tag_inf("md1_bank4_cache_info", (char *)&csmem_info,
-		sizeof(struct _csmem_item)) != sizeof(struct _csmem_item)) {
-		CCCI_UTIL_ERR_MSG("Invalid csmem_info dt para\n");
-		if (ccb_info.ccb_data_buffer_addr != 0)
-			goto OLD_LK_CSMEM;
-		return;
-	}
-	size = csmem_info.item_cnt * sizeof(struct _csmem_item);
-	csmem_layout = kzalloc(size, GFP_KERNEL);
-	if (csmem_layout == NULL) {
-		CCCI_UTIL_ERR_MSG("csmem_layout:alloc csmem_layout fail\n");
-		return;
-	}
-	if (find_ccci_tag_inf("md1_bank4_cache_layout", (char *)csmem_layout,
-		size) != size) {
-		CCCI_UTIL_ERR_MSG("Invalid csmem_layout dt para\n");
-		return;
-	}
-	return;
-
-OLD_LK_CSMEM:
-	/* old LK config compatibility: create ccb item. */
-	csmem_info.csmem_buffer_addr = ccb_info.ccb_data_buffer_addr;
-	csmem_info.csmem_buffer_size = ccb_info.ccb_data_buffer_size;
-	csmem_info.item_cnt = 1;
-
-	size = csmem_info.item_cnt * sizeof(struct _csmem_item);
-	csmem_layout = kzalloc(size, GFP_KERNEL);
-	if (csmem_layout == NULL) {
-		CCCI_UTIL_ERR_MSG("csmem_layout:alloc csmem_layout fail\n");
-		return;
-	}
-	csmem_layout[0].csmem_buffer_addr = csmem_info.csmem_buffer_addr;
-	csmem_layout[0].csmem_buffer_size = csmem_info.csmem_buffer_size;
-	csmem_layout[0].md_offset = 0;
-	csmem_layout[0].item_cnt = SMEM_USER_CCB_START;
-#ifndef mtk09077
-	CCCI_UTIL_ERR_MSG("ccci_util get csmem: data:%llx data_size:%d\n",
-		csmem_info.csmem_buffer_addr,
-		csmem_info.csmem_buffer_size);
-#endif
-	CCCI_UTIL_INF_MSG("ccci_util get csmem: data:%llx data_size:%d\n",
-		csmem_info.csmem_buffer_addr,
-		csmem_info.csmem_buffer_size);
-}
+static unsigned int md_mtee_support;
 
 static void share_memory_info_parsing(void)
 {
 	struct _smem_layout smem_layout;
 	/* Get share memory layout */
-	if (find_ccci_tag_inf("smem_layout",
-						  (char *)&smem_layout,
-						  sizeof(struct _smem_layout))
+	if (find_ccci_tag_inf("smem_layout", (char *)&smem_layout, sizeof(struct _smem_layout))
 			!= sizeof(struct _smem_layout)) {
 		CCCI_UTIL_ERR_MSG("load smem layout fail\n");
 		s_g_lk_load_img_status |= LK_LOAD_MD_ERR_LK_INFO_FAIL;
-		/* Reset to zero if get share memory info fail */
-		s_g_md_env_rdy_flag = 0;
+		s_g_md_env_rdy_flag = 0; /* Reset to zero if get share memory info fail */
 		return;
 	}
 
 	/* Get ccb memory layout */
 	memset(&ccb_info, 0, sizeof(struct _ccb_layout));
-	if (find_ccci_tag_inf("ccb_info",
-						  (char *)&ccb_info,
-						  sizeof(struct _ccb_layout))
+	if (find_ccci_tag_inf("ccb_info", (char *)&ccb_info, sizeof(struct _ccb_layout))
 			!= sizeof(struct _ccb_layout)) {
 		CCCI_UTIL_ERR_MSG("Invalid ccb info dt para\n");
 	}
 
-	CCCI_UTIL_INF_MSG("ccci_util get ccb: data:%llx data_size:%d\n",
-			ccb_info.ccb_data_buffer_addr,
+	CCCI_UTIL_INF_MSG("ccci_util get ccb: data:%llx data_size:%d\n", ccb_info.ccb_data_buffer_addr,
 			ccb_info.ccb_data_buffer_size);
 
 	/* Get md1_phy_cap_size  */
 	md1_phy_cap_size = 0;
-	if (find_ccci_tag_inf("md1_phy_cap",
-						  (char *)&md1_phy_cap_size,
-						  sizeof(md1_phy_cap_size))
+	if (find_ccci_tag_inf("md1_phy_cap", (char *)&md1_phy_cap_size, sizeof(md1_phy_cap_size))
 			!= sizeof(md1_phy_cap_size))
 		CCCI_UTIL_ERR_MSG("using 0 as phy capture size\n");
 
-	CCCI_UTIL_INF_MSG("ccci_util get md1_phy_cap_size: 0x%x\n",
-				md1_phy_cap_size);
+	CCCI_UTIL_INF_MSG("ccci_util get md1_phy_cap_size: 0x%x\n", md1_phy_cap_size);
 
 	/* Get smem cachable offset  */
 	md1_bank4_cache_offset = 0;
-	if (find_ccci_tag_inf("md1_smem_cahce_offset",
-			(char *)&md1_bank4_cache_offset,
-			sizeof(md1_bank4_cache_offset))
+	if (find_ccci_tag_inf("md1_smem_cahce_offset", (char *)&md1_bank4_cache_offset, sizeof(md1_bank4_cache_offset))
 			!= sizeof(md1_bank4_cache_offset))
-		/* Using 128MB offset as default */
-		md1_bank4_cache_offset = 0x8000000;
-	CCCI_UTIL_INF_MSG("smem cachable offset 0x%X\n",
-				md1_bank4_cache_offset);
-	MTK_MEMCFG_LOG_AND_PRINTK(
-		"[PHY layout]ccci_share_mem at LK:0x%llx - 0x%llx  (0x%llx)\n",
-		smem_layout.base_addr,
-		(smem_layout.base_addr
-		+ (unsigned long long)smem_layout.total_smem_size - 1LL),
-		(unsigned long long)smem_layout.total_smem_size);
+		md1_bank4_cache_offset = 0x8000000; /* Using 128MB offset as default */
+	CCCI_UTIL_INF_MSG("smem cachable offset 0x%X\n", md1_bank4_cache_offset);
+
+	MTK_MEMCFG_LOG_AND_PRINTK("[PHY layout]ccci_share_mem at LK  :  0x%llx - 0x%llx  (0x%llx)\n",
+				smem_layout.base_addr,
+				smem_layout.base_addr + (unsigned long long)smem_layout.total_smem_size - 1LL,
+				(unsigned long long)smem_layout.total_smem_size);
+
 	/* MD*_SMEM_SIZE */
 	md_resv_smem_size[MD_SYS1] = smem_layout.ap_md1_smem_size;
 	md_resv_smem_size[MD_SYS3] = smem_layout.ap_md3_smem_size;
@@ -829,26 +652,20 @@ static void share_memory_info_parsing(void)
 	/*   MD1   <-->   MD3     */
 	/*   AP    <-->   MD3     */
 	md_resv_smem_addr[MD_SYS1] = (phys_addr_t)(smem_layout.base_addr +
-		(unsigned long long)smem_layout.ap_md1_smem_offset);
+					(unsigned long long)smem_layout.ap_md1_smem_offset);
 	md1md3_resv_smem_addr = (phys_addr_t)(smem_layout.base_addr +
-		(unsigned long long)smem_layout.md1_md3_smem_offset);
+					(unsigned long long)smem_layout.md1_md3_smem_offset);
 	md_resv_smem_addr[MD_SYS3] = (phys_addr_t)(smem_layout.base_addr +
-		(unsigned long long)smem_layout.ap_md3_smem_offset);
-	CCCI_UTIL_INF_MSG("AP  <--> MD1 SMEM(0x%08X):%016llx~%016llx\n",
-			md_resv_smem_size[MD_SYS1],
+					(unsigned long long)smem_layout.ap_md3_smem_offset);
+	CCCI_UTIL_INF_MSG("AP  <--> MD1 SMEM(0x%08X):%016llx~%016llx\n", md_resv_smem_size[MD_SYS1],
 			(unsigned long long)md_resv_smem_addr[MD_SYS1],
-			(unsigned long long)(md_resv_smem_addr[MD_SYS1]
-			+ md_resv_smem_size[MD_SYS1]-1));
-	CCCI_UTIL_INF_MSG("MD1 <--> MD3 SMEM(0x%08X):%016llx~%016llx\n",
-			md1md3_resv_smem_size,
+			(unsigned long long)(md_resv_smem_addr[MD_SYS1]+md_resv_smem_size[MD_SYS1]-1));
+	CCCI_UTIL_INF_MSG("MD1 <--> MD3 SMEM(0x%08X):%016llx~%016llx\n", md1md3_resv_smem_size,
 			(unsigned long long)md1md3_resv_smem_addr,
-			(unsigned long long)(md1md3_resv_smem_addr
-			+ md1md3_resv_smem_size-1));
-	CCCI_UTIL_INF_MSG("AP  <--> MD3 SMEM(0x%08X):%016llx~%016llx\n",
-			md_resv_smem_size[MD_SYS3],
+			(unsigned long long)(md1md3_resv_smem_addr+md1md3_resv_smem_size-1));
+	CCCI_UTIL_INF_MSG("AP  <--> MD3 SMEM(0x%08X):%016llx~%016llx\n", md_resv_smem_size[MD_SYS3],
 			(unsigned long long)md_resv_smem_addr[MD_SYS3],
-			(unsigned long long)(md_resv_smem_addr[MD_SYS3]
-			+ md_resv_smem_size[MD_SYS3]-1));
+			(unsigned long long)(md_resv_smem_addr[MD_SYS3]+md_resv_smem_size[MD_SYS3]-1));
 #ifdef CONFIG_MTK_DCS
 	if (md_resv_smem_size[MD_SYS1])
 		dcs_set_lbw_region(md_resv_smem_addr[MD_SYS1],
@@ -863,18 +680,11 @@ static void share_memory_info_parsing(void)
 				(md_resv_smem_addr[MD_SYS3] +
 				 md_resv_smem_size[MD_SYS3]));
 #endif
-	cshare_memory_info_parsing();
-{
-	int i;
-
-	for (i = 0; i < csmem_info.item_cnt; i++) {
-		CCCI_UTIL_INF_MSG(
-			"csmem_region[%d][%d]: data_offset:%x data_size:%d\n",
-			i, csmem_layout[i].item_cnt,
-			csmem_layout[i].md_offset,
-			csmem_layout[i].csmem_buffer_size);
-	}
-}
+	if (find_ccci_tag_inf("mtee_support", (char *)&md_mtee_support, sizeof(md_mtee_support))
+			!= sizeof(md_mtee_support))
+		CCCI_UTIL_ERR_MSG("using 0 as MTEE support\n");
+	else
+		CCCI_UTIL_INF_MSG("MTEE support: 0x%x\n", md_mtee_support);
 }
 
 static void md_mem_info_parsing(void)
@@ -884,9 +694,7 @@ static void md_mem_info_parsing(void)
 	int md_num;
 	int md_id;
 
-	if (find_ccci_tag_inf("hdr_count",
-						  (char *)&md_num,
-						  sizeof(int)) != sizeof(int)) {
+	if (find_ccci_tag_inf("hdr_count", (char *)&md_num, sizeof(int)) != sizeof(int)) {
 		CCCI_UTIL_ERR_MSG("get hdr_count fail\n");
 		s_g_lk_load_img_status |= LK_LOAD_MD_ERR_NO_MD_LOAD;
 		return;
@@ -899,8 +707,7 @@ static void md_mem_info_parsing(void)
 	/* MD ROM and RW part */
 	while (md_num--) {
 		#ifdef LK_LOAD_MD_INFO_DEBUG_EN
-		CCCI_UTIL_INF_MSG("===== Dump modem memory info (%d)=====\n",
-			(int)sizeof(struct _modem_info));
+		CCCI_UTIL_INF_MSG("===== Dump modem memory info (%d)=====\n", (int)sizeof(struct _modem_info));
 		CCCI_UTIL_INF_MSG("base address : 0x%llX\n", curr->base_addr);
 		CCCI_UTIL_INF_MSG("memory size  : 0x%08X\n", curr->size);
 		CCCI_UTIL_INF_MSG("md id        : %d\n", (int)curr->md_id);
@@ -911,36 +718,27 @@ static void md_mem_info_parsing(void)
 		#endif
 		md_id = (int)curr->md_id;
 		if (curr->size) {
-			MTK_MEMCFG_LOG_AND_PRINTK(
-				"[PHY layout]ccci_md%d at LK:0x%llx - 0x%llx  (0x%llx)\n",
+			MTK_MEMCFG_LOG_AND_PRINTK("[PHY layout]ccci_md%d at LK  :  0x%llx - 0x%llx  (0x%llx)\n",
 				md_id, curr->base_addr,
-				(curr->base_addr
-				+ (unsigned long long)curr->size - 1LL),
+				curr->base_addr + (unsigned long long)curr->size - 1LL,
 				(unsigned long long)curr->size);
 		}
 
-		if ((md_id < MAX_MD_NUM_AT_LK)
-				&& (md_resv_mem_size[md_id] == 0)) {
+		if ((md_id < MAX_MD_NUM_AT_LK) && (md_resv_mem_size[md_id] == 0)) {
 			md_resv_mem_size[md_id] = curr->size;
 			md_resv_mem_addr[md_id] = (phys_addr_t)curr->base_addr;
 			if (curr->errno & 0x80)
-				/*signed extension */
-				lk_load_img_err_no[md_id]
-					= ((int)curr->errno) | 0xFFFFFF00;
+				lk_load_img_err_no[md_id] = ((int)curr->errno) | 0xFFFFFF00; /*signed extension */
 			else
 				lk_load_img_err_no[md_id] = (int)curr->errno;
 
-			CCCI_UTIL_INF_MSG("md%d lk_load_img_err_no: %d\n",
-				md_id+1, lk_load_img_err_no[md_id]);
+			CCCI_UTIL_INF_MSG("md%d lk_load_img_err_no: %d\n", md_id+1, lk_load_img_err_no[md_id]);
 
 			if (lk_load_img_err_no[md_id] == 0)
 				s_g_md_env_rdy_flag |= 1<<md_id;
 			md_type_at_lk[md_id] = (int)curr->md_type;
-			CCCI_UTIL_INF_MSG(
-				"md%d MemStart: 0x%016llx, MemSize:0x%08X\n",
-				md_id+1,
-				(unsigned long long)md_resv_mem_addr[md_id],
-				md_resv_mem_size[md_id]);
+			CCCI_UTIL_INF_MSG("md%d MemStart: 0x%016llx, MemSize:0x%08X\n", md_id+1,
+					(unsigned long long)md_resv_mem_addr[md_id], md_resv_mem_size[md_id]);
 #ifdef CONFIG_MTK_DCS
 			if (md_resv_mem_size[md_id])
 				dcs_set_lbw_region(md_resv_mem_addr[md_id],
@@ -969,19 +767,15 @@ static void md_chk_hdr_info_parse(void)
 	int ret;
 
 	if (s_g_md_usage_case & (1<<MD_SYS1)) {
-		/* The allocated memory will be
-		 * free after md structure initialized
-		 */
+		/* The allocated memory will be free after md structure initialized */
 		md1_check_hdr_info = kmalloc(1024, GFP_KERNEL);
 		if (md1_check_hdr_info == NULL) {
-			CCCI_UTIL_ERR_MSG(
-			"alloc check header memory fail(MD1)\n");
+			CCCI_UTIL_ERR_MSG("allocate check header memory fail for md1\n");
 			s_g_md_env_rdy_flag &= ~(1<<MD_SYS1);
 			goto _check_md3;
 		}
 		ret = find_ccci_tag_inf("md1_chk", md1_check_hdr_info, 1024);
-		if ((ret != sizeof(struct md_check_header_v5))
-				&& (ret != sizeof(struct md_check_header_v6))
+		if ((ret != sizeof(struct md_check_header_v5)) && (ret != sizeof(struct md_check_header_v6))
 			&& (ret != sizeof(struct md_check_header))) {
 			CCCI_UTIL_ERR_MSG("get md1 chk header info fail\n");
 			s_g_lk_load_img_status |= LK_LOAD_MD_ERR_LK_INFO_FAIL;
@@ -991,26 +785,20 @@ static void md_chk_hdr_info_parse(void)
 		md1_check_hdr_info_size = ret;
 
 		/* Get MD1 raw image size */
-		find_ccci_tag_inf("md1img",
-				(char *)&md1_raw_img_size, sizeof(int));
+		find_ccci_tag_inf("md1img", (char *)&md1_raw_img_size, sizeof(int));
 	}
 _check_md3:
 
 	if (s_g_md_usage_case & (1<<MD_SYS3)) {
-		/* The allocated memory will be
-		 * free after md structure initialized
-		 */
-		md3_check_hdr_info =
-			kmalloc(sizeof(struct md_check_header), GFP_KERNEL);
+		/* The allocated memory will be free after md structure initialized */
+		md3_check_hdr_info = kmalloc(sizeof(struct md_check_header), GFP_KERNEL);
 		if (md3_check_hdr_info == NULL) {
-			CCCI_UTIL_ERR_MSG(
-			"alloc check header memory fail(MD3)\n");
+			CCCI_UTIL_ERR_MSG("allocate check header memory fail for md3\n");
 			s_g_md_env_rdy_flag &= ~(1<<MD_SYS3);
 			return;
 		}
 		if (find_ccci_tag_inf("md3_chk", md3_check_hdr_info,
-				sizeof(struct md_check_header))
-			!= sizeof(struct md_check_header)) {
+				sizeof(struct md_check_header)) != sizeof(struct md_check_header)) {
 			CCCI_UTIL_ERR_MSG("get md3 chk header info fail\n");
 			s_g_lk_load_img_status |= LK_LOAD_MD_ERR_LK_INFO_FAIL;
 			s_g_md_env_rdy_flag &= ~(1<<MD_SYS3);
@@ -1019,8 +807,7 @@ _check_md3:
 		md3_check_hdr_info_size = sizeof(struct md_check_header);
 
 		/* Get MD3 raw image size */
-		find_ccci_tag_inf("md3img",
-			(char *)&md3_raw_img_size, sizeof(int));
+		find_ccci_tag_inf("md3img", (char *)&md3_raw_img_size, sizeof(int));
 	}
 }
 
@@ -1030,12 +817,9 @@ static void lk_info_parsing_v1(unsigned int *raw_ptr)
 
 	memcpy((void *)&lk_inf, raw_ptr, sizeof(struct _ccci_lk_info));
 
-	CCCI_UTIL_INF_MSG("lk info.lk_info_base_addr: 0x%llX\n",
-		lk_inf.lk_info_base_addr);
-	CCCI_UTIL_INF_MSG("lk info.lk_info_size:      0x%x\n",
-		lk_inf.lk_info_size);
-	CCCI_UTIL_INF_MSG("lk info.lk_info_tag_num:   0x%x\n",
-		lk_inf.lk_info_tag_num);
+	CCCI_UTIL_INF_MSG("lk info.lk_info_base_addr: 0x%llX\n", lk_inf.lk_info_base_addr);
+	CCCI_UTIL_INF_MSG("lk info.lk_info_size:      0x%x\n", lk_inf.lk_info_size);
+	CCCI_UTIL_INF_MSG("lk info.lk_info_tag_num:   0x%x\n", lk_inf.lk_info_tag_num);
 	s_g_tag_inf_size = lk_inf.lk_info_size;
 
 	if (lk_inf.lk_info_base_addr == 0LL) {
@@ -1053,8 +837,7 @@ static void lk_info_parsing_v1(unsigned int *raw_ptr)
 	s_g_lk_info_tag_version = 1;
 	s_g_tag_cnt = (unsigned int)lk_inf.lk_info_tag_num;
 
-	s_g_lk_inf_base = ioremap_nocache((phys_addr_t)lk_inf.lk_info_base_addr,
-						MAX_LK_INFO_SIZE);
+	s_g_lk_inf_base = ioremap_nocache((phys_addr_t)lk_inf.lk_info_base_addr, MAX_LK_INFO_SIZE);
 	if (s_g_lk_inf_base == NULL) {
 		CCCI_UTIL_ERR_MSG("ioremap lk info buf fail\n");
 		s_g_lk_load_img_status |= LK_LOAD_MD_ERR_NO_MD_LOAD;
@@ -1068,12 +851,9 @@ static int lk_info_parsing_v2(unsigned int *raw_ptr)
 
 	memcpy((void *)&lk_inf, raw_ptr, sizeof(struct _ccci_lk_info_v2));
 
-	CCCI_UTIL_INF_MSG("lk info.lk_info_base_addr: 0x%llX\n",
-		lk_inf.lk_info_base_addr);
-	CCCI_UTIL_INF_MSG("lk info.lk_info_size:      0x%x\n",
-		lk_inf.lk_info_size);
-	CCCI_UTIL_INF_MSG("lk info.lk_info_tag_num:   0x%x\n",
-		lk_inf.lk_info_tag_num);
+	CCCI_UTIL_INF_MSG("lk info.lk_info_base_addr: 0x%llX\n", lk_inf.lk_info_base_addr);
+	CCCI_UTIL_INF_MSG("lk info.lk_info_size:      0x%x\n", lk_inf.lk_info_size);
+	CCCI_UTIL_INF_MSG("lk info.lk_info_tag_num:   0x%x\n", lk_inf.lk_info_tag_num);
 
 	s_g_lk_ld_md_errno = lk_inf.lk_info_err_no;
 	s_g_tag_inf_size = lk_inf.lk_info_size;
@@ -1102,8 +882,7 @@ static int lk_info_parsing_v2(unsigned int *raw_ptr)
 	s_g_lk_info_tag_version = (unsigned int)lk_inf.lk_info_version;
 	s_g_tag_cnt = (unsigned int)lk_inf.lk_info_tag_num;
 
-	s_g_lk_inf_base = ioremap_nocache((phys_addr_t)lk_inf.lk_info_base_addr,
-		MAX_LK_INFO_SIZE);
+	s_g_lk_inf_base = ioremap_nocache((phys_addr_t)lk_inf.lk_info_base_addr, MAX_LK_INFO_SIZE);
 	if (s_g_lk_inf_base == NULL) {
 		CCCI_UTIL_ERR_MSG("ioremap lk info buf fail\n");
 		s_g_lk_load_img_status |= LK_LOAD_MD_ERR_NO_MD_LOAD;
@@ -1116,65 +895,47 @@ static void verify_md_enable_setting(void)
 {
 	/* Show warning if has some error */
 	/* MD1 part */
-	if ((s_g_md_usage_case & (1<<MD_SYS1))
-			&& (!(s_g_md_env_rdy_flag & (1<<MD_SYS1)))) {
-		CCCI_UTIL_ERR_MSG(
-		"md1 env prepare abnormal, disable this modem\n");
+	if ((s_g_md_usage_case & (1<<MD_SYS1)) && (!(s_g_md_env_rdy_flag & (1<<MD_SYS1)))) {
+		CCCI_UTIL_ERR_MSG("md1 env prepare abnormal, disable this modem\n");
 		s_g_md_usage_case &= ~(1<<MD_SYS1);
-	} else if ((!(s_g_md_usage_case & (1<<MD_SYS1)))
-		&& (s_g_md_env_rdy_flag & (1<<MD_SYS1))) {
+	} else if ((!(s_g_md_usage_case & (1<<MD_SYS1))) && (s_g_md_env_rdy_flag & (1<<MD_SYS1))) {
 		CCCI_UTIL_ERR_MSG("md1: kernel dis, but lk en\n");
 		s_g_md_usage_case &= ~(1<<MD_SYS1);
 		s_g_lk_load_img_status |= LK_KERNEL_SETTING_MIS_SYNC;
-	} else if ((!(s_g_md_usage_case & (1<<MD_SYS1)))
-		&& (!(s_g_md_env_rdy_flag & (1<<MD_SYS1)))) {
+	} else if ((!(s_g_md_usage_case & (1<<MD_SYS1))) && (!(s_g_md_env_rdy_flag & (1<<MD_SYS1)))) {
 		CCCI_UTIL_INF_MSG("md1: both lk and kernel dis\n");
 		s_g_md_usage_case &= ~(1<<MD_SYS1);
-		/* For this case, clear error */
-		lk_load_img_err_no[MD_SYS1] = 0;
+		lk_load_img_err_no[MD_SYS1] = 0; /* For this case, clear error */
 	}
 	/* MD3 part */
-	if ((s_g_md_usage_case & (1<<MD_SYS3))
-		&& (!(s_g_md_env_rdy_flag & (1<<MD_SYS3)))) {
-		CCCI_UTIL_ERR_MSG(
-		"md3 env prepare abnormal, disable this modem\n");
+	if ((s_g_md_usage_case & (1<<MD_SYS3)) && (!(s_g_md_env_rdy_flag & (1<<MD_SYS3)))) {
+		CCCI_UTIL_ERR_MSG("md3 env prepare abnormal, disable this modem\n");
 		s_g_md_usage_case &= ~(1<<MD_SYS3);
-	} else if ((!(s_g_md_usage_case & (1<<MD_SYS3)))
-		&& (s_g_md_env_rdy_flag & (1<<MD_SYS3))) {
+	} else if ((!(s_g_md_usage_case & (1<<MD_SYS3))) && (s_g_md_env_rdy_flag & (1<<MD_SYS3))) {
 		CCCI_UTIL_ERR_MSG("md3: kernel dis, but lk en\n");
 		s_g_md_usage_case &= ~(1<<MD_SYS3);
 		s_g_lk_load_img_status |= LK_KERNEL_SETTING_MIS_SYNC;
-	} else if ((!(s_g_md_usage_case & (1<<MD_SYS3)))
-		&& (!(s_g_md_env_rdy_flag & (1<<MD_SYS3)))) {
+	} else if ((!(s_g_md_usage_case & (1<<MD_SYS3))) && (!(s_g_md_env_rdy_flag & (1<<MD_SYS3)))) {
 		CCCI_UTIL_INF_MSG("md3: both lk and kernel dis\n");
 		s_g_md_usage_case &= ~(1<<MD_SYS3);
-		/* For this case, clear error */
-		lk_load_img_err_no[MD_SYS3] = 0;
+		lk_load_img_err_no[MD_SYS3] = 0; /* For this case, clear error */
 	}
 }
 
-static struct _mpu_cfg *s_g_md_mpu_cfg_list;
+static mpu_cfg_t *s_g_md_mpu_cfg_list;
 static int s_g_mpu_info_num;
 static void parse_mpu_setting(void)
 {
 	int size;
 
 	/* Get MD MPU config info */
-	find_ccci_tag_inf("md_mpu_num",
-		(char *)&s_g_mpu_info_num, (int)sizeof(int));
+	find_ccci_tag_inf("md_mpu_num", (char *)&s_g_mpu_info_num, (int)sizeof(int));
 	if (s_g_mpu_info_num) {
-		size = ((int)sizeof(struct _mpu_cfg))*s_g_mpu_info_num;
+		size = ((int)sizeof(mpu_cfg_t))*s_g_mpu_info_num;
 		s_g_md_mpu_cfg_list = kmalloc(size, GFP_KERNEL);
 		if (s_g_md_mpu_cfg_list)
-			find_ccci_tag_inf("md_mpu_inf",
-				(char *)s_g_md_mpu_cfg_list, size);
+			find_ccci_tag_inf("md_mpu_inf", (char *)s_g_md_mpu_cfg_list, size);
 	}
-}
-
-int __weak free_reserved_memory(phys_addr_t start_phys, phys_addr_t end_phys)
-{
-	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
-	return 0;
 }
 
 static void dump_retrieve_info(void)
@@ -1182,13 +943,12 @@ static void dump_retrieve_info(void)
 	int retrieve_num, i;
 	u64 array[2], md1_mem_addr;
 	char buf[32];
-	int ret = 0;
+	int ret;
 	int free_in_kernel = -1;
 
 	md1_mem_addr =  md_resv_mem_addr[MD_SYS1];
 
-	if (find_ccci_tag_inf("retrieve_num",
-			(char *)&retrieve_num, (int)sizeof(int)) < 0) {
+	if (find_ccci_tag_inf("retrieve_num", (char *)&retrieve_num, (int)sizeof(int)) < 0) {
 		CCCI_UTIL_ERR_MSG("get retrieve_num failed.\n");
 		return;
 	}
@@ -1197,36 +957,25 @@ static void dump_retrieve_info(void)
 
 	for (i = 0; i < retrieve_num; i++) {
 		snprintf(buf, 32, "retrieve%d", i);
-		if (find_ccci_tag_inf(buf,
-				(char *)&array, sizeof(array))) {
-			CCCI_UTIL_INF_MSG(
-				"AP view(0x%llx ~ 0x%llx), MD view(0x%llx ~ 0x%llx)\n",
-				array[0], array[0] + array[1],
-				array[0] - md1_mem_addr,
-				array[0] + array[1] - md1_mem_addr);
+		if (find_ccci_tag_inf(buf, (char *)&array, sizeof(array))) {
+			CCCI_UTIL_INF_MSG("AP view(0x%llx ~ 0x%llx), MD view(0x%llx ~ 0x%llx)\n",
+					array[0], array[0] + array[1],
+					array[0] - md1_mem_addr, array[0] + array[1] - md1_mem_addr);
 
-			if (find_ccci_tag_inf("free_in_kernel",
-					(char *)&free_in_kernel, sizeof(int))
+			if (find_ccci_tag_inf("free_in_kernel", (char *)&free_in_kernel, sizeof(int))
 					&& free_in_kernel == 1) {
-				ret = free_reserved_memory(array[0],
-						array[0] + array[1]);
-				CCCI_UTIL_INF_MSG(
-				"free_reserved_memory result=%d\n",
-				ret);
+				ret = free_reserved_memory(array[0], array[0] + array[1]);
+				CCCI_UTIL_INF_MSG("free_reserved_memory result=%d\n", ret);
 			} else {
-				CCCI_UTIL_INF_MSG(
-					"no free_in_kernel found, free_in_kernel=%d\n",
-					free_in_kernel);
+				CCCI_UTIL_INF_MSG("no free_in_kernel found, free_in_kernel=%d\n", free_in_kernel);
 			}
 		}
 	}
 }
 
-static int __init early_init_dt_get_chosen(unsigned long node,
-	const char *uname, int depth, void *data)
+static int __init early_init_dt_get_chosen(unsigned long node, const char *uname, int depth, void *data)
 {
-	if (depth != 1 || (strcmp(uname, "chosen") != 0
-			&& strcmp(uname, "chosen@0") != 0))
+	if (depth != 1 || (strcmp(uname, "chosen") != 0 && strcmp(uname, "chosen@0") != 0))
 		return 0;
 	s_g_dt_chosen_node = node;
 	return 1;
@@ -1245,9 +994,7 @@ static int __init collect_lk_boot_arguments(void)
 		return -1;
 	}
 
-	raw_ptr =
-		(unsigned int *)of_get_flat_dt_prop(s_g_dt_chosen_node,
-						"ccci,modem_info_v2", NULL);
+	raw_ptr = (unsigned int *)of_get_flat_dt_prop(s_g_dt_chosen_node, "ccci,modem_info_v2", NULL);
 	if (raw_ptr != NULL) {
 		if (lk_info_parsing_v2(raw_ptr) == 1) /* No md enabled in LK */
 			return 0;
@@ -1255,8 +1002,7 @@ static int __init collect_lk_boot_arguments(void)
 	}
 
 	CCCI_UTIL_INF_MSG("ccci,modem_info_v2 not found, try v1\n");
-	raw_ptr = (unsigned int *)of_get_flat_dt_prop(s_g_dt_chosen_node,
-				"ccci,modem_info", NULL);
+	raw_ptr = (unsigned int *)of_get_flat_dt_prop(s_g_dt_chosen_node, "ccci,modem_info", NULL);
 	if (raw_ptr != NULL) {
 		lk_info_parsing_v1(raw_ptr);
 		goto _common_process;
@@ -1278,17 +1024,14 @@ _common_process:
 	s_g_curr_ccci_fo_version = CCCI_FO_VER_02;
 
 	/* Get META settings at device tree, only MD1 use this */
-	raw_ptr = (unsigned int *)of_get_flat_dt_prop(s_g_dt_chosen_node,
-				"atag,mdinfo", NULL);
+	raw_ptr = (unsigned int *)of_get_flat_dt_prop(s_g_dt_chosen_node, "atag,mdinfo", NULL);
 	if (raw_ptr == NULL)
 		CCCI_UTIL_INF_MSG("atag,mdinfo not found\n");
 	else
-		/* This function must at the end for global var */
-		parse_meta_boot_arguments(raw_ptr);
+		parse_meta_boot_arguments(raw_ptr); /* This function must at the end for global var */
 
 	if (s_g_lk_inf_base) {
-		/* clear memory to zero that used by tag info. */
-		memset_io(s_g_lk_inf_base, 0, s_g_tag_inf_size);
+		memset_io(s_g_lk_inf_base, 0, s_g_tag_inf_size); /* clear memory to zero that used by tag info. */
 		iounmap(s_g_lk_inf_base);
 	}
 
@@ -1302,59 +1045,47 @@ int get_lk_load_md_info(char buf[], int size)
 	int has_write;
 
 	if (s_g_lk_load_img_status & LK_LOAD_MD_EN)
-		has_write = snprintf(buf, size,
-			"LK Load MD:[Enabled](0x%08x)\n",
-			s_g_lk_load_img_status);
+		has_write = snprintf(buf, size, "LK Load MD:[Enabled](0x%08x)\n", s_g_lk_load_img_status);
 	else {
-		has_write = snprintf(buf, size,
-			"LK Load MD:[Disabled](0x%08x)\n",
-			s_g_lk_load_img_status);
+		has_write = snprintf(buf, size, "LK Load MD:[Disabled](0x%08x)\n", s_g_lk_load_img_status);
 		return has_write;
 	}
 
 	if ((s_g_lk_load_img_status & (~0x1)) == 0) {
-		has_write += snprintf(&buf[has_write], size - has_write,
-						"LK load MD success!\n");
+		has_write += snprintf(&buf[has_write], size - has_write, "LK load MD success!\n");
 		return has_write;
 	}
 
-	has_write += snprintf(&buf[has_write], size - has_write,
-					"LK load MD has error:\n");
-	has_write += snprintf(&buf[has_write], size - has_write,
-					"---- More details ----------------\n");
+	has_write += snprintf(&buf[has_write], size - has_write, "LK load MD has error:\n");
+	has_write += snprintf(&buf[has_write], size - has_write, "---- More details ----------------\n");
 	if (s_g_lk_load_img_status & LK_LOAD_MD_ERR_INVALID_MD_ID)
-		has_write += snprintf(&buf[has_write], size - has_write,
-					"Err: Got invalid md id(%d:%s)\n",
-					s_g_lk_ld_md_errno,
-					ld_md_errno_to_str(s_g_lk_ld_md_errno));
+		has_write += snprintf(&buf[has_write], size - has_write, "Err: Got invalid md id(%d:%s)\n",
+					s_g_lk_ld_md_errno, ld_md_errno_to_str(s_g_lk_ld_md_errno));
 	else if (s_g_lk_load_img_status & LK_LOAD_MD_ERR_NO_MD_LOAD)
-		has_write += snprintf(&buf[has_write], size - has_write,
-					"Err: No valid md image(%d:%s)\n",
-					s_g_lk_ld_md_errno,
-					ld_md_errno_to_str(s_g_lk_ld_md_errno));
+		has_write += snprintf(&buf[has_write], size - has_write, "Err: No valid md image(%d:%s)\n",
+					s_g_lk_ld_md_errno, ld_md_errno_to_str(s_g_lk_ld_md_errno));
 	else if (s_g_lk_load_img_status & LK_LOAD_MD_ERR_LK_INFO_FAIL)
-		has_write += snprintf(&buf[has_write], size - has_write,
-					"Err: Got lk info fail(%d:%s)\n",
-					s_g_lk_ld_md_errno,
-					ld_md_errno_to_str(s_g_lk_ld_md_errno));
+		has_write += snprintf(&buf[has_write], size - has_write, "Err: Got lk info fail(%d:%s)\n",
+					s_g_lk_ld_md_errno, ld_md_errno_to_str(s_g_lk_ld_md_errno));
 	else if (s_g_lk_load_img_status & LK_KERNEL_SETTING_MIS_SYNC)
-		has_write += snprintf(&buf[has_write], size - has_write,
-					"Err: lk kernel setting mis sync\n");
+		has_write += snprintf(&buf[has_write], size - has_write, "Err: lk kernel setting mis sync\n");
 
-	has_write += snprintf(&buf[has_write], size - has_write,
-			"ERR> 1:[%d] 2:[%d] 3:[%d] 4:[%d]\n",
-			lk_load_img_err_no[0], lk_load_img_err_no[1],
-			lk_load_img_err_no[2], lk_load_img_err_no[3]);
+	has_write += snprintf(&buf[has_write], size - has_write, "ERR> 1:[%d] 2:[%d] 3:[%d] 4:[%d]\n",
+			lk_load_img_err_no[0], lk_load_img_err_no[1], lk_load_img_err_no[2], lk_load_img_err_no[3]);
 
 	for (i = 0; i < MAX_MD_NUM_AT_LK; i++) {
 		if (lk_load_img_err_no[i] == 0)
 			continue;
-		has_write += snprintf(&buf[has_write], size - has_write,
-			"hint for MD%d: %s\n",
+		has_write += snprintf(&buf[has_write], size - has_write, "hint for MD%d: %s\n",
 			i+1, ld_md_errno_to_str(lk_load_img_err_no[i]));
 	}
 
 	return has_write;
+}
+
+unsigned int get_mtee_is_enabled(void)
+{
+	return md_mtee_support;
 }
 
 int get_md_img_raw_size(int md_id)
@@ -1404,8 +1135,7 @@ int modem_run_env_ready(int md_id)
 	return s_g_md_env_rdy_flag & (1<<md_id);
 }
 
-int get_md_resv_ccb_info(int md_id, phys_addr_t *ccb_data_base,
-	unsigned int *ccb_data_size)
+int get_md_resv_ccb_info(int md_id, phys_addr_t *ccb_data_base, unsigned int *ccb_data_size)
 {
 	*ccb_data_base = ccb_info.ccb_data_buffer_addr;
 	*ccb_data_size = ccb_info.ccb_data_buffer_size;
@@ -1429,38 +1159,9 @@ unsigned int get_md_smem_cachable_offset(int md_id)
 	return 0;
 }
 
-int get_md_resv_csmem_info(int md_id, phys_addr_t *buf_base,
-	unsigned int *buf_size)
-{
-	*buf_base = csmem_info.csmem_buffer_addr;
-	*buf_size = csmem_info.csmem_buffer_size;
 
-	return 0;
-}
-
-int get_md_cache_region_info(int region_id, unsigned int *buf_base,
-	unsigned int *buf_size)
-{
-	int i;
-
-	*buf_base = 0;
-	*buf_size = 0;
-	if (csmem_layout == NULL || csmem_info.item_cnt == 0)
-		return 0;
-
-	for (i = 0; i < csmem_info.item_cnt; i++) {
-		if (csmem_layout[i].item_cnt == region_id) {
-			*buf_base = csmem_layout[i].md_offset;
-			*buf_size = csmem_layout[i].csmem_buffer_size;
-			break;
-		}
-	}
-	return 0;
-}
-
-int get_md_resv_mem_info(int md_id, phys_addr_t *r_rw_base,
-	unsigned int *r_rw_size, phys_addr_t *srw_base,
-	unsigned int *srw_size)
+int get_md_resv_mem_info(int md_id, phys_addr_t *r_rw_base, unsigned int *r_rw_size, phys_addr_t *srw_base,
+			 unsigned int *srw_size)
 {
 	if (md_id >= MAX_MD_NUM_AT_LK)
 		return -1;
@@ -1480,8 +1181,7 @@ int get_md_resv_mem_info(int md_id, phys_addr_t *r_rw_base,
 	return 0;
 }
 
-int get_md1_md3_resv_smem_info(int md_id, phys_addr_t *rw_base,
-	unsigned int *rw_size)
+int get_md1_md3_resv_smem_info(int md_id, phys_addr_t *rw_base, unsigned int *rw_size)
 {
 	if ((md_id != MD_SYS1) && (md_id != MD_SYS3))
 		return -1;
@@ -1510,8 +1210,7 @@ int get_modem_support_cap(int md_id)
 	int ret = -1;
 
 	if (md_id < MAX_MD_NUM_AT_LK) {
-		if ((get_boot_mode() == META_BOOT)
-			|| (get_boot_mode() == ADVMETA_BOOT)) {
+		if ((get_boot_mode() == META_BOOT) || (get_boot_mode() == ADVMETA_BOOT)) {
 			/* using priority */
 			if (meta_boot_arguments[md_id])
 				ret = meta_boot_arguments[md_id];
@@ -1527,21 +1226,17 @@ int get_modem_support_cap(int md_id)
 void clear_meta_1st_boot_arg(int md_id)
 {
 	if (md_id < MAX_MD_NUM_AT_LK)
-		/* Note here, only use once when boot */
-		meta_boot_arguments[md_id] = 0;
+		meta_boot_arguments[md_id] = 0; /* Note here, only use once when boot */
 }
 
 int set_modem_support_cap(int md_id, int new_val)
 {
 	if (md_id < MAX_MD_NUM_AT_LK) {
-		if ((get_boot_mode() == META_BOOT)
-			|| (get_boot_mode() == ADVMETA_BOOT)) {
+		if ((get_boot_mode() == META_BOOT) || (get_boot_mode() == ADVMETA_BOOT)) {
 			meta_md_support[md_id] = new_val;
-			CCCI_UTIL_INF_MSG("md%d: meta md type:[0x%x]\n",
-				md_id + 1, new_val);
+			CCCI_UTIL_INF_MSG("md%d: meta md type:[0x%x]\n", md_id + 1, new_val);
 		} else {
-			CCCI_UTIL_INF_MSG("md%d: new mdtype(/wmid):0x%x\n",
-				md_id + 1, new_val);
+			CCCI_UTIL_INF_MSG("md%d: new mdtype(/wmid):0x%x\n", md_id + 1, new_val);
 			md_support[md_id] = new_val;
 		}
 		return 0;
@@ -1556,7 +1251,7 @@ int get_md_type_from_lk(int md_id)
 	return 0;
 }
 
-struct _mpu_cfg *get_mpu_region_cfg_info(int region_id)
+mpu_cfg_t *get_mpu_region_cfg_info(int region_id)
 {
 	int i;
 
@@ -1587,8 +1282,7 @@ int __init ccci_parse_meta_md_setting(void)
 	}
 
 	/* Get META settings at device tree, only MD1 use this */
-	raw_ptr = (unsigned int *)of_get_flat_dt_prop(s_g_dt_chosen_node,
-				"atag,mdinfo", NULL);
+	raw_ptr = (unsigned int *)of_get_flat_dt_prop(s_g_dt_chosen_node, "atag,mdinfo", NULL);
 	if (raw_ptr == NULL)
 		CCCI_UTIL_INF_MSG("atag,mdinfo not found\n");
 	else
@@ -1607,8 +1301,7 @@ static void cal_md_settings(int md_id)
 	struct device_node *node2 = NULL;
 	int val;
 
-	snprintf(tmp_buf, sizeof(tmp_buf),
-		"opt_md%d_support", (md_id + 1));
+	snprintf(tmp_buf, sizeof(tmp_buf), "opt_md%d_support", (md_id + 1));
 	/* MTK_ENABLE_MD* */
 	val = ccci_get_opt_val(tmp_buf);
 	if (val > 0) {
@@ -1616,25 +1309,20 @@ static void cal_md_settings(int md_id)
 		md_support[md_id] = (unsigned int)val;
 	}
 	if (!(md_en && (s_g_md_usage_case & (1 << md_id)))) {
-		CCCI_UTIL_INF_MSG_WITH_ID(md_id,
-			"md%d is disabled\n", (md_id + 1));
+		CCCI_UTIL_INF_MSG_WITH_ID(md_id, "md%d is disabled\n", (md_id + 1));
 		return;
 	}
 
 	/* MD*_SMEM_SIZE */
 	if (md_id == MD_SYS1) {
-		/* For cldma case */
-		node_name = "mediatek,mdcldma";
-		/* For ccif case */
-		node_name2 = "mediatek,ap_ccif0";
+		node_name = "mediatek,mdcldma"; /* For cldma case */
+		node_name2 = "mediatek,ap_ccif0"; /* For ccif case */
 	} else if (md_id == MD_SYS2) {
 		node_name = "mediatek,ap_ccif1";
 	} else if (md_id == MD_SYS3) {
 		node_name = "mediatek,ap2c2k_ccif";
 	} else {
-		CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
-			"md%d id is not supported,need to check\n",
-			(md_id + 1));
+		CCCI_UTIL_ERR_MSG_WITH_ID(md_id, "md%d id is not supported,need to check\n", (md_id + 1));
 		s_g_md_usage_case &= ~(1 << md_id);
 		return;
 	}
@@ -1643,80 +1331,52 @@ static void cal_md_settings(int md_id)
 		node = of_find_compatible_node(NULL, NULL, node_name);
 		node2 = of_find_compatible_node(NULL, NULL, node_name2);
 		if (node)
-			of_property_read_u32(node,
-				"mediatek,md_smem_size",
-				&md_resv_smem_size[md_id]);
+			of_property_read_u32(node, "mediatek,md_smem_size", &md_resv_smem_size[md_id]);
 		else if (node2)
-			of_property_read_u32(node2,
-				"mediatek,md_smem_size",
-				&md_resv_smem_size[md_id]);
+			of_property_read_u32(node2, "mediatek,md_smem_size", &md_resv_smem_size[md_id]);
 		else {
-			CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
-				"md%d smem size is not set in device tree,need to check\n",
-				(md_id + 1));
+			CCCI_UTIL_ERR_MSG_WITH_ID(md_id, "md%d smem size is not set in device tree,need to check\n",
+						  (md_id + 1));
 			s_g_md_usage_case &= ~(1 << md_id);
 			return;
 		}
 	} else {
 		node = of_find_compatible_node(NULL, NULL, node_name);
 		if (node) {
-			of_property_read_u32(node,
-				"mediatek,md_smem_size",
-				&md_resv_smem_size[md_id]);
+			of_property_read_u32(node, "mediatek,md_smem_size", &md_resv_smem_size[md_id]);
 		} else {
-			CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
-				"md%d smem size is not set in device tree,need to check\n",
-				(md_id + 1));
+			CCCI_UTIL_ERR_MSG_WITH_ID(md_id, "md%d smem size is not set in device tree,need to check\n",
+						  (md_id + 1));
 			s_g_md_usage_case &= ~(1 << md_id);
 			return;
 		}
 	}
-	/* MD ROM start address should be 32M align
-	 * as remap hardware limitation
-	 */
+	/* MD ROM start address should be 32M align as remap hardware limitation */
 	md_resv_mem_addr[md_id] = md_resv_mem_list[md_id];
 	/*
-	 * for legacy CCCI: make share memory start address to be 2MB align,
-	 * as share memory size is 2MB - requested by MD MPU.
-	 * for ECCCI: ROM+RAM size will be align to 1M,
-	 * and share memory is 2K, 1M alignment is also 2K alignment.
+	 * for legacy CCCI: make share memory start address to be 2MB align, as share
+	 * memory size is 2MB - requested by MD MPU.
+	 * for ECCCI: ROM+RAM size will be align to 1M, and share memory is 2K,
+	 * 1M alignment is also 2K alignment.
 	 */
-	md_resv_mem_size[md_id] =
-			round_up(
-			md_resv_size_list[md_id] - md_resv_smem_size[md_id],
+	md_resv_mem_size[md_id] = round_up(md_resv_size_list[md_id] - md_resv_smem_size[md_id],
 			get_md_smem_align(md_id));
-	md_resv_smem_addr[md_id] = md_resv_mem_list[md_id]
-			+ md_resv_mem_size[md_id];
+	md_resv_smem_addr[md_id] = md_resv_mem_list[md_id] + md_resv_mem_size[md_id];
 
-	CCCI_UTIL_INF_MSG_WITH_ID(md_id,
-		"md%d modem_total_size=0x%x,md_size=0x%x, smem_size=0x%x\n",
-		(md_id + 1),
-		md_resv_size_list[md_id], md_resv_mem_size[md_id],
-		md_resv_smem_size[md_id]);
+	CCCI_UTIL_INF_MSG_WITH_ID(md_id, "md%d modem_total_size=0x%x,md_size=0x%x, smem_size=0x%x\n", (md_id + 1),
+				md_resv_size_list[md_id], md_resv_mem_size[md_id], md_resv_smem_size[md_id]);
 
-	if ((s_g_md_usage_case & (1 << md_id))
-			&& ((md_resv_mem_addr[md_id]
-			& (CCCI_MEM_ALIGN - 1)) != 0))
-		CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
-			"md%d memory addr is not 32M align!!!\n", (md_id + 1));
+	if ((s_g_md_usage_case & (1 << md_id)) && ((md_resv_mem_addr[md_id] & (CCCI_MEM_ALIGN - 1)) != 0))
+		CCCI_UTIL_ERR_MSG_WITH_ID(md_id, "md%d memory addr is not 32M align!!!\n", (md_id + 1));
 
-	if ((s_g_md_usage_case & (1 << md_id))
-			&& ((md_resv_smem_addr[md_id]
-			& (CCCI_SMEM_ALIGN_MD1 - 1)) != 0))
-		CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
-			"md%d share memory addr %p is not 0x%x align!!\n",
-			(md_id + 1),
-			&md_resv_smem_addr[md_id],
-			CCCI_SMEM_ALIGN_MD1);
+	if ((s_g_md_usage_case & (1 << md_id)) && ((md_resv_smem_addr[md_id] & (CCCI_SMEM_ALIGN_MD1 - 1)) != 0))
+		CCCI_UTIL_ERR_MSG_WITH_ID(md_id, "md%d share memory addr %p is not 0x%x align!!\n", (md_id + 1),
+			&md_resv_smem_addr[md_id], CCCI_SMEM_ALIGN_MD1);
 
-	CCCI_UTIL_INF_MSG_WITH_ID(md_id,
-		"MemStart: %016llx, MemSize:0x%08X\n",
-		(unsigned long long)md_resv_mem_addr[md_id],
-		md_resv_mem_size[md_id]);
-	CCCI_UTIL_INF_MSG_WITH_ID(md_id,
-		"SMemStart: %016llx, SMemSize:0x%08X\n",
-		(unsigned long long)md_resv_smem_addr[md_id],
-		md_resv_smem_size[md_id]);
+	CCCI_UTIL_INF_MSG_WITH_ID(md_id, "MemStart: %016llx, MemSize:0x%08X\n",
+		(unsigned long long)md_resv_mem_addr[md_id], md_resv_mem_size[md_id]);
+	CCCI_UTIL_INF_MSG_WITH_ID(md_id, "SMemStart: %016llx, SMemSize:0x%08X\n",
+		(unsigned long long)md_resv_smem_addr[md_id], md_resv_smem_size[md_id]);
 }
 
 static void cal_md_settings_v2(struct device_node *node)
@@ -1743,8 +1403,7 @@ static void cal_md_settings_v2(struct device_node *node)
 			CCCI_UTIL_INF_MSG("DT[%s]:%08X\n", tmp_buf, tmp);
 			md_resv_smem_size[MD_SYS1+i] = tmp;
 		} else
-			CCCI_UTIL_INF_MSG("DT[%s]:%08X\n",
-				tmp_buf, md_resv_smem_size[MD_SYS1+i]);
+			CCCI_UTIL_INF_MSG("DT[%s]:%08X\n", tmp_buf, md_resv_smem_size[MD_SYS1+i]);
 	}
 
 	/* MD1MD3_SMEM_SIZE*/
@@ -1753,8 +1412,7 @@ static void cal_md_settings_v2(struct device_node *node)
 		CCCI_UTIL_INF_MSG("DT[%s]:%08X\n", tmp_buf, tmp);
 		md1md3_resv_smem_size = tmp;
 	} else
-		CCCI_UTIL_INF_MSG("DT[%s]:%08X\n",
-			tmp_buf, md1md3_resv_smem_size);
+		CCCI_UTIL_INF_MSG("DT[%s]:%08X\n", tmp_buf, md1md3_resv_smem_size);
 
 	/* CFG version */
 	snprintf(tmp_buf, 30, "mediatek,version");
@@ -1771,11 +1429,8 @@ static void cal_md_settings_v2(struct device_node *node)
 		if (s_g_md_usage_case & (1 << i)) {
 			md_resv_mem_size[i] = md_resv_size_list[i];
 			md_resv_mem_addr[i] = md_resv_mem_list[i];
-			CCCI_UTIL_INF_MSG(
-				"md%d MemStart: 0x%016llx, MemSize:0x%08X\n",
-				i+1,
-				(unsigned long long)md_resv_mem_addr[i],
-				md_resv_mem_size[i]);
+			CCCI_UTIL_INF_MSG("md%d MemStart: 0x%016llx, MemSize:0x%08X\n", i+1,
+				(unsigned long long)md_resv_mem_addr[i], md_resv_mem_size[i]);
 		}
 	}
 
@@ -1785,39 +1440,28 @@ static void cal_md_settings_v2(struct device_node *node)
 	/* AP  <--> MD3 */
 	md_resv_smem_addr[MD_SYS1] = resv_smem_addr;
 	if (s_g_md_usage_case & (1 << MD_SYS3)) {
-		md1md3_resv_smem_addr =
-			resv_smem_addr + md_resv_smem_size[MD_SYS1];
-		md_resv_smem_addr[MD_SYS3] =
-			md1md3_resv_smem_addr + md1md3_resv_smem_size;
+		md1md3_resv_smem_addr = resv_smem_addr + md_resv_smem_size[MD_SYS1];
+		md_resv_smem_addr[MD_SYS3] = md1md3_resv_smem_addr + md1md3_resv_smem_size;
 	} else {
 		md1md3_resv_smem_addr = 0;
 		md1md3_resv_smem_size = 0;
 		md_resv_smem_addr[MD_SYS3] = 0;
 		md_resv_smem_size[MD_SYS3] = 0;
 	}
-	CCCI_UTIL_INF_MSG(
-			"AP  <--> MD1 SMEM(0x%08X):%016llx~%016llx\n",
-			md_resv_smem_size[MD_SYS1],
+	CCCI_UTIL_INF_MSG("AP  <--> MD1 SMEM(0x%08X):%016llx~%016llx\n", md_resv_smem_size[MD_SYS1],
 			(unsigned long long)md_resv_smem_addr[MD_SYS1],
-			(unsigned long long)(md_resv_smem_addr[MD_SYS1]
-			+ md_resv_smem_size[MD_SYS1]-1));
-	CCCI_UTIL_INF_MSG(
-			"MD1 <--> MD3 SMEM(0x%08X):%016llx~%016llx\n",
-			md1md3_resv_smem_size,
+			(unsigned long long)(md_resv_smem_addr[MD_SYS1]+md_resv_smem_size[MD_SYS1]-1));
+	CCCI_UTIL_INF_MSG("MD1 <--> MD3 SMEM(0x%08X):%016llx~%016llx\n", md1md3_resv_smem_size,
 			(unsigned long long)md1md3_resv_smem_addr,
-			(unsigned long long)(md1md3_resv_smem_addr
-			+ md1md3_resv_smem_size-1));
-	CCCI_UTIL_INF_MSG(
-			"AP  <--> MD3 SMEM(0x%08X):%016llx~%016llx\n",
-			md_resv_smem_size[MD_SYS3],
+			(unsigned long long)(md1md3_resv_smem_addr+md1md3_resv_smem_size-1));
+	CCCI_UTIL_INF_MSG("AP  <--> MD3 SMEM(0x%08X):%016llx~%016llx\n", md_resv_smem_size[MD_SYS3],
 			(unsigned long long)md_resv_smem_addr[MD_SYS3],
-			(unsigned long long)(md_resv_smem_addr[MD_SYS3]
-			+ md_resv_smem_size[MD_SYS3]-1));
+			(unsigned long long)(md_resv_smem_addr[MD_SYS3]+md_resv_smem_size[MD_SYS3]-1));
 }
 
-/********************************************************/
-/* Global functions                                    */
-/*******************************************************/
+/**************************************************************************************/
+/* Global functions                                                                   */
+/**************************************************************************************/
 unsigned int get_wm_bitmap_for_ubin(void)
 {
 	unsigned int rat_cfg = 0;
@@ -1850,16 +1494,14 @@ int get_md_img_type(int md_id)
 {
 	int md_support_val;
 
-	/* MD standalone, only one image case */
-	if (s_g_lk_load_img_status & LK_LOAD_MD_EN)
+	if (s_g_lk_load_img_status & LK_LOAD_MD_EN) /* MD standalone, only one image case */
 		return get_md_type_from_lk(md_id);
 
 	/* Multi- image */
 	md_support_val = get_modem_support_cap(md_id);
 	if ((md_support_val & MD_CAP_ENHANCE) == MD_CAP_ENHANCE) {
 		if (md_support_val & (MD_CAP_FDD_LTE | MD_CAP_TDD_LTE)) {
-			if ((md_support_val & (MD_CAP_TDS_CDMA | MD_CAP_WCDMA))
-					== (MD_CAP_TDS_CDMA | MD_CAP_WCDMA)) {
+			if ((md_support_val & (MD_CAP_TDS_CDMA | MD_CAP_WCDMA)) == (MD_CAP_TDS_CDMA | MD_CAP_WCDMA)) {
 				/* Using MD SUPPORT check priority */
 				if (md_id == MD_SYS1)
 					return MTK_MD1_SUPPORT;
@@ -1872,11 +1514,9 @@ int get_md_img_type(int md_id)
 				return 5;
 			return 5; /* Using lwg as default */
 		}
-		/* Special setting for wcg with non-lk load modem */
-		if ((md_support_val & MD_CAP_MASK)
-				== (MD_CAP_WCDMA | MD_CAP_GSM
-					| MD_CAP_CDMA2000))
-			return 5;
+
+		if ((md_support_val & MD_CAP_MASK) == (MD_CAP_WCDMA | MD_CAP_GSM | MD_CAP_CDMA2000))
+			return 5; /* Special setting for wcg with non-lk load modem */
 
 		if (md_support_val & MD_CAP_WCDMA)
 			return 3;
@@ -1903,14 +1543,12 @@ int check_md_type(int data)
 		return val;
 	/* check md view md type */
 	if ((val >> 8) == (MD_CAP_ENHANCE >> 8)) {
-			val &= MD_CAP_MASK;
-			val = compatible_convert(val);
-			for (i = 0;
-			i < (sizeof(legacy_ubin_rat_map)/sizeof(unsigned int));
-			i++) {
-				if (val == legacy_ubin_rat_map[i])
-					return LEGACY_UBIN_START_ID + i;
-			}
+		val &= MD_CAP_MASK;
+		val = compatible_convert(val);
+		for (i = 0; i < (sizeof(legacy_ubin_rat_map)/sizeof(unsigned int)); i++) {
+			if (val == legacy_ubin_rat_map[i])
+				return LEGACY_UBIN_START_ID + i;
+		}
 	}
 	return 0;
 }
@@ -1929,118 +1567,13 @@ int get_legacy_md_type(int md_id)
 	if ((val & MD_CAP_ENHANCE) == MD_CAP_ENHANCE) {
 		val &= MD_CAP_MASK;
 		val = compatible_convert(val);
-		for (i = 0;
-			 i < (sizeof(legacy_ubin_rat_map)/sizeof(unsigned int));
-			 i++) {
+		for (i = 0; i < (sizeof(legacy_ubin_rat_map)/sizeof(unsigned int)); i++) {
 			if (val == legacy_ubin_rat_map[i])
 				return LEGACY_UBIN_START_ID + i;
 		}
 		return 0;
 	}
 	return val;
-}
-
-
-void ccci_set_rat_str_to_drv(int md_id, char rat_str[])
-{
-	unsigned int bit_map = 0;
-
-	if (md_id != MD_SYS1)
-		return;
-
-	bit_map = ccci_rat_str_to_bitmap(rat_str);
-	bit_map |= MD_CAP_ENHANCE;
-
-	set_modem_support_cap(MD_SYS1, (int)bit_map);
-}
-
-int ccci_get_rat_str_from_drv(int md_id, char rat_str[], int size)
-{
-	int md_support_val = 0;
-	int ret;
-	unsigned int bit_map = 0;
-	int has_gen = 0;
-	char tmp_buf[8];
-
-	md_support_val = get_modem_support_cap(md_id);
-	if (md_support_val < 0)
-		return -1;
-
-	if ((md_support_val & MD_CAP_ENHANCE) == MD_CAP_ENHANCE)
-		bit_map = (unsigned int)(md_support_val & MD_CAP_MASK);
-	else {
-		/* 1, 3, 4 */
-		if (md_support_val == 1)
-			bit_map = MD_CAP_GSM;
-		else if (md_support_val == 3)
-			bit_map = MD_CAP_WCDMA|MD_CAP_GSM;
-		else if (md_support_val == 4)
-			bit_map = MD_CAP_TDS_CDMA|MD_CAP_GSM;
-		/* 5, 6, 7 phase out */
-		else if (md_support_val == 5)
-			bit_map = MD_CAP_FDD_LTE|MD_CAP_WCDMA|MD_CAP_GSM;
-		else if (md_support_val == 6)
-			bit_map = MD_CAP_TDD_LTE|MD_CAP_TDS_CDMA|MD_CAP_GSM;
-		else{
-			bit_map = ubin_md_support_id_to_rat(md_support_val);
-			if (bit_map == 0) {
-				pr_notice("[ccci0/rat] get rat str not support\r\n");
-				WARN_ON(1);
-				return -2;
-			}
-		}
-	}
-
-	/* Gen string */
-	if (bit_map & MD_CAP_GSM) {
-		ret = snprintf(tmp_buf, sizeof(tmp_buf), "/G");
-		if ((size - has_gen) < ret)
-			return has_gen;
-		ret = snprintf(&rat_str[has_gen],
-				size - has_gen, "%s", tmp_buf);
-		has_gen += ret;
-	}
-	if (bit_map & MD_CAP_WCDMA) {
-		ret = snprintf(tmp_buf, sizeof(tmp_buf), "/W");
-		if ((size - has_gen) < ret)
-			return has_gen;
-		ret = snprintf(&rat_str[has_gen],
-				size - has_gen, "%s", tmp_buf);
-		has_gen += ret;
-	}
-	if (bit_map & MD_CAP_TDS_CDMA) {
-		ret = snprintf(tmp_buf, sizeof(tmp_buf), "/T");
-		if ((size - has_gen) < ret)
-			return has_gen;
-		ret = snprintf(&rat_str[has_gen],
-				size - has_gen, "%s", tmp_buf);
-		has_gen += ret;
-	}
-	if (bit_map & MD_CAP_FDD_LTE) {
-		ret = snprintf(tmp_buf, sizeof(tmp_buf), "/Lf");
-		if ((size - has_gen) < ret)
-			return has_gen;
-		ret = snprintf(&rat_str[has_gen],
-				size - has_gen, "%s", tmp_buf);
-		has_gen += ret;
-	}
-	if (bit_map & MD_CAP_TDD_LTE) {
-		ret = snprintf(tmp_buf, sizeof(tmp_buf), "/Lt");
-		if ((size - has_gen) < ret)
-			return has_gen;
-		ret = snprintf(&rat_str[has_gen],
-				size - has_gen, "%s", tmp_buf);
-		has_gen += ret;
-	}
-	if (bit_map & MD_CAP_CDMA2000) {
-		ret = snprintf(tmp_buf, sizeof(tmp_buf), "/C");
-		if ((size - has_gen) < ret)
-			return has_gen;
-		ret = snprintf(&rat_str[has_gen],
-				size - has_gen, "%s", tmp_buf);
-		has_gen += ret;
-	}
-	return has_gen;
 }
 
 void ccci_md_mem_reserve(void)
@@ -2070,33 +1603,25 @@ int ccci_reserve_mem_of_init(struct reserved_mem *rmem)
 		md_id = MD_SYS3;
 	else {
 		if (strstr(CCCI_MD1MD3_SMEM_RESERVED_KEY, rmem->name)) {
-			CCCI_UTIL_INF_MSG(
-			"reserve_mem_of_init, rptr=0x%pa, rsize=0x%x\n",
-			&rptr, rsize);
+			CCCI_UTIL_INF_MSG("reserve_mem_of_init, rptr=0x%pa, rsize=0x%x\n", &rptr, rsize);
 			resv_smem_addr = rptr;
 			resv_smem_size = rsize;
 		} else
-			CCCI_UTIL_INF_MSG("memory reserve key %s not support\n",
-				rmem->name);
+			CCCI_UTIL_INF_MSG("memory reserve key %s not support\n", rmem->name);
 
 		return 0;
 	}
-	CCCI_UTIL_INF_MSG("reserve_mem_of_init, rptr=0x%pa, rsize=0x%x\n",
-			&rptr, rsize);
+	CCCI_UTIL_INF_MSG("reserve_mem_of_init, rptr=0x%pa, rsize=0x%x\n", &rptr, rsize);
 	md_resv_mem_list[md_id] = rptr;
 	md_resv_size_list[md_id] = rsize;
 	s_g_md_usage_case |= (1 << md_id);
 	return 0;
 }
 
-RESERVEDMEM_OF_DECLARE(ccci_reserve_mem_md1_init,
-	CCCI_MD1_MEM_RESERVED_KEY, ccci_reserve_mem_of_init);
-RESERVEDMEM_OF_DECLARE(ccci_reserve_mem_md2_init,
-	CCCI_MD2_MEM_RESERVED_KEY, ccci_reserve_mem_of_init);
-RESERVEDMEM_OF_DECLARE(ccci_reserve_mem_md3_init,
-	CCCI_MD3_MEM_RESERVED_KEY, ccci_reserve_mem_of_init);
-RESERVEDMEM_OF_DECLARE(ccci_reserve_smem_md1md3_init,
-	CCCI_MD1MD3_SMEM_RESERVED_KEY, ccci_reserve_mem_of_init);
+RESERVEDMEM_OF_DECLARE(ccci_reserve_mem_md1_init, CCCI_MD1_MEM_RESERVED_KEY, ccci_reserve_mem_of_init);
+RESERVEDMEM_OF_DECLARE(ccci_reserve_mem_md2_init, CCCI_MD2_MEM_RESERVED_KEY, ccci_reserve_mem_of_init);
+RESERVEDMEM_OF_DECLARE(ccci_reserve_mem_md3_init, CCCI_MD3_MEM_RESERVED_KEY, ccci_reserve_mem_of_init);
+RESERVEDMEM_OF_DECLARE(ccci_reserve_smem_md1md3_init, CCCI_MD1MD3_SMEM_RESERVED_KEY, ccci_reserve_mem_of_init);
 #endif
 
 

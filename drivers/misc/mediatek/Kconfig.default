@@ -1,4 +1,3 @@
-
 config ANDROID_DEFAULT_SETTING
 	bool "Select android common setting by default"
 	select ADVISE_SYSCALLS
@@ -6,13 +5,12 @@ config ANDROID_DEFAULT_SETTING
 	select ANDROID
 	select ANDROID_BINDER_IPC
 	select ARM64_SW_TTBR0_PAN
+	select ARM_KERNMEM_PERMS
 	select ARMV8_DEPRECATED
 	select ASHMEM
 	select AUDIT
 	select BLK_DEV_INITRD
 	select BLOCK
-	select BPF_SYSCALL
-	select CGROUP_BPF
 	select CGROUP_CPUACCT
 	select CGROUP_FREEZER
 	select CGROUPS
@@ -35,20 +33,19 @@ config ANDROID_DEFAULT_SETTING
 	select EMBEDDED
 	select EPOLL
 	select EVENTFD
-	select FB
 	select FUTEX
 	select HARDENED_USERCOPY
 	select HIGH_RES_TIMERS
 	select IKCONFIG
 	select IKCONFIG_PROC
 	select INET
-	select INET6_AH
 	select INET6_ESP
 	select INET6_IPCOMP
 	select INET6_XFRM_MODE_TRANSPORT
 	select INET6_XFRM_MODE_TUNNEL
 	select INET_DIAG_DESTROY
 	select INET_ESP
+	select INET_UDP_DIAG
 	select INET_XFRM_MODE_TRANSPORT
 	select INET_XFRM_MODE_TUNNEL
 	select IP6_NF_FILTER
@@ -66,7 +63,6 @@ config ANDROID_DEFAULT_SETTING
 	select IP_NF_FILTER
 	select IP_NF_IPTABLES
 	select IP_NF_MANGLE
-	select IP_NF_MATCH_AH
 	select IP_NF_MATCH_ECN
 	select IP_NF_MATCH_TTL
 	select IP_NF_NAT
@@ -94,7 +90,6 @@ config ANDROID_DEFAULT_SETTING
 	select NET_EMATCH
 	select NET_EMATCH_U32
 	select NETFILTER
-	select NETFILTER_XT_MATCH_BPF
 	select NETFILTER_XT_MATCH_COMMENT
 	select NETFILTER_XT_MATCH_CONNLIMIT
 	select NETFILTER_XT_MATCH_CONNMARK
@@ -152,7 +147,6 @@ config ANDROID_DEFAULT_SETTING
 	select NF_NAT
 	select NO_HZ
 	select PACKET
-	select PM_AUTOSLEEP
 	select PM_WAKELOCKS
 	select PPP
 	select PPP_BSDCOMP
@@ -174,15 +168,17 @@ config ANDROID_DEFAULT_SETTING
 	select SETEND_EMULATION
 	select SHMEM
 	select SIGNALFD
+	select SND
 	select STAGING
 	select SUSPEND
 	select SWP_EMULATION
 	select SYNC
-	select SYNC_FILE
 	select SYSFS
 	select TASK_IO_ACCOUNTING
 	select TASKSTATS
 	select TASK_XACCT
+	select TCP_CONG_ADVANCED
+	select TCP_CONG_BIC
 	select TIMERFD
 	select TUN
 	select UID_SYS_STATS
@@ -193,8 +189,6 @@ config ANDROID_DEFAULT_SETTING
 	select USB_CONFIGFS_F_AUDIO_SRC
 	select USB_CONFIGFS_F_FS
 	select USB_CONFIGFS_F_MIDI
-	select USB_CONFIGFS_F_MTP
-	select USB_CONFIGFS_F_PTP
 	select USB_CONFIGFS_UEVENT
 	select USB_GADGET
 	select USB_SUPPORT
@@ -204,4 +198,3 @@ config ANDROID_DEFAULT_SETTING
 	  to avoid missing basic or common setting
 	  Say Y here if the project is for android product
 	  If unsure, say N
-

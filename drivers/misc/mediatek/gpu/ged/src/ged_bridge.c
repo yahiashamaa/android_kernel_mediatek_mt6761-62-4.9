@@ -59,9 +59,8 @@ int ged_bridge_boost_gpu_freq(
 		GED_BRIDGE_OUT_BOOSTGPUFREQ *psBoostGpuFreqOUT)
 {
 #if 1
-	psBoostGpuFreqOUT->eError = (mtk_set_bottom_gpu_freq(
-		psBoostGpuFreqIN->eGPUFreqLevel) == true) ?
-		GED_OK : GED_ERROR_FAIL;
+	psBoostGpuFreqOUT->eError =
+	(mtk_set_bottom_gpu_freq(psBoostGpuFreqIN->eGPUFreqLevel) == true) ? GED_OK : GED_ERROR_FAIL;
 #else
 	unsigned int ui32Count;
 	if (mtk_custom_get_gpu_freq_level_count(&ui32Count))
@@ -82,8 +81,7 @@ int ged_bridge_monitor_3D_fence(
 		GED_BRIDGE_IN_MONITOR3DFENCE *psMonitor3DFenceINT,
 		GED_BRIDGE_OUT_MONITOR3DFENCE *psMonitor3DFenceOUT)
 {
-	psMonitor3DFenceOUT->eError =
-		ged_monitor_3D_fence_add(psMonitor3DFenceINT->fd);
+	psMonitor3DFenceOUT->eError = ged_monitor_3D_fence_add(psMonitor3DFenceINT->fd);
 	return 0;
 }
 //-----------------------------------------------------------------------------

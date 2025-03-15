@@ -32,6 +32,7 @@
 #include <linux/platform_device.h>
 
 #include <linux/ioctl.h>
+#include <legacy_controller.h>
 
 #define DEV_MAJOR 121
 #define DEV_NAME "debug"
@@ -65,12 +66,12 @@ struct _FPSGO_PACKAGE {
 	__s32 queue_SF;
 };
 
-#define FPSGO_QUEUE                  _IOW('g', 1,  struct _FPSGO_PACKAGE)
-#define FPSGO_DRAW_START             _IOW('g', 2,  struct _FPSGO_PACKAGE)
-#define FPSGO_DEQUEUE                _IOW('g', 3,  struct _FPSGO_PACKAGE)
-#define FPSGO_VSYNC                  _IOW('g', 5,  struct _FPSGO_PACKAGE)
-#define FPSGO_ACT_SWITCH             _IOW('g', 8,  struct _FPSGO_PACKAGE)
-#define FPSGO_GAME                   _IOW('g', 9,  struct _FPSGO_PACKAGE)
+#define FPSGO_QUEUE                  _IOW('g', 1, struct _FPSGO_PACKAGE)
+#define FPSGO_DRAW_START             _IOW('g', 2, struct _FPSGO_PACKAGE)
+#define FPSGO_DEQUEUE                _IOW('g', 3, struct _FPSGO_PACKAGE)
+#define FPSGO_VSYNC                  _IOW('g', 5, struct _FPSGO_PACKAGE)
+#define FPSGO_ACT_SWITCH             _IOW('g', 8, struct _FPSGO_PACKAGE)
+#define FPSGO_GAME                   _IOW('g', 9, struct _FPSGO_PACKAGE)
 #define FPSGO_TOUCH                  _IOW('g', 10, struct _FPSGO_PACKAGE)
 #define FPSGO_FRAME_COMPLETE         _IOW('g', 11, struct _FPSGO_PACKAGE)
 #define FPSGO_INTENDED_VSYNC         _IOW('g', 12, struct _FPSGO_PACKAGE)

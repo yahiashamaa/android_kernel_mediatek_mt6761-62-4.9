@@ -178,7 +178,7 @@ static int __init log_store_late_init(void)
 	}
 
 	dram_log_store_status = BUFF_READY;
-	pr_notice("buff %p, sig %x size %x pl %x, sz %x lk %x, sz %x p %x, l %x\n",
+	pr_notice("buff %p sig %x buff_size %x pl %x, sz %x lk %x, sz %x flag p %x, l %x\n",
 		pbuff, dram_curlog_header->sig,
 		dram_curlog_header->buff_size,
 		dram_curlog_header->off_pl, dram_curlog_header->sz_pl,
@@ -213,7 +213,7 @@ static void store_printk_buff(void)
 	if (early_log_disable == false)
 		sram_dram_buff->flag |= BUFF_EARLY_PRINTK;
 	pr_notice(
-		"log_store printk log buff addr:0x%x, size 0x%x. buff flag 0x%x.\n",
+		"log_store log buff addr:0x%x, size 0x%x. buff flag 0x%x.\n",
 		sram_dram_buff->klog_addr, sram_dram_buff->klog_size,
 		sram_dram_buff->flag);
 }

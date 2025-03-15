@@ -24,8 +24,7 @@ struct dfd_drv {
 	unsigned int enabled;
 };
 
-extern unsigned int check_dfd_support(void);
-extern unsigned int dfd_infra_base(void);
-extern unsigned int dfd_ap_addr_offset(void);
+extern unsigned int __attribute__((weak)) check_dfd_support(void);
+extern unsigned int __attribute__((weak)) dfd_infra_base(void);
 
 #endif

@@ -1,15 +1,16 @@
 /*
- * Copyright (C) 2016 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
- */
+* Copyright (C) 2011-2015 MediaTek Inc.
+*
+* This program is free software: you can redistribute it and/or modify it under the terms of the
+* GNU General Public License version 2 as published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+* without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See the GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License along with this program.
+* If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include <linux/vmalloc.h>         /* needed by vmalloc */
 #include <linux/sysfs.h>
@@ -55,6 +56,7 @@ static struct scp_work_struct scp_aed_work;
 static struct scp_status_reg scp_A_aee_status;
 static struct mutex scp_excep_mutex;
 static struct mutex scp_A_excep_dump_mutex;
+int scp_ee_force_ke_enable;
 int scp_ee_enable;
 
 
@@ -182,10 +184,8 @@ void exception_header_init(void *oldbufp, enum scp_core_id id)
 	phdr->p_vaddr = CRASH_MEMORY_OFFSET;
 	phdr->p_paddr = CRASH_MEMORY_OFFSET;
 
-#if SCP_RECOVERY_SUPPORT
 	if ((int)scp_region_info_copy.ap_dram_size > 0)
 		dram_size = scp_region_info_copy.ap_dram_size;
-#endif
 
 	phdr->p_filesz = CRASH_MEMORY_LENGTH + roundup(dram_size, 4);
 	phdr->p_memsz = CRASH_MEMORY_LENGTH + roundup(dram_size, 4);
@@ -266,10 +266,8 @@ void scp_sub_header_init(void *bufp)
 	scp_sub_head = (struct scp_dump_header_list *) bufp;
 	/*setup scp reg*/
 	scp_sub_head->scp_head_magic = 0xDEADBEEF;
-#if SCP_RECOVERY_SUPPORT
 	memcpy(&scp_sub_head->scp_region_info,
 		&scp_region_info_copy, sizeof(scp_region_info_copy));
-#endif
 	scp_sub_head->scp_head_magic_end = 0xDEADBEEF;
 }
 
@@ -298,8 +296,6 @@ uint32_t scp_dump_pc(void)
  */
 void scp_A_dump_regs(void)
 {
-	uint32_t tmp;
-
 	if (is_scp_ready(SCP_A_ID)) {
 		pr_debug("[SCP]ready PC:0x%x,LR:0x%x,PSP:0x%x,SP:0x%x\n"
 		, readl(SCP_A_DEBUG_PC_REG), readl(SCP_A_DEBUG_LR_REG)
@@ -309,7 +305,6 @@ void scp_A_dump_regs(void)
 		, readl(SCP_A_DEBUG_PC_REG), readl(SCP_A_DEBUG_LR_REG)
 		, readl(SCP_A_DEBUG_PSP_REG), readl(SCP_A_DEBUG_SP_REG));
 	}
-
 	pr_debug("[SCP]GIPC     0x%x\n", readl(SCP_GIPC_IN_REG));
 	pr_debug("[SCP]BUS_CTRL 0x%x\n", readl(SCP_BUS_CTRL));
 	pr_debug("[SCP]SLEEP_STATUS 0x%x\n", readl(SCP_CPU_SLEEP_STATUS));
@@ -320,17 +315,6 @@ void scp_A_dump_regs(void)
 	pr_debug("[SCP]CLK_CTRL_SEL 0x%x\n", readl(SCP_CLK_SW_SEL));
 	pr_debug("[SCP]CLK_ENABLE  0x%x\n", readl(SCP_CLK_ENABLE));
 	pr_debug("[SCP]SLEEP_DEBUG 0x%x\n", readl(SCP_A_SLEEP_DEBUG_REG));
-
-	tmp = readl(SCP_BUS_CTRL)&(~dbg_irq_info_sel_mask);
-	writel(tmp | (0 << dbg_irq_info_sel_shift), SCP_BUS_CTRL);
-	pr_debug("[SCP]BUS:INFRA LATCH,  0x%x\n", readl(SCP_DEBUG_IRQ_INFO));
-	writel(tmp | (1 << dbg_irq_info_sel_shift), SCP_BUS_CTRL);
-	pr_debug("[SCP]BUS:DCACHE LATCH,  0x%x\n", readl(SCP_DEBUG_IRQ_INFO));
-	writel(tmp | (2 << dbg_irq_info_sel_shift), SCP_BUS_CTRL);
-	pr_debug("[SCP]BUS:ICACHE LATCH,  0x%x\n", readl(SCP_DEBUG_IRQ_INFO));
-	writel(tmp | (3 << dbg_irq_info_sel_shift), SCP_BUS_CTRL);
-	pr_debug("[SCP]BUS:PC LATCH,  0x%x\n", readl(SCP_DEBUG_IRQ_INFO));
-
 }
 
 /*
@@ -385,7 +369,6 @@ static unsigned int scp_crash_dump(struct MemoryDump *pMemoryDump,
 		return 0;
 	}
 
-#if SCP_RECOVERY_SUPPORT
 	/* L1C support? */
 	if ((int)(scp_region_info_copy.ap_dram_size) <= 0) {
 		scp_dump_size = sizeof(struct MemoryDump);
@@ -396,9 +379,7 @@ static unsigned int scp_crash_dump(struct MemoryDump *pMemoryDump,
 		scp_dump_size = sizeof(struct MemoryDump) +
 			roundup(dram_size, 4);
 	}
-#else
-	scp_dump_size = 0;
-#endif
+
 	exception_header_init(pMemoryDump, id);
 	/* init sub header*/
 	scp_sub_header_init(&(pMemoryDump->scp_dump_header));
@@ -413,14 +394,12 @@ static unsigned int scp_crash_dump(struct MemoryDump *pMemoryDump,
 		scp_l1c_flua(SCP_DL1C);
 		scp_l1c_flua(SCP_IL1C);
 		udelay(10);
-#if SCP_RECOVERY_SUPPORT
 		pr_debug("scp:scp_l1c_start_virt 0x%p\n",
 			scp_l1c_start_virt);
 		/* copy dram data*/
 		memcpy((void *)&(pMemoryDump->scp_reg_dump),
 			scp_l1c_start_virt, dram_size);
 		/* dump scp reg */
-#endif
 		scp_reg_copy((void *)(&pMemoryDump->scp_reg_dump) +
 			roundup(dram_size, 4));
 	} else {
@@ -610,7 +589,7 @@ void scp_aed(enum scp_excep_id type, enum scp_core_id id)
 	pr_debug("%s", aed.detail);
 
 	/* scp aed api, only detail information available*/
-	aed_common_exception_api("scp", NULL, 0, NULL, 0,
+	aed_scp_exception_api(NULL, 0, NULL, 0,
 			aed.detail, DB_OPT_DEFAULT);
 
 	pr_debug("[SCP] scp exception dump is done\n");
@@ -639,6 +618,11 @@ void scp_aed_reset_inplace(enum scp_excep_id type,
 		return;
 
 #endif
+	if (scp_ee_force_ke_enable == 1) {
+		/* wait scp ee dump finish */
+		msleep(20000);
+		BUG_ON(1);
+	}
 
 #if SCP_RECOVERY_SUPPORT
 	if (atomic_read(&scp_reset_status) == RESET_STATUS_START) {
@@ -742,13 +726,10 @@ int scp_excep_init(void)
 	scp_A_detail_buffer = vmalloc(SCP_AED_STR_LEN);
 	if (!scp_A_detail_buffer)
 		return -1;
-#if SCP_RECOVERY_SUPPORT
+
 	/* support L1C or not? */
 	if ((int)(scp_region_info->ap_dram_size) > 0)
 		dram_size = scp_region_info->ap_dram_size;
-#else
-	dram_size = 0;
-#endif
 
 	scp_A_dump_buffer = vmalloc(sizeof(struct MemoryDump) +
 		roundup(dram_size, 4));

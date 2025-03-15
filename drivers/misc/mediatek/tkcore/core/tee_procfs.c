@@ -208,8 +208,8 @@ static ssize_t tee_log_read(struct file *file, char __user *buf, size_t count,
 
 	while (1) {
 
-		head = READ_ONCE(klog_head);
-		tail = READ_ONCE(klog_tail);
+		head = ACCESS_ONCE(klog_head);
+		tail = ACCESS_ONCE(klog_tail);
 
 		{
 			DEFINE_WAIT(wait);
@@ -438,10 +438,10 @@ static ssize_t tee_trace_read(struct file *file, char __user *buf, size_t count,
 
 	size_t len = count > TRACE_BUF_SIZE - 1 ? TRACE_BUF_SIZE - 1 : count;
 
-	if (buf == NULL)
+	if (buf == NULL || pos == NULL) {
+		pr_err("tkcoredrv: trace_read: invalid args\n");
 		return -EINVAL;
-
-	pr_debug("trace_read count %Zd pos %p\n", count, pos);
+	}
 
 	for (i = 0; i < NTRACES; i++) {
 		int l = snprintf(p, trace_buf + len - p, "%s %d ",
@@ -455,12 +455,7 @@ static ssize_t tee_trace_read(struct file *file, char __user *buf, size_t count,
 
 	*p++ = '\n';
 
-	if (pos == NULL)
-		__pos = 0;
-	else
-		__pos = *pos;
-
-	pr_debug("trace_read pos %lld\n", __pos);
+	__pos = *pos;
 
 	if (__pos >= p - trace_buf)
 		return 0;

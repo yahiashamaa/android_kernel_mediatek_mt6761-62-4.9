@@ -40,8 +40,7 @@ typedef int32_t KREE_SESSION_HANDLE;
  *  Create a new TEE sesssion
  *
  * @param ta_uuid UUID of the TA to connect to.
- * @param pHandle Handle for the new session. Return KREE_SESSION_HANDLE_FAIL if
- * fail.
+ * @param pHandle Handle for the new session. Return KREE_SESSION_HANDLE_FAIL if fail.
  * @return return code
  */
 TZ_RESULT KREE_CreateSession(const char *ta_uuid, KREE_SESSION_HANDLE *pHandle);
@@ -57,9 +56,7 @@ TZ_RESULT KREE_CreateSession(const char *ta_uuid, KREE_SESSION_HANDLE *pHandle);
  * @return return code
  */
 /*fix mtee sync*/
-TZ_RESULT KREE_CreateSessionWithTag(const char *ta_uuid,
-				    KREE_SESSION_HANDLE *pHandle,
-				    const char *tag);
+TZ_RESULT KREE_CreateSessionWithTag(const char *ta_uuid, KREE_SESSION_HANDLE *pHandle, const char *tag);
 
 /**
  * Close TEE session
@@ -75,8 +72,7 @@ TZ_RESULT KREE_CloseSession(KREE_SESSION_HANDLE handle);
  *
  * @param handle      Session handle to make the call
  * @param command     The command to call.
- * @param paramTypes  Types for the parameters, use TZ_ParamTypes() to
- * consturct.
+ * @param paramTypes  Types for the parameters, use TZ_ParamTypes() to consturct.
  * @param param       The parameters to pass to TEE. Maximum 4 params.
  * @return            Return value from TEE service.
  */
@@ -101,5 +97,5 @@ u64 KREE_GetSystemCnt(void);
 u32 KREE_GetSystemCntFrq(void);
 
 
-#endif /* CONFIG_MTK_IN_HOUSE_TEE_SUPPORT || CONFIG_TRUSTY */
-#endif /* __KREE_H__ */
+#endif				/* CONFIG_MTK_IN_HOUSE_TEE_SUPPORT || CONFIG_TRUSTY */
+#endif				/* __KREE_H__ */

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2015 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -30,7 +30,7 @@
 #include <linux/uidgid.h>
 #include <linux/slab.h>
 
-#define RESERVED_TZS (17)
+#define RESERVED_TZS (12)
 
 static kuid_t uid = KUIDT_INIT(0);
 static kgid_t gid = KGIDT_INIT(1000);
@@ -95,8 +95,7 @@ static int tsallts_get_temp(struct thermal_zone_device *thermal, int *t)
 	return 0;
 }
 
-static int tsallts_bind(
-struct thermal_zone_device *thermal, struct thermal_cooling_device *cdev)
+static int tsallts_bind(struct thermal_zone_device *thermal, struct thermal_cooling_device *cdev)
 {
 	int table_val = -1, index, i;
 
@@ -116,20 +115,15 @@ struct thermal_zone_device *thermal, struct thermal_cooling_device *cdev)
 	tsallts_dprintk("[tsallts_bind ts %d] %s\n", index, cdev->type);
 
 	if (mtk_thermal_zone_bind_cooling_device(thermal, table_val, cdev)) {
-		tsallts_dprintk(
-			"[tsallts_bind ts %d] error binding cooling dev\n",
-			index);
-
+		tsallts_dprintk("[tsallts_bind ts %d] error binding cooling dev\n", index);
 		return -EINVAL;
 	}
 
-	tsallts_dprintk("[tsallts_bind ts %d] binding OK, %d\n", index,
-								table_val);
+	tsallts_dprintk("[tsallts_bind ts %d] binding OK, %d\n", index, table_val);
 	return 0;
 }
 
-static int tsallts_unbind(
-struct thermal_zone_device *thermal, struct thermal_cooling_device *cdev)
+static int tsallts_unbind(struct thermal_zone_device *thermal, struct thermal_cooling_device *cdev)
 {
 	int table_val = -1, index, i;
 
@@ -149,10 +143,7 @@ struct thermal_zone_device *thermal, struct thermal_cooling_device *cdev)
 	tsallts_dprintk("[tsallts_unbind ts %d] %s\n", index, cdev->type);
 
 	if (thermal_zone_unbind_cooling_device(thermal, table_val, cdev)) {
-		tsallts_dprintk(
-			"[tsallts_unbind ts %d] error unbinding cooling dev\n",
-			index);
-
+		tsallts_dprintk("[tsallts_unbind ts %d] error unbinding cooling dev\n", index);
 		return -EINVAL;
 	}
 
@@ -160,20 +151,17 @@ struct thermal_zone_device *thermal, struct thermal_cooling_device *cdev)
 	return 0;
 }
 
-static int tsallts_get_mode(
-struct thermal_zone_device *thermal, enum thermal_device_mode *mode)
+static int tsallts_get_mode(struct thermal_zone_device *thermal, enum thermal_device_mode *mode)
 {
 	int index;
 
 	index = tsallts_get_index(thermal);
 
-	*mode = (g_tsData[index].kernelmode) ?
-			THERMAL_DEVICE_ENABLED : THERMAL_DEVICE_DISABLED;
+	*mode = (g_tsData[index].kernelmode) ? THERMAL_DEVICE_ENABLED : THERMAL_DEVICE_DISABLED;
 	return 0;
 }
 
-static int tsallts_set_mode(
-struct thermal_zone_device *thermal, enum thermal_device_mode mode)
+static int tsallts_set_mode(struct thermal_zone_device *thermal, enum thermal_device_mode mode)
 {
 	int index;
 
@@ -193,8 +181,7 @@ static int tsallts_get_trip_type(struct thermal_zone_device *thermal, int trip,
 	return 0;
 }
 
-static int tsallts_get_trip_temp(
-struct thermal_zone_device *thermal, int trip, int *temp)
+static int tsallts_get_trip_temp(struct thermal_zone_device *thermal, int trip, int *temp)
 {
 	int index;
 
@@ -203,8 +190,7 @@ struct thermal_zone_device *thermal, int trip, int *temp)
 	return 0;
 }
 
-static int tsallts_get_crit_temp(
-struct thermal_zone_device *thermal, int *temperature)
+static int tsallts_get_crit_temp(struct thermal_zone_device *thermal, int *temperature)
 {
 	*temperature = TSALLTS_TEMP_CRIT;
 	return 0;
@@ -240,9 +226,8 @@ static void mtkts_allts_start_timer(void)
 			continue;
 
 		if (g_tsData[i].thz_dev != NULL && g_tsData[i].interval != 0) {
-			mod_delayed_work(system_freezable_power_efficient_wq,
-					&(g_tsData[i].thz_dev->poll_queue),
-					round_jiffies(msecs_to_jiffies(1000)));
+			mod_delayed_work(system_freezable_power_efficient_wq, &(g_tsData[i].thz_dev->poll_queue),
+				round_jiffies(msecs_to_jiffies(1000)));
 			g_tsData[i].isTimerCancelled = 0;
 		}
 		up(&g_tsData[i].sem_mutex);
@@ -268,22 +253,19 @@ static int tz ## num ## _proc_read(struct seq_file *m, void *v)	\
 	int i;	\
 \
 	for (i = 0; i < 10; i++) {	\
-		seq_printf(m, "Trip_%d_temp=%d ", i,	\
-			g_tsData[(num - 1)].trip_temp[i]);	\
+		seq_printf(m, "Trip_%d_temp=%d ", i, g_tsData[(num - 1)].trip_temp[i]);	\
 		if ((i + 1) % 5 == 0)	\
 			seq_printf(m, "\n");	\
 	}	\
 \
 	for (i = 0; i < 10; i++) {	\
-		seq_printf(m, "Trip_type%d=%d ", i,	\
-			g_tsData[(num - 1)].trip_type[i]);	\
+		seq_printf(m, "Trip_type%d=%d ", i, g_tsData[(num - 1)].trip_type[i]);	\
 		if ((i + 1) % 5 == 0)	\
 			seq_printf(m, "\n");	\
 	}	\
 \
 	for (i = 0; i < 10; i++) {	\
-		seq_printf(m, "Cool_dev%d=%s ", i,	\
-			g_tsData[(num - 1)].bind[i]);	\
+		seq_printf(m, "Cool_dev%d=%s ", i,  g_tsData[(num - 1)].bind[i]);	\
 		if ((i + 1) % 5 == 0)	\
 			seq_printf(m, "\n");	\
 	}	\
@@ -291,8 +273,7 @@ static int tz ## num ## _proc_read(struct seq_file *m, void *v)	\
 	return 0;	\
 }	\
 \
-static ssize_t tz ## num ## _proc_write(	\
-struct file *file, const char __user *buffer, size_t count,	\
+static ssize_t tz ## num ## _proc_write(struct file *file, const char __user *buffer, size_t count,	\
 			     loff_t *data)	\
 {	\
 	int len = 0, i, j;	\
@@ -312,8 +293,7 @@ struct file *file, const char __user *buffer, size_t count,	\
 	if (pTempD == NULL)	\
 		return -ENOMEM;	\
 \
-	len = (count < (sizeof(pTempD->desc) - 1)) ?	\
-				count : (sizeof(pTempD->desc) - 1);	\
+	len = (count < (sizeof(pTempD->desc) - 1)) ? count : (sizeof(pTempD->desc) - 1);	\
 	if (copy_from_user(pTempD->desc, buffer, len)) {	\
 		kfree(pTempD);	\
 		return 0;	\
@@ -322,8 +302,7 @@ struct file *file, const char __user *buffer, size_t count,	\
 	pTempD->desc[len] = '\0';\
 \
 	i = sscanf(pTempD->desc,	\
-"%d %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d"	\
-"%19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d",	\
+"%d %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d",\
 		&pTempD->num_trip,	\
 		&pTempD->trip[0], &pTempD->t_type[0], pTempD->bind[0],	\
 		&pTempD->trip[1], &pTempD->t_type[1], pTempD->bind[1],	\
@@ -339,75 +318,63 @@ struct file *file, const char __user *buffer, size_t count,	\
 \
 	if (i == 32) {	\
 		down(&g_tsData[(num - 1)].sem_mutex);	\
-		tsallts_dprintk("[tsallts_write_"__stringify(num)	\
-					"]thermal unregister\n");	\
+		tsallts_dprintk("[tsallts_write_"__stringify(num)"] thermal unregister\n");	\
 \
 		if (g_tsData[(num - 1)].thz_dev) {	\
-			mtk_thermal_zone_device_unregister(	\
-				g_tsData[(num - 1)].thz_dev);	\
-				g_tsData[(num - 1)].thz_dev = NULL;	\
+			mtk_thermal_zone_device_unregister(g_tsData[(num - 1)].thz_dev);	\
+			g_tsData[(num - 1)].thz_dev = NULL;	\
 		}	\
 \
 		if (pTempD->num_trip < 0 || pTempD->num_trip > 10) {	\
-			tsallts_dprintk(	\
-				"[tsallts_write1] bad argument\n");	\
-				kfree(pTempD);	\
-				up(&g_tsData[(num - 1)].sem_mutex);	\
-				return -EINVAL;	\
+			aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT,	\
+				"[tsallts_write_"__stringify(num)"]", "Bad argument");	\
+			tsallts_dprintk("[tsallts_write1] bad argument\n");	\
+			kfree(pTempD);	\
+			up(&g_tsData[(num - 1)].sem_mutex);	\
+			return -EINVAL;	\
 		}	\
 \
 		g_tsData[(num - 1)].num_trip = pTempD->num_trip;	\
 \
 		for (i = 0; i < g_tsData[(num - 1)].num_trip; i++) {	\
-			g_tsData[(num - 1)].trip_type[i] =	\
-						pTempD->t_type[i];	\
-			g_tsData[(num - 1)].trip_temp[i] =	\
-						pTempD->trip[i];	\
+			g_tsData[(num - 1)].trip_type[i] = pTempD->t_type[i];	\
+			g_tsData[(num - 1)].trip_temp[i] = pTempD->trip[i];	\
 		}	\
 \
 		for (i = 0; i < 10; i++) {	\
 			g_tsData[(num - 1)].bind[i][0] = '\0';	\
 			for (j = 0; j < 20; j++)	\
-				g_tsData[(num - 1)].bind[i][j] =	\
-						pTempD->bind[i][j];	\
+				g_tsData[(num - 1)].bind[i][j] = pTempD->bind[i][j];	\
 		}	\
 \
 		g_tsData[(num - 1)].interval = pTempD->time_msec;	\
 \
 		if (tsallts_debug_log) {	\
 			for (i = 0; i < 10; i++) {	\
-				tsallts_printk("Trip_%d_temp=%d ", i,	\
-				g_tsData[(num - 1)].trip_temp[i]);	\
+				tsallts_printk("Trip_%d_temp=%d ", i, g_tsData[(num - 1)].trip_temp[i]);	\
 				if ((i + 1) % 5 == 0)	\
 					tsallts_printk("\n");	\
 			}	\
 \
 			for (i = 0; i < 10; i++) {	\
-				tsallts_printk("Trip_type%d=%d ", i,	\
-				g_tsData[(num - 1)].trip_type[i]);	\
+				tsallts_printk("Trip_type%d=%d ", i, g_tsData[(num - 1)].trip_type[i]);	\
 				if ((i + 1) % 5 == 0)	\
 					tsallts_printk("\n");	\
 			}	\
 \
 			for (i = 0; i < 10; i++) {	\
-				tsallts_printk("Cool_dev%d=%s ", i,	\
-				g_tsData[(num - 1)].bind[i]);	\
+				tsallts_printk("Cool_dev%d=%s ", i,  g_tsData[(num - 1)].bind[i]);	\
 				if ((i + 1) % 5 == 0)	\
 					tsallts_printk("\n");	\
 			}	\
-			tsallts_printk("Time_ms=%d\n",	\
-					g_tsData[(num - 1)].interval);	\
+			tsallts_printk("Time_ms=%d\n", g_tsData[(num - 1)].interval);	\
 		}	\
 \
-		tsallts_dprintk("[tsallts_write_"__stringify(num)	\
-					"] thermal register\n");	\
+		tsallts_dprintk("[tsallts_write_"__stringify(num)"] thermal register\n");	\
 		if (g_tsData[(num - 1)].thz_dev == NULL) {	\
-			g_tsData[(num - 1)].thz_dev =	\
-				mtk_thermal_zone_device_register(	\
-					g_tsData[(num - 1)].thz_name,\
-					g_tsData[(num - 1)].num_trip,	\
-					NULL, &tsallts_dev_ops, 0,	\
-				0, 0, g_tsData[(num - 1)].interval);	\
+			g_tsData[(num - 1)].thz_dev = mtk_thermal_zone_device_register(g_tsData[(num - 1)].thz_name,\
+							g_tsData[(num - 1)].num_trip, NULL, &tsallts_dev_ops, 0,\
+							0, 0, g_tsData[(num - 1)].interval);	\
 		}	\
 \
 		up(&g_tsData[(num - 1)].sem_mutex);	\
@@ -415,13 +382,13 @@ struct file *file, const char __user *buffer, size_t count,	\
 		return count;	\
 	}	\
 \
-	tsallts_dprintk("[tsallts_write_"__stringify(num)	\
-					"] bad argument\n");	\
+	tsallts_dprintk("[tsallts_write_"__stringify(num)"] bad argument\n");	\
+	aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT, "[tsallts_write_"__stringify(num)"]", \
+			"Bad argument");	\
 	kfree(pTempD);	\
 	return -EINVAL;	\
 }	\
-static int tz ## num ## _proc_open(	\
-struct inode *inode, struct file *file)	\
+static int tz ## num ## _proc_open(struct inode *inode, struct file *file)	\
 {	\
 	return single_open(file, tz ## num ## _proc_read,	\
 			PDE_DATA(inode));	\
@@ -449,11 +416,6 @@ PROC_FOPS_RW(9);
 PROC_FOPS_RW(10);
 PROC_FOPS_RW(11);
 PROC_FOPS_RW(12);
-PROC_FOPS_RW(13);
-PROC_FOPS_RW(14);
-PROC_FOPS_RW(15);
-PROC_FOPS_RW(16);
-PROC_FOPS_RW(17);
 
 static const struct file_operations *thz_fops[RESERVED_TZS] = {
 	FOPS(1),
@@ -467,12 +429,7 @@ static const struct file_operations *thz_fops[RESERVED_TZS] = {
 	FOPS(9),
 	FOPS(10),
 	FOPS(11),
-	FOPS(12),
-	FOPS(13),
-	FOPS(14),
-	FOPS(15),
-	FOPS(16),
-	FOPS(17)
+	FOPS(12)
 };
 
 static int __init tsallts_init(void)
@@ -501,22 +458,20 @@ static int __init tsallts_init(void)
 	tsallts_dir = mtk_thermal_get_proc_drv_therm_dir_entry();
 
 	if (!tsallts_dir) {
-		tsallts_dprintk("[%s]: mkdir /proc/driver/thermal failed\n",
-								__func__);
+		tsallts_dprintk("[%s]: mkdir /proc/driver/thermal failed\n", __func__);
 	} else {
 		for (i = 0; i < TS_ENUM_MAX; i++)
 			sprintf(g_tsData[i].thz_name, "tzts%d", (i + 1));
 
 		for (i = 0; i < TS_ENUM_MAX; i++) {
-			entry = proc_create(g_tsData[i].thz_name, 0664,
-						tsallts_dir, thz_fops[i]);
+			entry = proc_create(g_tsData[i].thz_name, S_IRUGO | S_IWUSR | S_IWGRP,
+					tsallts_dir, thz_fops[i]);
 			if (entry)
 				proc_set_user(entry, uid, gid);
 		}
 	}
 
-	mtkTTimer_register("tztsAll", mtkts_allts_start_timer,
-						mtkts_allts_cancel_timer);
+	mtkTTimer_register("tztsAll", mtkts_allts_start_timer, mtkts_allts_cancel_timer);
 	return 0;
 }
 

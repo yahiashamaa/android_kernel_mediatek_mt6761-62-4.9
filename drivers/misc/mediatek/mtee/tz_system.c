@@ -35,10 +35,10 @@
 #define ARM_SMC_CALLING_CONVENTION
 
 #ifndef CONFIG_TRUSTY
-static int KREE_ServPuts(u32 op, u8 param[REE_SERVICE_BUFFER_SIZE]);
-static int KREE_ServUSleep(u32 op, u8 param[REE_SERVICE_BUFFER_SIZE]);
-static int tz_ree_service(u32 op, u8 param[REE_SERVICE_BUFFER_SIZE]);
-static int KREE_ServThread_Create(u32 op,
+static TZ_RESULT KREE_ServPuts(u32 op, u8 param[REE_SERVICE_BUFFER_SIZE]);
+static TZ_RESULT KREE_ServUSleep(u32 op, u8 param[REE_SERVICE_BUFFER_SIZE]);
+static TZ_RESULT tz_ree_service(u32 op, u8 param[REE_SERVICE_BUFFER_SIZE]);
+static TZ_RESULT KREE_ServThread_Create(u32 op,
 					u8 uparam[REE_SERVICE_BUFFER_SIZE]);
 
 static const KREE_REE_Service_Func ree_service_funcs[] = {
@@ -113,7 +113,7 @@ static u32 tz_service_call(struct smc_args_s *smc_arg)
 	tipc_k_handle h;
 	struct mtee_ipc_data data;
 	ssize_t c;
-	int tz_ret;
+	TZ_RESULT tz_ret;
 
 	smc_arg->reebuf = param;
 
@@ -167,7 +167,7 @@ static u32 tz_service_call(struct smc_args_s *smc_arg)
 	return ret;
 }
 
-int KREE_TeeServiceCallNoCheck(KREE_SESSION_HANDLE handle,
+TZ_RESULT KREE_TeeServiceCallNoCheck(KREE_SESSION_HANDLE handle,
 					uint32_t command, uint32_t paramTypes,
 					union MTEEC_PARAM param[4])
 {
@@ -176,7 +176,7 @@ int KREE_TeeServiceCallNoCheck(KREE_SESSION_HANDLE handle,
 					.command = command,
 					.paramTypes = paramTypes };
 
-	return (int) tz_service_call(&smc_arg);
+	return (TZ_RESULT) tz_service_call(&smc_arg);
 }
 #else /* ~CONFIG_TRUSTY */
 #define SMC_MTEE_SERVICE_CALL (0x72000008)
@@ -284,11 +284,11 @@ static u32 tz_service_call(u32 handle, u32 op, u32 arg1, unsigned long arg2)
 
 }
 
-int KREE_TeeServiceCallNoCheck(KREE_SESSION_HANDLE handle,
+TZ_RESULT KREE_TeeServiceCallNoCheck(KREE_SESSION_HANDLE handle,
 					uint32_t command, uint32_t paramTypes,
 					union MTEEC_PARAM param[4])
 {
-	return (int) tz_service_call(handle, command, paramTypes,
+	return (TZ_RESULT) tz_service_call(handle, command, paramTypes,
 						(unsigned long) param);
 }
 #endif /* CONFIG_TRUSTY */
@@ -344,21 +344,21 @@ static u32 tz_service_call(u32 handle, u32 op, u32 arg1, u32 arg2)
 	return r0;
 }
 
-int KREE_TeeServiceCallNoCheck(KREE_SESSION_HANDLE handle,
+TZ_RESULT KREE_TeeServiceCallNoCheck(KREE_SESSION_HANDLE handle,
 					uint32_t command, uint32_t paramTypes,
 					union MTEEC_PARAM param[4])
 {
-	return (int) tz_service_call(handle, command, paramTypes,
+	return (TZ_RESULT) tz_service_call(handle, command, paramTypes,
 						(u32) param);
 }
 
 #endif
 
-int KREE_TeeServiceCall(KREE_SESSION_HANDLE handle, uint32_t command,
+TZ_RESULT KREE_TeeServiceCall(KREE_SESSION_HANDLE handle, uint32_t command,
 			      uint32_t paramTypes, union MTEEC_PARAM oparam[4])
 {
 	int i, do_copy = 0;
-	int ret;
+	TZ_RESULT ret;
 	uint32_t tmpTypes;
 	union MTEEC_PARAM param[4];
 
@@ -467,14 +467,14 @@ error:
 EXPORT_SYMBOL(KREE_TeeServiceCall);
 
 #ifndef CONFIG_TRUSTY
-static int KREE_ServPuts(u32 op, u8 param[REE_SERVICE_BUFFER_SIZE])
+static TZ_RESULT KREE_ServPuts(u32 op, u8 param[REE_SERVICE_BUFFER_SIZE])
 {
 	param[REE_SERVICE_BUFFER_SIZE - 1] = 0;
-	pr_info("%s", param);
+	pr_warn("%s", param);
 	return TZ_RESULT_SUCCESS;
 }
 
-static int KREE_ServUSleep(u32 op, u8 uparam[REE_SERVICE_BUFFER_SIZE])
+static TZ_RESULT KREE_ServUSleep(u32 op, u8 uparam[REE_SERVICE_BUFFER_SIZE])
 {
 	struct ree_service_usleep *param = (struct ree_service_usleep *)uparam;
 
@@ -483,7 +483,7 @@ static int KREE_ServUSleep(u32 op, u8 uparam[REE_SERVICE_BUFFER_SIZE])
 }
 
 /* TEE Kthread create by REE service, TEE service call body
- */
+*/
 static int kree_thread_function(void *arg)
 {
 	union MTEEC_PARAM param[4];
@@ -506,8 +506,8 @@ static int kree_thread_function(void *arg)
 }
 
 /* TEE Kthread create by REE service
- */
-static int KREE_ServThread_Create(u32 op,
+*/
+static TZ_RESULT KREE_ServThread_Create(u32 op,
 			u8 uparam[REE_SERVICE_BUFFER_SIZE])
 {
 	struct REE_THREAD_INFO *info;
@@ -528,7 +528,7 @@ static int KREE_ServThread_Create(u32 op,
 }
 
 
-static int tz_ree_service(u32 op, u8 param[REE_SERVICE_BUFFER_SIZE])
+static TZ_RESULT tz_ree_service(u32 op, u8 param[REE_SERVICE_BUFFER_SIZE])
 {
 	KREE_REE_Service_Func func;
 
@@ -544,11 +544,11 @@ static int tz_ree_service(u32 op, u8 param[REE_SERVICE_BUFFER_SIZE])
 
 #endif /* ~CONFIG_TRUSTY */
 
-int KREE_InitTZ(void)
+TZ_RESULT KREE_InitTZ(void)
 {
 	uint32_t paramTypes;
 	union MTEEC_PARAM param[4];
-	int ret;
+	TZ_RESULT ret;
 
 	paramTypes = TZPT_NONE;
 	ret = KREE_TeeServiceCall(
@@ -559,11 +559,11 @@ int KREE_InitTZ(void)
 }
 
 
-int KREE_CreateSession(const char *ta_uuid, KREE_SESSION_HANDLE *pHandle)
+TZ_RESULT KREE_CreateSession(const char *ta_uuid, KREE_SESSION_HANDLE *pHandle)
 {
 	uint32_t paramTypes;
 	union MTEEC_PARAM param[4];
-	int ret;
+	TZ_RESULT ret;
 
 	if (!ta_uuid || !pHandle)
 		return TZ_RESULT_ERROR_BAD_PARAMETERS;
@@ -583,13 +583,13 @@ int KREE_CreateSession(const char *ta_uuid, KREE_SESSION_HANDLE *pHandle)
 }
 EXPORT_SYMBOL(KREE_CreateSession);
 
-int KREE_CreateSessionWithTag(const char *ta_uuid,
+TZ_RESULT KREE_CreateSessionWithTag(const char *ta_uuid,
 					KREE_SESSION_HANDLE *pHandle,
 					const char *tag)
 {
 	uint32_t paramTypes;
 	union MTEEC_PARAM param[4];
-	int ret;
+	TZ_RESULT ret;
 
 	if (!ta_uuid || !pHandle)
 		return TZ_RESULT_ERROR_BAD_PARAMETERS;
@@ -616,11 +616,11 @@ int KREE_CreateSessionWithTag(const char *ta_uuid,
 }
 EXPORT_SYMBOL(KREE_CreateSessionWithTag);
 
-int KREE_CloseSession(KREE_SESSION_HANDLE handle)
+TZ_RESULT KREE_CloseSession(KREE_SESSION_HANDLE handle)
 {
 	uint32_t paramTypes;
 	union MTEEC_PARAM param[4];
-	int ret;
+	TZ_RESULT ret;
 
 	param[0].value.a = (uint32_t) handle;
 	paramTypes = TZ_ParamTypes1(TZPT_VALUE_INPUT);
@@ -635,7 +635,7 @@ EXPORT_SYMBOL(KREE_CloseSession);
 
 #include "tz_cross/tz_error_strings.h"
 
-const char *TZ_GetErrorString(int res)
+const char *TZ_GetErrorString(TZ_RESULT res)
 {
 	return _TZ_GetErrorString(res);
 }

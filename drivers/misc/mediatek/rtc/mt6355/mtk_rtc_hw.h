@@ -16,18 +16,17 @@
 
 #include <mach/upmu_hw.h>
 extern unsigned int pmic_config_interface_nolock(unsigned int RegNum,
-						 unsigned int val,
-						 unsigned int MASK,
-						 unsigned int SHIFT);
+	unsigned int val, unsigned int MASK, unsigned int SHIFT);
 
+#undef RTC_BASE
 #define RTC_BASE		(0x2800)
 
 /* RTC registers */
 #define MT_PMIC_REG_BASE (0x0000)
 #define RTC_BBPU            (RTC_BASE + 0x0002)
-#define RTC_BBPU_PWREN            (1U << 0)	/* BBPU = 1 when alarm occurs */
-#define RTC_BBPU_BBPU            (1U << 2)	/* 1: power on, 0: power down */
-#define RTC_BBPU_AUTO       (1U << 3) /* BBPU = 0 when xreset_rstb goes low */
+#define RTC_BBPU_PWREN            (1U << 0)    /* BBPU = 1 when alarm occurs */
+#define RTC_BBPU_BBPU            (1U << 2)    /* 1: power on, 0: power down */
+#define RTC_BBPU_AUTO            (1U << 3)    /* BBPU = 0 when xreset_rstb goes low */
 #define RTC_BBPU_CLRPKY        (1U << 4)
 #define RTC_BBPU_RELOAD        (1U << 5)
 #define RTC_BBPU_CBUSY            (1U << 6)
@@ -160,29 +159,24 @@ extern unsigned int pmic_config_interface_nolock(unsigned int RegNum,
 #define RTC_EOSC32_VCT_EN        (1U << RTC_EOSC32_VCT_EN_SHIFT)
 #define RTC_EOSC32_OPT          (1U << 10)
 /*
- * 0: embedded clock switch back to dcxo decided by
- *    (eosc32_ck_alive & powerkey_match)
- * 1: embedded clock switch back to dcxo decided by
- *    (powerkey_match)
- */
+ * 0: embedded clock switch back to dcxo decided by (eosc32_ck_alive & powerkey_match)
+ * 1: embedded clock switch back to dcxo decided by (powerkey_match)
+*/
 #define RTC_EMBCK_SEL_OPTION        (1U << 9)
 #define RTC_EMBCK_SRC_SEL        (1U << 8)
 #define RTC_EMBCK_SEL_MODE        (3U << 6)
-/* 0: emb_hw    1: emb_k_eosc_32        2:dcxo_ck    3: eosc32_ck*/
-#define RTC_EMBCK_SEL_HW         (0 << 6)
-#define RTC_EMBCK_SEL_K_EOSC         (1U << 6)
-#define RTC_EMBCK_SEL_DCXO         (2U << 6)
-#define RTC_EMBCK_SEL_EOSC         (3U << 6)
+/*	0:dcxo_ck	1:eosc32_ck	2:emb_k_eosc_32	3: emb_hw	*/
+#define RTC_EMBCK_SEL_DCXO         (0 << 6)
+#define RTC_EMBCK_SEL_EOSC         (1U << 6)
+#define RTC_EMBCK_SEL_K_EOSC         (2U << 6)
+#define RTC_EMBCK_SEL_HW         (3U << 6)
 /* 0 (32k crystal exist)    1 (32k crystal doesn't exist)*/
 #define RTC_XOSC32_ENB           (1U << 5)
-/* Default 4'b0111, 2nd step suggest to set to 4'b0000 */
-/* EOSC_CALI = charging cap calibration */
+/*Default 4'b0111, 2nd step suggest to set to 4'b0000 EOSC_CALI = charging cap calibration*/
 #define RTC_XOSCCALI_MASK        0x001f
 
-#define OSC32CON_ANALOG_SETTING    (RTC_GP_OSC32_CON | \
-	RTC_EOSC32_VCT_EN | RTC_EOSC32_CHOP_EN & \
-	(~RTC_REG_XOSC32_ENB) & (~RTC_EMBCK_SEL_MODE) | \
-	RTC_EMBCK_SEL_OPTION | RTC_EMBCK_SRC_SEL)
+#define OSC32CON_ANALOG_SETTING    (RTC_GP_OSC32_CON | RTC_EOSC32_VCT_EN | RTC_EOSC32_CHOP_EN \
+	& (~RTC_REG_XOSC32_ENB) | RTC_EMBCK_SEL_HW | RTC_EMBCK_SEL_OPTION & (~RTC_EMBCK_SRC_SEL))
 
 #define RTC_XOSCCALI_START        0x0000
 #define RTC_XOSCCALI_END        0x001f
@@ -220,9 +214,6 @@ extern unsigned int pmic_config_interface_nolock(unsigned int RegNum,
 #define RTC_PDN1_FAST_BOOT        (1U << 13)
 #define RTC_PDN1_KPOC            (1U << 14)
 #define RTC_PDN1_DEBUG            (1U << 15)
-
-#define RTC_GPIO_USER_MASK	(RTC_PDN1_GPIO_WIFI | RTC_PDN1_GPIO_GPS\
-	| RTC_PDN1_GPIO_BT | RTC_PDN1_GPIO_FM | RTC_PDN1_GPIO_PMIC)
 
 /*
  * RTC_PDN2:
@@ -287,9 +278,9 @@ extern unsigned int pmic_config_interface_nolock(unsigned int RegNum,
 #define RTC_XOSC32_LPEN            (1U << 2)
 #define RTC_CON_LPRST            (1U << 3)
 #define RTC_CON_CDBO            (1U << 4)
-#define RTC_CON_F32KOB            (1U << 5)	/* 0: RTC_GPIO exports 32K */
+#define RTC_CON_F32KOB            (1U << 5)    /* 0: RTC_GPIO exports 32K */
 #define RTC_CON_GPO            (1U << 6)
-#define RTC_CON_GOE            (1U << 7)	/* 1: GPO mode, 0: GPI mode */
+#define RTC_CON_GOE            (1U << 7)    /* 1: GPO mode, 0: GPI mode */
 #define RTC_CON_GSR            (1U << 8)
 #define RTC_CON_GSMT            (1U << 9)
 #define RTC_CON_GPEN            (1U << 10)
@@ -297,7 +288,7 @@ extern unsigned int pmic_config_interface_nolock(unsigned int RegNum,
 #define RTC_CON_GE4            (1U << 12)
 #define RTC_CON_GE8            (1U << 13)
 #define RTC_CON_GPI            (1U << 14)
-#define RTC_CON_LPSTA_RAW        (1U << 15)	/* 32K was stopped */
+#define RTC_CON_LPSTA_RAW        (1U << 15)    /* 32K was stopped */
 
 /* power on alarm time setting */
 
@@ -330,4 +321,45 @@ extern unsigned int pmic_config_interface_nolock(unsigned int RegNum,
 #define RTC_INT_CNT_SHIFT       0
 
 extern u16 rtc_spare_reg[][3];
-#endif				/* __MT_RTC_HW_H__ */
+
+#define MT_VRTC_PWM_CON0                     ((MT_PMIC_REG_BASE+0x0FAE))
+#define MT_PMIC_VRTC_PWM_MODE_ADDR                        MT_VRTC_PWM_CON0
+#define MT_PMIC_VRTC_PWM_MODE_MASK                        0x1
+#define MT_PMIC_VRTC_PWM_MODE_SHIFT                       0
+#define MT_PMIC_VRTC_PWM_RSV_ADDR                         MT_VRTC_PWM_CON0
+#define MT_PMIC_VRTC_PWM_RSV_MASK                         0x7
+#define MT_PMIC_VRTC_PWM_RSV_SHIFT                        1
+#define MT_PMIC_VRTC_PWM_L_DUTY_ADDR                      MT_VRTC_PWM_CON0
+#define MT_PMIC_VRTC_PWM_L_DUTY_MASK                      0xF
+#define MT_PMIC_VRTC_PWM_L_DUTY_SHIFT                     4
+#define MT_PMIC_VRTC_PWM_H_DUTY_ADDR                      MT_VRTC_PWM_CON0
+#define MT_PMIC_VRTC_PWM_H_DUTY_MASK                      0xF
+#define MT_PMIC_VRTC_PWM_H_DUTY_SHIFT                     8
+#define MT_PMIC_VRTC_CAP_SEL_ADDR                         MT_VRTC_PWM_CON0
+#define MT_PMIC_VRTC_CAP_SEL_MASK                         0x1
+#define MT_PMIC_VRTC_CAP_SEL_SHIFT                        12
+#define VTRC_CAP_SEL                                     (1 << MT_PMIC_VRTC_CAP_SEL_SHIFT)
+#define VRTC_PWM_H_DUTY_12_8_MS                             (0 << MT_PMIC_VRTC_PWM_H_DUTY_SHIFT)
+#define VRTC_PWM_H_DUTY_25_6_MS                             (1 << MT_PMIC_VRTC_PWM_H_DUTY_SHIFT)
+#define VRTC_PWM_H_DUTY_51_2_MS                             (3 << MT_PMIC_VRTC_PWM_H_DUTY_SHIFT)
+#define VRTC_PWM_H_DUTY_102_4_MS                         (7 << MT_PMIC_VRTC_PWM_H_DUTY_SHIFT)
+#define VRTC_PWM_H_DUTY_204_8_MS                         (15 << MT_PMIC_VRTC_PWM_H_DUTY_SHIFT)
+#define VRTC_PWM_H_DUTY_0_64_MS                             (0 << MT_PMIC_VRTC_PWM_H_DUTY_SHIFT)
+#define VRTC_PWM_H_DUTY_1_28_MS                             (1 << MT_PMIC_VRTC_PWM_H_DUTY_SHIFT)
+#define VRTC_PWM_H_DUTY_2_56_MS                             (3 << MT_PMIC_VRTC_PWM_H_DUTY_SHIFT)
+#define VRTC_PWM_H_DUTY_5_12_MS                             (7 << MT_PMIC_VRTC_PWM_H_DUTY_SHIFT)
+#define VRTC_PWM_H_DUTY_10_24_MS                         (15 << MT_PMIC_VRTC_PWM_H_DUTY_SHIFT)
+#define VRTC_PWM_L_DUTY_128_0_MS                         (0 << MT_PMIC_VRTC_PWM_L_DUTY_SHIFT)
+#define VRTC_PWM_L_DUTY_256_0_MS                         (1 << MT_PMIC_VRTC_PWM_L_DUTY_SHIFT)
+#define VRTC_PWM_L_DUTY_512_0_MS                         (3 << MT_PMIC_VRTC_PWM_L_DUTY_SHIFT)
+#define VRTC_PWM_L_DUTY_1024_0_MS                         (7 << MT_PMIC_VRTC_PWM_L_DUTY_SHIFT)
+#define VRTC_PWM_L_DUTY_2148_0_MS                         (15 << MT_PMIC_VRTC_PWM_L_DUTY_SHIFT)
+#define VRTC_PWM_L_DUTY_6_4_MS                             (0 << MT_PMIC_VRTC_PWM_L_DUTY_SHIFT)
+#define VRTC_PWM_L_DUTY_12_8_MS                             (1 << MT_PMIC_VRTC_PWM_L_DUTY_SHIFT)
+#define VRTC_PWM_L_DUTY_25_6_MS                             (3 << MT_PMIC_VRTC_PWM_L_DUTY_SHIFT)
+#define VRTC_PWM_L_DUTY_51_2_MS                             (7 << MT_PMIC_VRTC_PWM_L_DUTY_SHIFT)
+#define VRTC_PWM_L_DUTY_102_4_MS                         (15 << MT_PMIC_VRTC_PWM_L_DUTY_SHIFT)
+#define VRTC_PWM_MODE                                     (1 << MT_PMIC_VRTC_PWM_MODE_SHIFT)
+
+#endif /* __MT_RTC_HW_H__ */
+

@@ -1,21 +1,22 @@
 /*
- * Copyright (C) 2016 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
- */
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 
 /*
- * Copyright(C)2014 MediaTek Inc.
- * Modification based on code covered by the below mentioned copyright
- * and/or permission notice(S).
- */
+* Copyright(C)2014 MediaTek Inc.
+* Modification based on code covered by the below mentioned copyright
+* and/or permission notice(S).
+*/
+
 
 #ifndef __HWMSENSOR_H__
 #define __HWMSENSOR_H__
@@ -311,10 +312,14 @@
 #define EVENT_TYPE_INPK_VALUE 0x1
 #define EVENT_TYPE_STATIONARY_VALUE 0x2
 
-enum { HWM_MODE_DISABLE = 0,
+/*-----------------------------------------------------------------------------*/
+
+enum {
+	HWM_MODE_DISABLE = 0,
 	HWM_MODE_ENABLE = 1,
 };
 
+/*------------sensors data----------------------------------------------------*/
 struct hwm_sensor_data {
 	/* sensor identifier */
 	int sensor;
@@ -385,68 +390,63 @@ struct compat_batch_trans_data {
 #endif
 
 /*----------------------------------------------------------------------------*/
-#define HWM_IOC_MAGIC 0x91
+#define HWM_IOC_MAGIC           0x91
 
 /* set delay */
-#define HWM_IO_SET_DELAY _IOW(HWM_IOC_MAGIC, 0x01, uint32_t)
+#define HWM_IO_SET_DELAY		_IOW(HWM_IOC_MAGIC, 0x01, uint32_t)
 
 /* wake up */
-#define HWM_IO_SET_WAKE _IO(HWM_IOC_MAGIC, 0x02)
+#define HWM_IO_SET_WAKE			_IO(HWM_IOC_MAGIC, 0x02)
 
 /* Enable/Disable  sensor */
-#define HWM_IO_ENABLE_SENSOR _IOW(HWM_IOC_MAGIC, 0x03, uint32_t)
-#define HWM_IO_DISABLE_SENSOR _IOW(HWM_IOC_MAGIC, 0x04, uint32_t)
+#define HWM_IO_ENABLE_SENSOR	_IOW(HWM_IOC_MAGIC, 0x03, uint32_t)
+#define HWM_IO_DISABLE_SENSOR	_IOW(HWM_IOC_MAGIC, 0x04, uint32_t)
 
 /* Enable/Disable sensor */
-#define HWM_IO_ENABLE_SENSOR_NODATA _IOW(HWM_IOC_MAGIC, 0x05, uint32_t)
-#define HWM_IO_DISABLE_SENSOR_NODATA _IOW(HWM_IOC_MAGIC, 0x06, uint32_t)
+#define HWM_IO_ENABLE_SENSOR_NODATA		_IOW(HWM_IOC_MAGIC, 0x05, uint32_t)
+#define HWM_IO_DISABLE_SENSOR_NODATA	_IOW(HWM_IOC_MAGIC, 0x06, uint32_t)
 /* Get sensors data */
-#define HWM_IO_GET_SENSORS_DATA                                                \
-	_IOWR(HWM_IOC_MAGIC, 0x07, struct hwm_trans_data)
+#define HWM_IO_GET_SENSORS_DATA			_IOWR(HWM_IOC_MAGIC, 0x07, struct hwm_trans_data)
 #ifdef CONFIG_COMPAT
 /* set delay */
-#define COMPAT_HWM_IO_SET_DELAY _IOW(HWM_IOC_MAGIC, 0x01, compat_uint_t)
+#define COMPAT_HWM_IO_SET_DELAY		_IOW(HWM_IOC_MAGIC, 0x01, compat_uint_t)
 
 /* wake up */
-#define COMPAT_HWM_IO_SET_WAKE _IO(HWM_IOC_MAGIC, 0x02)
+#define COMPAT_HWM_IO_SET_WAKE			_IO(HWM_IOC_MAGIC, 0x02)
 
 /* Enable/Disable  sensor */
-#define COMPAT_HWM_IO_ENABLE_SENSOR _IOW(HWM_IOC_MAGIC, 0x03, compat_uint_t)
-#define COMPAT_HWM_IO_DISABLE_SENSOR _IOW(HWM_IOC_MAGIC, 0x04, compat_uint_t)
+#define COMPAT_HWM_IO_ENABLE_SENSOR	_IOW(HWM_IOC_MAGIC, 0x03, compat_uint_t)
+#define COMPAT_HWM_IO_DISABLE_SENSOR	_IOW(HWM_IOC_MAGIC, 0x04, compat_uint_t)
 
 /* Enable/Disable sensor */
-#define COMPAT_HWM_IO_ENABLE_SENSOR_NODATA                                     \
-	_IOW(HWM_IOC_MAGIC, 0x05, compat_uint_t)
-#define COMPAT_HWM_IO_DISABLE_SENSOR_NODATA                                    \
-	_IOW(HWM_IOC_MAGIC, 0x06, compat_uint_t)
+#define COMPAT_HWM_IO_ENABLE_SENSOR_NODATA		_IOW(HWM_IOC_MAGIC, 0x05, compat_uint_t)
+#define COMPAT_HWM_IO_DISABLE_SENSOR_NODATA	_IOW(HWM_IOC_MAGIC, 0x06, compat_uint_t)
 /* Get sensors data */
-#define COMPAT_HWM_IO_GET_SENSORS_DATA                                         \
-	_IOWR(HWM_IOC_MAGIC, 0x07, struct compat_hwm_trans_data)
+#define COMPAT_HWM_IO_GET_SENSORS_DATA			_IOWR(HWM_IOC_MAGIC, 0x07, struct compat_hwm_trans_data)
 #endif
 /*----------------------------------------------------------------------------*/
-#define BATCH_IOC_MAGIC 0x92
+#define BATCH_IOC_MAGIC           0x92
 
 /* Get sensor data */
-#define BATCH_IO_GET_SENSORS_DATA                                              \
-	_IOWR(BATCH_IOC_MAGIC, 0x01, struct batch_trans_data)
+#define BATCH_IO_GET_SENSORS_DATA			_IOWR(BATCH_IOC_MAGIC, 0x01, struct batch_trans_data)
 #ifdef CONFIG_COMPAT
-#define COMPAT_BATCH_IO_GET_SENSORS_DATA                                       \
-	_IOWR(BATCH_IOC_MAGIC, 0x01, struct compat_batch_trans_data)
+#define COMPAT_BATCH_IO_GET_SENSORS_DATA	_IOWR(BATCH_IOC_MAGIC, 0x01, struct compat_batch_trans_data)
 #endif
 
-#define SENSOR_DELAY 0X01
-#define SENSOR_ENABLE 0X02
-#define SENSOR_GET_DATA 0X04
+/*define sensor operator type---------------------------------------------------*/
+#define SENSOR_DELAY	0X01
+#define	SENSOR_ENABLE	0X02
+#define	SENSOR_GET_DATA	0X04
 
 /**
  * status of each sensor
  */
 
-#define SENSOR_STATUS_UNRELIABLE 0
-#define SENSOR_STATUS_ACCURACY_LOW 1
-#define SENSOR_STATUS_ACCURACY_MEDIUM 2
-#define SENSOR_STATUS_ACCURACY_HIGH 3
+#define SENSOR_STATUS_UNRELIABLE        0
+#define SENSOR_STATUS_ACCURACY_LOW      1
+#define SENSOR_STATUS_ACCURACY_MEDIUM   2
+#define SENSOR_STATUS_ACCURACY_HIGH     3
 
-#define GRAVITY_EARTH_1000 9807	/* about (9.80665f)*1000 */
+#define GRAVITY_EARTH_1000           9807	/* about (9.80665f)*1000 */
 
 #endif				/* __HWMSENSOR_H__ */

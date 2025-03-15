@@ -1,20 +1,22 @@
 /*
  * Copyright (C) 2011-2015 MediaTek Inc.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License version 2 as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program.
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <linux/io.h>
 #include <linux/types.h>
 #include <linux/spinlock.h>
 #include <linux/slab.h>
+#include <mt-plat/aee.h>
 #include <mt-plat/sync_write.h>
 #include "sspm_define.h"
 #include "sspm_excep.h"
@@ -43,8 +45,7 @@ void sspm_log_coredump_recv(unsigned int exists)
 	sspm_cd_exists = exists;
 }
 
-static ssize_t sspm_aee_read(struct device *kobj, struct device_attribute *attr,
-	char *buf)
+static ssize_t sspm_aee_read(struct device *kobj, struct device_attribute *attr, char *buf)
 {
 	unsigned int ret;
 
@@ -53,16 +54,15 @@ static ssize_t sspm_aee_read(struct device *kobj, struct device_attribute *attr,
 
 	ret = sspm_cd_ctl->db_size;
 
-	memcpy_fromio(buf, ((unsigned char *) sspm_cd_ctl) +
-			sspm_cd_ctl->db_ofs, ret);
+	memcpy_fromio(buf, ((unsigned char *) sspm_cd_ctl) + sspm_cd_ctl->db_ofs, ret);
 
 	return ret;
 }
 
-DEVICE_ATTR(sspm_aee, 0444, sspm_aee_read, NULL);
+DEVICE_ATTR(sspm_aee, S_IRUGO, sspm_aee_read, NULL);
 
-static ssize_t sspm_coredump_read(struct file *filep, struct kobject *kobj,
-	struct bin_attribute *attr, char *buf, loff_t offset, size_t size)
+static ssize_t sspm_coredump_read(struct file *filep, struct kobject *kobj, struct bin_attribute *attr,
+		char *buf, loff_t offset, size_t size)
 {
 	if (!sspm_cd_exists)
 		return 0;
@@ -71,8 +71,7 @@ static ssize_t sspm_coredump_read(struct file *filep, struct kobject *kobj,
 	if ((offset + size) >= SSPM_COREDUMP_SIZE)
 		size = SSPM_COREDUMP_SIZE - offset;
 
-	memcpy_fromio(buf, ((unsigned char *) sspm_cd_ctl) +
-			sspm_cd_ctl->buff_ofs + offset, size);
+	memcpy_fromio(buf, ((unsigned char *) sspm_cd_ctl) + sspm_cd_ctl->buff_ofs + offset, size);
 
 	return size;
 }

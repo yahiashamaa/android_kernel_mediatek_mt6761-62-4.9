@@ -1,15 +1,15 @@
 /*
- * Copyright (C) 2016 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
- */
+* Copyright (C) 2016 MediaTek Inc.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+* See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+*/
 
 #include <linux/types.h>
 #include <linux/stddef.h>
@@ -28,13 +28,12 @@ MODULE_DESCRIPTION("Stand Alone Engine Request");
 MODULE_AUTHOR("MM3SW5");
 MODULE_LICENSE("GPL");
 
-unsigned int egn_debug;
+unsigned egn_debug;
 module_param(egn_debug, uint, 0644);
 MODULE_PARM_DESC(egn_debug, " activates debug info");
 
 #define MyTag "[STALN]"
-#define LOG_VRB(format, args...)				 \
-	pr_debug(MyTag "[%s] " format, __func__, ##args)
+#define LOG_VRB(format, args...)    pr_debug(MyTag "[%s] " format, __func__, ##args)
 
 #define LOG_DBG(format, args...)				 \
 	do {							 \
@@ -62,8 +61,8 @@ MODULE_PARM_DESC(egn_debug, " activates debug info");
 
 
 /*
- * Single ring ctl init
- */
+* Single ring ctl init
+*/
 signed int init_ring_ctl(struct ring_ctrl *rctl)
 {
 	if (rctl == NULL)
@@ -99,8 +98,8 @@ signed int init_frame(struct frame *frame)
 }
 
 /*
- * single request init
- */
+* single request init
+*/
 signed int init_request(struct request *req)
 {
 	int f;
@@ -121,8 +120,8 @@ signed int init_request(struct request *req)
 }
 
 /*
- * per-frame data init
- */
+* per-frame data init
+*/
 signed int set_frame_data(struct frame *f, void *engine)
 {
 	if (f == NULL) {
@@ -136,10 +135,10 @@ signed int set_frame_data(struct frame *f, void *engine)
 }
 
 /*
- * TOP : per-sub-engine
- * Size Limitaion: eng_reqs : [MAX_REQUEST_SIZE_PER_ENGINE]
- *	     data : [MAX_REQUEST_SIZE_PER_ENGINE][MAX_FRAMES_PER_REQUEST]
- */
+* TOP : per-sub-engine
+* Size Limitaion: eng_reqs : [MAX_REQUEST_SIZE_PER_ENGINE]
+*	     data : [MAX_REQUEST_SIZE_PER_ENGINE][MAX_FRAMES_PER_REQUEST]
+*/
 signed int register_requests(struct engine_requests *eng, size_t size)
 {
 	int f, r, d;
@@ -241,7 +240,7 @@ bool request_running(struct engine_requests *eng)
 }
 
 /*TODO: called in ENQUE_REQ */
-signed int enque_request(struct engine_requests *eng, unsigned int fcnt,
+signed int enque_request(struct engine_requests *eng, unsigned fcnt,
 						void *req, pid_t pid)
 {
 	unsigned int r;
@@ -284,19 +283,18 @@ signed int enque_request(struct engine_requests *eng, unsigned int fcnt,
 
 #if REQUEST_REGULATION
 	/*
-	 * pending request count for request base regulation
-	 */
+	* pending request count for request base regulation
+	*/
 	for (r = 0; r < MAX_REQUEST_SIZE_PER_ENGINE; r++)
 		if (eng->reqs[r].state == REQUEST_STATE_PENDING)
 			enqnum++;
 #else
 	/*
-	 * running frame count for frame base regulation
-	 */
+	* running frame count for frame base regulation
+	*/
 	for (r = 0; r < MAX_REQUEST_SIZE_PER_ENGINE; r++)
 		for (f = 0; f < MAX_FRAMES_PER_REQUEST; f++)
-			if (eng->reqs[r].frames[f].state ==
-							FRAME_STATUS_RUNNING)
+			if (eng->reqs[r].frames[f].state == FRAME_STATUS_RUNNING)
 				enqnum++;
 #endif
 	return enqnum;
@@ -305,8 +303,8 @@ ERROR:
 }
 
 /* ConfigWMFERequest / ConfigOCCRequest abstraction
- * TODO: locking should be here NOT camera_owe.c
- */
+* TODO: locking should be here NOT camera_owe.c
+*/
 signed int request_handler(struct engine_requests *eng, spinlock_t *lock)
 {
 	unsigned int f, fn;
@@ -319,20 +317,18 @@ signed int request_handler(struct engine_requests *eng, spinlock_t *lock)
 	if (eng == NULL)
 		return -1;
 
-	LOG_DBG("[%s]waits for completion(%d).\n", __func__,
-						eng->req_handler_done.done);
+	LOG_DBG("[%s]waits for completion(%d).\n", __func__, eng->req_handler_done.done);
 	wait_for_completion(&eng->req_handler_done);
 	reinit_completion(&eng->req_handler_done);
-	LOG_DBG("[%s]previous request completed, reset(%d).\n", __func__,
-						eng->req_handler_done.done);
+	LOG_DBG("[%s]previous request completed, reset(%d).\n", __func__, eng->req_handler_done.done);
 
 	spin_lock_irqsave(lock, flags);
 
 	/*
-	 * ioctl calls  enque_request() request wcnt inc
-	 * if request_handler is NOT called after enque_request() in serial,
-	 * wcnt may inc many times maore than 1
-	 */
+	* ioctl calls  enque_request() request wcnt inc
+	* if request_handler is NOT called after enque_request() in serial,
+	* wcnt may inc many times maore than 1
+	*/
 	r = eng->req_ctl.gcnt;
 	LOG_DBG("[%s] processing request(%d)\n", __func__, r);
 
@@ -349,8 +345,7 @@ signed int request_handler(struct engine_requests *eng, spinlock_t *lock)
 		spin_unlock_irqrestore(lock, flags);
 
 		complete_all(&eng->req_handler_done);
-		LOG_DBG("[%s]complete(%d)\n", __func__,
-						eng->req_handler_done.done);
+		LOG_DBG("[%s]complete(%d)\n", __func__, eng->req_handler_done.done);
 
 		return 0;
 	}
@@ -377,31 +372,12 @@ signed int request_handler(struct engine_requests *eng, spinlock_t *lock)
 	eng->req_ctl.gcnt = (r + 1) % MAX_REQUEST_SIZE_PER_ENGINE;
 #else
 	/*
-	 * TODO: to prevent IRQ timing issue due to multi-frame requests,
-	 * frame-based reguest handling should be used instead.
-	 */
+	* TODO: to prevent IRQ timing issue due to multi-frame requests,
+	* frame-based reguest handling should be used instead.
+	*/
 	if (eng->reqs[r].pending_run == false) {
 		if (rstate != REQUEST_STATE_PENDING) {
-			LOG_DBG("[%s]No pending request(%d), state:%d\n",
-							__func__, r, rstate);
-			write_seqlock(&eng->seqlock);
-			eng->req_running = false;
-			write_sequnlock(&eng->seqlock);
-
-			spin_unlock_irqrestore(lock, flags);
-
-			complete_all(&eng->req_handler_done);
-			LOG_DBG("[%s]complete(%d)\n", __func__,
-						eng->req_handler_done.done);
-
-			return 0;
-		}
-		eng->reqs[r].pending_run = true;
-		eng->reqs[r].state = REQUEST_STATE_RUNNING;
-	} else
-		if (rstate != REQUEST_STATE_RUNNING) {
-			LOG_WRN(
-			"[%s]No pending_run request(%d), state:%d\n", __func__,
+			LOG_DBG("[%s]No pending request(%d), state:%d\n", __func__,
 								r, rstate);
 			write_seqlock(&eng->seqlock);
 			eng->req_running = false;
@@ -410,9 +386,24 @@ signed int request_handler(struct engine_requests *eng, spinlock_t *lock)
 			spin_unlock_irqrestore(lock, flags);
 
 			complete_all(&eng->req_handler_done);
-			LOG_DBG(
-			"[%s]complete(%d)\n", __func__,
-						eng->req_handler_done.done);
+			LOG_DBG("[%s]complete(%d)\n", __func__, eng->req_handler_done.done);
+
+			return 0;
+		}
+		eng->reqs[r].pending_run = true;
+		eng->reqs[r].state = REQUEST_STATE_RUNNING;
+	} else
+		if (rstate != REQUEST_STATE_RUNNING) {
+			LOG_WRN("[%s]No pending_run request(%d), state:%d\n", __func__,
+								r, rstate);
+			write_seqlock(&eng->seqlock);
+			eng->req_running = false;
+			write_sequnlock(&eng->seqlock);
+
+			spin_unlock_irqrestore(lock, flags);
+
+			complete_all(&eng->req_handler_done);
+			LOG_DBG("[%s]complete(%d)\n", __func__, eng->req_handler_done.done);
 			return 0;
 		}
 
@@ -443,8 +434,7 @@ signed int request_handler(struct engine_requests *eng, spinlock_t *lock)
 		LOG_WRN("[%s]already running frame %d of request %d",
 						__func__, f, r);
 		complete_all(&eng->req_handler_done);
-		LOG_DBG("[%s]complete(%d)\n", __func__,
-						eng->req_handler_done.done);
+		LOG_DBG("[%s]complete(%d)\n", __func__, eng->req_handler_done.done);
 
 		return 1;
 	}
@@ -491,15 +481,12 @@ int update_request(struct engine_requests *eng, pid_t *pid)
 		}
 		/* TODO: no running frame in a running request */
 		if (f == MAX_FRAMES_PER_REQUEST) {
-			LOG_ERR(
-			"[%s]No running frames in a running request(%d).",
-								__func__, i);
+			LOG_ERR("[%s]No running frames in a running request(%d).", __func__, i);
 			break;
 		}
 
 		eng->reqs[i].frames[f].state = FRAME_STATUS_FINISHED;
-		LOG_INF("[%s]request %d of frame %d finished.\n",
-							__func__, i, f);
+		LOG_INF("[%s]request %d of frame %d finished.\n", __func__, i, f);
 		/*TODO: to obtain statistics */
 		if (eng->ops->req_feedback_cb == NULL) {
 			LOG_DBG("NULL req_feedback_cb");
@@ -520,12 +507,9 @@ NO_FEEDBACK:
 			(*pid) = eng->reqs[i].pid;
 
 			eng->reqs[i].state = REQUEST_STATE_FINISHED;
-			eng->req_ctl.icnt = (eng->req_ctl.icnt + 1) %
-						MAX_REQUEST_SIZE_PER_ENGINE;
+			eng->req_ctl.icnt = (eng->req_ctl.icnt + 1) % MAX_REQUEST_SIZE_PER_ENGINE;
 		} else {
-			LOG_INF(
-			"[%s]more frames left of request(%d/%d).", __func__,
-							i, eng->req_ctl.icnt);
+			LOG_INF("[%s]more frames left of request(%d/%d).", __func__, i, eng->req_ctl.icnt);
 		}
 		break;
 	}
@@ -534,9 +518,8 @@ NO_FEEDBACK:
 }
 
 /*TODO: called in DEQUE_REQ */
-signed int deque_request(struct engine_requests *eng, unsigned int *fcnt,
-								void *req)
-{
+signed int deque_request(struct engine_requests *eng, unsigned *fcnt,
+								void *req) {
 	unsigned int r;
 	unsigned int f;
 
@@ -609,8 +592,7 @@ signed int request_dump(struct engine_requests *eng)
 				eng->reqs[0].frames[0].data);
 
 	for (r = 0; r < MAX_REQUEST_SIZE_PER_ENGINE; r++) {
-		LOG_ERR(
-		"R[%d].sta:%d, pid:0x%08X, wc:%d, gc:%d, ic:%d, rc:%d\n",
+		LOG_ERR("R[%d].sta:%d, pid:0x%08X, wc:%d, gc:%d, ic:%d, rc:%d\n",
 					r,
 					eng->reqs[r].state,
 					eng->reqs[r].pid,

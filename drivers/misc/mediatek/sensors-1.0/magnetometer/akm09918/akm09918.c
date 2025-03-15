@@ -1,17 +1,11 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- */
+* Copyright(C)2014 MediaTek Inc.
+* Modification based on code covered by the below mentioned copyright
+* and/or permission notice(S).
+*/
 
 /* akm09918.c - akm09918 compass driver
+ *
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -23,7 +17,6 @@
  * GNU General Public License for more details.
  *
  */
-#define pr_fmt(fmt) "[AKM09918] " fmt
 
 #include "cust_mag.h"
 #include "akm09918.h"
@@ -32,8 +25,22 @@
 #define DEBUG 0
 #define AKM09918_DEV_NAME	"akm09918"
 #define DRIVER_VERSION	 "1.0.1"
+#define AKM09918_DEBUG	1
 #define AKM09918_RETRY_COUNT	10
 #define AKM09918_DEFAULT_DELAY	100
+
+#ifdef pr_fmt
+#undef pr_fmt
+#endif
+#define pr_fmt(fmt) "[AKM09918]%s:%d: " fmt, __func__, __LINE__
+
+#if AKM09918_DEBUG
+#define MAGN_TAG		 "[AKM09918] "
+#define MAGN_LOG(fmt, args...)	pr_debug(MAGN_TAG fmt, ##args)
+#else
+#define MAGN_TAG
+#define MAGN_LOG(fmt, args...)	do {} while (0)
+#endif
 
 static DECLARE_WAIT_QUEUE_HEAD(open_wq);
 
@@ -51,8 +58,7 @@ static int8_t akm_device;
 
 static uint8_t akm_fuse[3] = {0};
 /*----------------------------------------------------------------------------*/
-static const struct i2c_device_id akm09918_i2c_id[] = {
-					{AKM09918_DEV_NAME, 0}, {} };
+static const struct i2c_device_id akm09918_i2c_id[] = { {AKM09918_DEV_NAME, 0}, {} };
 
 /* Maintain  cust info here */
 struct mag_hw mag_cust;
@@ -65,11 +71,9 @@ struct mag_hw *get_cust_mag(void)
 }
 
 /*----------------------------------------------------------------------------*/
-static int akm09918_i2c_probe(struct i2c_client *client,
-					const struct i2c_device_id *id);
+static int akm09918_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id);
 static int akm09918_i2c_remove(struct i2c_client *client);
-static int akm09918_i2c_detect(struct i2c_client *client,
-					struct i2c_board_info *info);
+static int akm09918_i2c_detect(struct i2c_client *client, struct i2c_board_info *info);
 static int akm09918_suspend(struct device *dev);
 static int akm09918_resume(struct device *dev);
 static int akm09918_local_init(void);
@@ -133,20 +137,6 @@ static struct i2c_driver akm09918_i2c_driver = {
 	.id_table = akm09918_i2c_id,
 };
 
-/* akm_map value rang is 1-8, so akm_map[0] is invalid*/
-static struct hwmsen_convert akm_map[] = {
-	{ { 0, 0, 0}, {0, 0, 0} },
-	{ { 1, 1, 1}, {0, 1, 2} },
-	{ { 1, -1, 1}, {1, 0, 2} },
-	{ {-1, -1, 1}, {0, 1, 2} },
-	{ {-1, 1, 1}, {1, 0, 2} },
-
-	{ {-1, 1, -1}, {0, 1, 2} },
-	{ { 1, 1, -1}, {1, 0, 2} },
-	{ { 1, -1, -1}, {0, 1, 2} },
-	{ {-1, -1, -1}, {1, 0, 2} },
-
-};
 
 /*----------------------------------------------------------------------------*/
 static atomic_t dev_open_count;
@@ -154,8 +144,7 @@ static atomic_t dev_open_count;
 
 static DEFINE_MUTEX(akm09918_i2c_mutex);
 #ifndef CONFIG_MTK_I2C_EXTENSION
-static int mag_i2c_read_block(struct i2c_client *client,
-					u8 addr, u8 *data, u8 len)
+static int mag_i2c_read_block(struct i2c_client *client, u8 addr, u8 *data, u8 len)
 {
 	int err = 0;
 	u8 beg = addr;
@@ -181,8 +170,7 @@ static int mag_i2c_read_block(struct i2c_client *client,
 
 	err = i2c_transfer(client->adapter, msgs, ARRAY_SIZE(msgs));
 	if (err != 2) {
-		pr_err_ratelimited("i2c_transfer error: (%d %p %d) %d\n",
-			addr, data, len, err);
+		pr_err("i2c_transfer error: (%d %p %d) %d\n", addr, data, len, err);
 		err = -EIO;
 	} else {
 		err = 0;
@@ -192,10 +180,8 @@ static int mag_i2c_read_block(struct i2c_client *client,
 
 }
 
-static int mag_i2c_write_block(struct i2c_client *client,
-					u8 addr, u8 *data, u8 len)
-{
-/*address also occupies one byte, the maximum length for write is 7 bytes */
+static int mag_i2c_write_block(struct i2c_client *client, u8 addr, u8 *data, u8 len)
+{				/*because address also occupies one byte, the maximum length for write is 7 bytes */
 	int err = 0, idx = 0, num = 0;
 	char buf[C_I2C_FIFO_SIZE];
 
@@ -218,7 +204,7 @@ static int mag_i2c_write_block(struct i2c_client *client,
 	err = i2c_master_send(client, buf, num);
 	if (err < 0) {
 		mutex_unlock(&akm09918_i2c_mutex);
-		pr_err_ratelimited("send command error!!\n");
+		pr_err("send command error!!\n");
 		return -EFAULT;
 	}
 	mutex_unlock(&akm09918_i2c_mutex);
@@ -261,8 +247,7 @@ static long AKI2C_RxData(char *rxData, int length)
 	for (loop_i = 0; loop_i < AKM09918_RETRY_COUNT; loop_i++) {
 		this_client->addr = this_client->addr & I2C_MASK_FLAG;
 		this_client->addr = this_client->addr | I2C_WR_FLAG;
-		if (i2c_master_send(this_client,
-			(const char *)rxData, ((length << 0X08) | 0X01)))
+		if (i2c_master_send(this_client, (const char *)rxData, ((length << 0X08) | 0X01)))
 			break;
 		mdelay(10);
 	}
@@ -275,11 +260,11 @@ static long AKI2C_RxData(char *rxData, int length)
 	mutex_unlock(&akm09918_i2c_mutex);
 #if DEBUG
 	if (atomic_read(&data->trace) & AMK_I2C_DEBUG) {
-		pr_debug("RxData: len=%02x, addr=%02x\n  data=", length, addr);
+		MAGN_LOG("RxData: len=%02x, addr=%02x\n  data=", length, addr);
 		for (i = 0; i < length; i++)
-			pr_debug(" %02x", rxData[i]);
+			MAGN_LOG(" %02x", rxData[i]);
 
-		pr_debug("\n");
+		MAGN_LOG("\n");
 	}
 #endif
 
@@ -317,8 +302,7 @@ static long AKI2C_TxData(char *txData, int length)
 	mutex_lock(&akm09918_i2c_mutex);
 	this_client->addr = this_client->addr & I2C_MASK_FLAG;
 	for (loop_i = 0; loop_i < AKM09918_RETRY_COUNT; loop_i++) {
-		if (i2c_master_send(this_client,
-			(const char *)txData, length) > 0)
+		if (i2c_master_send(this_client, (const char *)txData, length) > 0)
 			break;
 		mdelay(10);
 	}
@@ -331,12 +315,11 @@ static long AKI2C_TxData(char *txData, int length)
 	mutex_unlock(&akm09918_i2c_mutex);
 #if DEBUG
 	if (atomic_read(&data->trace) & AMK_I2C_DEBUG) {
-		pr_debug("TxData: len=%02x, addr=%02x\n  data=",
-			length, txData[0]);
+		MAGN_LOG("TxData: len=%02x, addr=%02x\n  data=", length, txData[0]);
 		for (i = 0; i < (length - 1); i++)
-			pr_debug(" %02x", txData[i + 1]);
+			MAGN_LOG(" %02x", txData[i + 1]);
 
-		pr_debug("\n");
+		MAGN_LOG("\n");
 	}
 #endif
 
@@ -414,9 +397,9 @@ static long AKECS_Reset(int hard)
 		buffer[1] = 0x01;
 		err = AKI2C_TxData(buffer, 2);
 		if (err < 0)
-			pr_debug("%s: Can not set SRST bit.\n", __func__);
+			MAGN_LOG("%s: Can not set SRST bit.", __func__);
 		else
-			pr_debug("Soft reset is done.\n");
+			MAGN_LOG("Soft reset is done.");
 	}
 
 	/* Device will be accessible 300 us after */
@@ -447,7 +430,7 @@ static long AKECS_SetMode(char mode)
 		break;
 
 	default:
-		pr_debug("%s: Unknown mode(%d)\n", __func__, mode);
+		MAGN_LOG("%s: Unknown mode(%d)", __func__, mode);
 		return -EINVAL;
 	}
 
@@ -463,14 +446,14 @@ static int AKECS_ReadFuse(void)
 
 	ret = AKECS_SetMode_FUSEAccess();
 	if (ret < 0) {
-		pr_debug("AKM set read fuse mode fail ret:%d\n", ret);
+		MAGN_LOG("AKM set read fuse mode fail ret:%d\n", ret);
 		return ret;
 	}
-
+	
 	akm_fuse[0] = AK0991X_FUSE_ASAX;
 	ret = AKI2C_RxData(akm_fuse, 3);
 	if (ret < 0) {
-		pr_debug("AKM read fuse fail ret:%d\n", ret);
+		MAGN_LOG("AKM read fuse fail ret:%d\n", ret);
 		return ret;
 	}
 	ret = AKECS_SetMode_PowerDown();
@@ -495,14 +478,14 @@ static int AKECS_CheckDevice(void)
 		return -ENXIO;
 
 	akm_device = buffer[1];
-	if ((akm_device == 0x05) || (akm_device == 0x04)) {
+	if ((akm_device == 0x05) || (akm_device == 0x04)) {/* ak09911 & ak09912 */
 		ret = AKECS_ReadFuse();
 		if (ret < 0) {
 			pr_err("AKM09918 AKECS_CheckDevice: read fuse fail\n");
 			return -ENXIO;
 		}
-	} else if ((akm_device == 0x10) || (akm_device == 0x09) ||
-		(akm_device == 0x0b) || (akm_device == 0x0c)) {
+	} else if ((akm_device == 0x10) || (akm_device == 0x09) || 
+				(akm_device == 0x0b) || (akm_device == 0x0c)){/* ak09915 & ak09916c & ak09916d & ak09918 */
 		akm_fuse[0] = 0x80;
 		akm_fuse[1] = 0x80;
 		akm_fuse[2] = 0x80;
@@ -599,7 +582,7 @@ static long AKECS_GetData(char *rbuf, int size)
 	for (loop_i = 0; loop_i < AKM09918_RETRY_COUNT; loop_i++) {
 		ret = AKI2C_RxData(rbuf, 1);
 		if (ret) {
-			pr_err_ratelimited("read ST1 resigster failed!\n");
+			pr_err("read ST1 resigster failed!\n");
 			return -1;
 		}
 
@@ -623,22 +606,11 @@ static long AKECS_GetData(char *rbuf, int size)
 	ret = AKI2C_RxData(&rbuf[1], SENSOR_DATA_SIZE - 1);
 
 	if (ret < 0) {
-		pr_err_ratelimited("AKM8975 akm8975_work_func: I2C failed\n");
+		pr_err("AKM8975 akm8975_work_func: I2C failed\n");
 		return -1;
 	}
 	rbuf[0] = temp;
 
-	return 0;
-}
-
-static int AKECS_GetConvert(int direction, struct hwmsen_convert *cvt)
-{
-	if (!cvt)
-		return -EINVAL;
-	else if ((direction > 8) || (direction <= 0))
-		return -EINVAL;
-
-	*cvt = akm_map[direction];
 	return 0;
 }
 
@@ -657,7 +629,7 @@ static int akm09918_ReadChipInfo(char *buf, int bufsize)
 	return 0;
 }
 
-/*----------------------------shipment test----------------------*/
+/*----------------------------shipment test------------------------------------------------*/
 /*!
  *@return If @a testdata is in the range of between @a lolimit and @a hilimit,
  *the return value is 1, otherwise -1.
@@ -674,13 +646,16 @@ int TEST_DATA(const char testno[], const char testname[], const int testdata,
 	int pf;			/* Pass;1, Fail;-1 */
 
 	if ((testno == NULL) && (strncmp(testname, "START", 5) == 0)) {
-		pr_debug(" Test Name Fail Test Data [Low High]\n");
+		MAGN_LOG("--------------------------------------------------------------------\n");
+		MAGN_LOG(" Test No. Test Name	Fail	Test Data	[	 Low	High]\n");
+		MAGN_LOG("--------------------------------------------------------------------\n");
 		pf = 1;
 	} else if ((testno == NULL) && (strncmp(testname, "END", 3) == 0)) {
+		MAGN_LOG("--------------------------------------------------------------------\n");
 		if (*pf_total == 1)
-			pr_debug("Factory shipment test was passed.\n\n");
+			MAGN_LOG("Factory shipment test was passed.\n\n");
 		else
-			pr_debug("Factory shipment test was failed.\n\n");
+			MAGN_LOG("Factory shipment test was failed.\n\n");
 
 		pf = 1;
 	} else {
@@ -690,9 +665,8 @@ int TEST_DATA(const char testno[], const char testname[], const int testdata,
 			pf = -1;
 
 		/* display result */
-		pr_debug(" %7s  %-10s	 %c	%9d	[%9d	%9d]\n",
-			 testno, testname, ((pf == 1) ? ('.') : ('F')),
-			 testdata, lolimit, hilimit);
+		MAGN_LOG(" %7s  %-10s	 %c	%9d	[%9d	%9d]\n",
+			 testno, testname, ((pf == 1) ? ('.') : ('F')), testdata, lolimit, hilimit);
 	}
 
 	/* Pass/Fail check */
@@ -731,35 +705,33 @@ int FST_AK09911(void)
 
 	/* Reset device. */
 	if (AKECS_Reset(0) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
 
 	/* Read values from WIA. */
 	i2cData[0] = AK0991X_REG_WIA1;
 	if (AKI2C_RxData(i2cData, 2) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
 
 	/* TEST */
-	TEST_DATA(TLIMIT_NO_RST_WIA1_09911, TLIMIT_TN_RST_WIA1_09911,
-		(int)i2cData[0], TLIMIT_LO_RST_WIA1_09911,
-		TLIMIT_HI_RST_WIA1_09911, &pf_total);
-	TEST_DATA(TLIMIT_NO_RST_WIA2_09911, TLIMIT_TN_RST_WIA2_09911,
-		(int)i2cData[1], TLIMIT_LO_RST_WIA2_09911,
-		TLIMIT_HI_RST_WIA2_09911, &pf_total);
+	TEST_DATA(TLIMIT_NO_RST_WIA1_09911, TLIMIT_TN_RST_WIA1_09911, (int)i2cData[0],
+		  TLIMIT_LO_RST_WIA1_09911, TLIMIT_HI_RST_WIA1_09911, &pf_total);
+	TEST_DATA(TLIMIT_NO_RST_WIA2_09911, TLIMIT_TN_RST_WIA2_09911, (int)i2cData[1],
+		  TLIMIT_LO_RST_WIA2_09911, TLIMIT_HI_RST_WIA2_09911, &pf_total);
 
 	/* Set to FUSE ROM access mode */
 	if (AKECS_SetMode(AKM_MODE_FUSE_ACCESS) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
 
 	/* Read values from ASAX to ASAZ */
 	i2cData[0] = AK0991X_FUSE_ASAX;
 	if (AKI2C_RxData(i2cData, 3) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
 	asax = (int)i2cData[0];
@@ -767,19 +739,16 @@ int FST_AK09911(void)
 	asaz = (int)i2cData[2];
 
 	/* TEST */
-	TEST_DATA(TLIMIT_NO_ASAX_09911, TLIMIT_TN_ASAX_09911,
-		asax, TLIMIT_LO_ASAX_09911,
-		TLIMIT_HI_ASAX_09911, &pf_total);
-	TEST_DATA(TLIMIT_NO_ASAY_09911, TLIMIT_TN_ASAY_09911,
-		asay, TLIMIT_LO_ASAY_09911,
-		TLIMIT_HI_ASAY_09911, &pf_total);
-	TEST_DATA(TLIMIT_NO_ASAZ_09911, TLIMIT_TN_ASAZ_09911,
-		asaz, TLIMIT_LO_ASAZ_09911,
-		TLIMIT_HI_ASAZ_09911, &pf_total);
+	TEST_DATA(TLIMIT_NO_ASAX_09911, TLIMIT_TN_ASAX_09911, asax, TLIMIT_LO_ASAX_09911,
+		  TLIMIT_HI_ASAX_09911, &pf_total);
+	TEST_DATA(TLIMIT_NO_ASAY_09911, TLIMIT_TN_ASAY_09911, asay, TLIMIT_LO_ASAY_09911,
+		  TLIMIT_HI_ASAY_09911, &pf_total);
+	TEST_DATA(TLIMIT_NO_ASAZ_09911, TLIMIT_TN_ASAZ_09911, asaz, TLIMIT_LO_ASAZ_09911,
+		  TLIMIT_HI_ASAZ_09911, &pf_total);
 
 	/* Set to PowerDown mode */
 	if (AKECS_SetMode(AKM_MODE_POWERDOWN) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
 
@@ -789,7 +758,7 @@ int FST_AK09911(void)
 
 	/* Set to SNG measurement pattern (Set CNTL register) */
 	if (AKECS_SetMode(AKM_MODE_SNG_MEASURE) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
 
@@ -800,7 +769,7 @@ int FST_AK09911(void)
 	/* = 1 + (1 + 1) + (1 + 1) + (1 + 1) + 1 + 1 = 9yte */
 	/* if (AKD_GetMagneticData(i2cData) != AKD_SUCCESS) { */
 	if (AKECS_GetData(i2cData, SENSOR_DATA_SIZE) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
 
@@ -814,27 +783,22 @@ int FST_AK09911(void)
 
 	/* TEST */
 	i2cData[0] &= 0x7F;
-	TEST_DATA(TLIMIT_NO_SNG_ST1_09911, TLIMIT_TN_SNG_ST1_09911,
-		(int)i2cData[0], TLIMIT_LO_SNG_ST1_09911,
-		TLIMIT_HI_SNG_ST1_09911, &pf_total);
+	TEST_DATA(TLIMIT_NO_SNG_ST1_09911, TLIMIT_TN_SNG_ST1_09911, (int)i2cData[0],
+		  TLIMIT_LO_SNG_ST1_09911, TLIMIT_HI_SNG_ST1_09911, &pf_total);
 
 	/* TEST */
-	TEST_DATA(TLIMIT_NO_SNG_HX_09911, TLIMIT_TN_SNG_HX_09911,
-		hdata[0], TLIMIT_LO_SNG_HX_09911,
-		TLIMIT_HI_SNG_HX_09911, &pf_total);
-	TEST_DATA(TLIMIT_NO_SNG_HY_09911, TLIMIT_TN_SNG_HY_09911,
-		hdata[1], TLIMIT_LO_SNG_HY_09911,
-		TLIMIT_HI_SNG_HY_09911, &pf_total);
-	TEST_DATA(TLIMIT_NO_SNG_HZ_09911, TLIMIT_TN_SNG_HZ_09911,
-		hdata[2], TLIMIT_LO_SNG_HZ_09911,
-		TLIMIT_HI_SNG_HZ_09911, &pf_total);
-	TEST_DATA(TLIMIT_NO_SNG_ST2_09911, TLIMIT_TN_SNG_ST2_09911,
-		(int)i2cData[8], TLIMIT_LO_SNG_ST2_09911,
-		TLIMIT_HI_SNG_ST2_09911, &pf_total);
+	TEST_DATA(TLIMIT_NO_SNG_HX_09911, TLIMIT_TN_SNG_HX_09911, hdata[0], TLIMIT_LO_SNG_HX_09911,
+		  TLIMIT_HI_SNG_HX_09911, &pf_total);
+	TEST_DATA(TLIMIT_NO_SNG_HY_09911, TLIMIT_TN_SNG_HY_09911, hdata[1], TLIMIT_LO_SNG_HY_09911,
+		  TLIMIT_HI_SNG_HY_09911, &pf_total);
+	TEST_DATA(TLIMIT_NO_SNG_HZ_09911, TLIMIT_TN_SNG_HZ_09911, hdata[2], TLIMIT_LO_SNG_HZ_09911,
+		  TLIMIT_HI_SNG_HZ_09911, &pf_total);
+	TEST_DATA(TLIMIT_NO_SNG_ST2_09911, TLIMIT_TN_SNG_ST2_09911, (int)i2cData[8],
+		  TLIMIT_LO_SNG_ST2_09911, TLIMIT_HI_SNG_ST2_09911, &pf_total);
 
 	/* Set to Self-test mode (Set CNTL register) */
 	if (AKECS_SetMode(AKM_MODE_SELF_TEST) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
 
@@ -845,15 +809,14 @@ int FST_AK09911(void)
 	/* = 1 + (1 + 1) + (1 + 1) + (1 + 1) + 1 + 1 = 9byte */
 	/* if (AKD_GetMagneticData(i2cData) != AKD_SUCCESS) { */
 	if (AKECS_GetData(i2cData, SENSOR_DATA_SIZE) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
 
 	/* TEST */
 	i2cData[0] &= 0x7F;
-	TEST_DATA(TLIMIT_NO_SLF_ST1_09911, TLIMIT_TN_SLF_ST1_09911,
-		(int)i2cData[0], TLIMIT_LO_SLF_ST1_09911,
-		TLIMIT_HI_SLF_ST1_09911, &pf_total);
+	TEST_DATA(TLIMIT_NO_SLF_ST1_09911, TLIMIT_TN_SLF_ST1_09911, (int)i2cData[0],
+		  TLIMIT_LO_SLF_ST1_09911, TLIMIT_HI_SLF_ST1_09911, &pf_total);
 
 	/* hdata[0] = (int)((((uint)(i2cData[2]))<<8)+(uint)(i2cData[1])); */
 	/* hdata[1] = (int)((((uint)(i2cData[4]))<<8)+(uint)(i2cData[3])); */
@@ -867,63 +830,61 @@ int FST_AK09911(void)
 	TEST_DATA(TLIMIT_NO_SLF_RVHX_09911,
 		  TLIMIT_TN_SLF_RVHX_09911,
 		  (hdata[0]) * (asax / 128 + 1),
-		  TLIMIT_LO_SLF_RVHX_09911,
-		  TLIMIT_HI_SLF_RVHX_09911, &pf_total);
+		  TLIMIT_LO_SLF_RVHX_09911, TLIMIT_HI_SLF_RVHX_09911, &pf_total);
 
 	TEST_DATA(TLIMIT_NO_SLF_RVHY_09911,
 		  TLIMIT_TN_SLF_RVHY_09911,
 		  (hdata[1]) * (asay / 128 + 1),
-		  TLIMIT_LO_SLF_RVHY_09911,
-		  TLIMIT_HI_SLF_RVHY_09911, &pf_total);
+		  TLIMIT_LO_SLF_RVHY_09911, TLIMIT_HI_SLF_RVHY_09911, &pf_total);
 
 	TEST_DATA(TLIMIT_NO_SLF_RVHZ_09911,
 		  TLIMIT_TN_SLF_RVHZ_09911,
 		  (hdata[2]) * (asaz / 128 + 1),
-		  TLIMIT_LO_SLF_RVHZ_09911,
-		  TLIMIT_HI_SLF_RVHZ_09911, &pf_total);
+		  TLIMIT_LO_SLF_RVHZ_09911, TLIMIT_HI_SLF_RVHZ_09911, &pf_total);
 
 	TEST_DATA(TLIMIT_NO_SLF_ST2_09911,
 		  TLIMIT_TN_SLF_ST2_09911,
-		  (int)i2cData[8], TLIMIT_LO_SLF_ST2_09911,
-		  TLIMIT_HI_SLF_ST2_09911, &pf_total);
+		  (int)i2cData[8], TLIMIT_LO_SLF_ST2_09911, TLIMIT_HI_SLF_ST2_09911, &pf_total);
 
 	return pf_total;
 }
 
-int FST_AK09916(void)
-{
+int FST_AK09916(void) {
 	int pf_total;  //p/f flag for this subtest
 	char i2cData[16];
 	int hdata[3];
-
+	
+	//***********************************************
 	//  Reset Test Result
+	//***********************************************
 	pf_total = 1;
 
+	//***********************************************
 	//  Step1
+	//***********************************************
+
 	// Reset device.
 	if (AKECS_Reset(0) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
 
 	// Read values from WIA.
 	i2cData[0] = AK0991X_REG_WIA1;
 	if (AKI2C_RxData(i2cData, 2) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
-
+	
 	/* TEST */
-	TEST_DATA(TLIMIT_NO_RST_WIA1_09916, TLIMIT_TN_RST_WIA1_09916,
-		(int)i2cData[0], TLIMIT_LO_RST_WIA1_09916,
-		TLIMIT_HI_RST_WIA1_09916, &pf_total);
-	TEST_DATA(TLIMIT_NO_RST_WIA2_09916, TLIMIT_TN_RST_WIA2_09916,
-		(int)i2cData[1], TLIMIT_LO_RST_WIA2_09916,
-		TLIMIT_HI_RST_WIA2_09916, &pf_total);
-
+	TEST_DATA(TLIMIT_NO_RST_WIA1_09916, TLIMIT_TN_RST_WIA1_09916, (int)i2cData[0],
+		  TLIMIT_LO_RST_WIA1_09916, TLIMIT_HI_RST_WIA1_09916, &pf_total);
+	TEST_DATA(TLIMIT_NO_RST_WIA2_09916, TLIMIT_TN_RST_WIA2_09916, (int)i2cData[1],
+		  TLIMIT_LO_RST_WIA2_09916, TLIMIT_HI_RST_WIA2_09916, &pf_total);
+		  
 	/* Set to PowerDown mode */
 	if (AKECS_SetMode(AKM_MODE_POWERDOWN) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
 
@@ -933,10 +894,10 @@ int FST_AK09916(void)
 
 	/* Set to SNG measurement pattern (Set CNTL register) */
 	if (AKECS_SetMode(AKM_MODE_SNG_MEASURE) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
-
+	
 	/* Wait for DRDY pin changes to HIGH. */
 	/* usleep(AKM_MEASURE_TIME_US); */
 	/* Get measurement data from AK09916 */
@@ -944,7 +905,7 @@ int FST_AK09916(void)
 	/* = 1 + (1 + 1) + (1 + 1) + (1 + 1) + 1 + 1 = 9yte */
 	/* if (AKD_GetMagneticData(i2cData) != AKD_SUCCESS) { */
 	if (AKECS_GetData(i2cData, SENSOR_DATA_SIZE) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
 
@@ -953,27 +914,23 @@ int FST_AK09916(void)
 	hdata[2] = (int16_t) (i2cData[5] | (i2cData[6] << 8));
 
 	/* TEST */
-	TEST_DATA(TLIMIT_NO_SNG_ST1_09916, TLIMIT_TN_SNG_ST1_09916,
-		(int)i2cData[0], TLIMIT_LO_SNG_ST1_09916,
-		TLIMIT_HI_SNG_ST1_09916, &pf_total);
+	TEST_DATA(TLIMIT_NO_SNG_ST1_09916, TLIMIT_TN_SNG_ST1_09916, (int)i2cData[0],
+		  TLIMIT_LO_SNG_ST1_09916, TLIMIT_HI_SNG_ST1_09916, &pf_total);
 
 	/* TEST */
-	TEST_DATA(TLIMIT_NO_SNG_HX_09916, TLIMIT_TN_SNG_HX_09916,
-		hdata[0], TLIMIT_LO_SNG_HX_09916,
-		TLIMIT_HI_SNG_HX_09916, &pf_total);
-	TEST_DATA(TLIMIT_NO_SNG_HY_09916, TLIMIT_TN_SNG_HY_09916,
-		hdata[1], TLIMIT_LO_SNG_HY_09916,
-		TLIMIT_HI_SNG_HY_09916, &pf_total);
-	TEST_DATA(TLIMIT_NO_SNG_HZ_09916, TLIMIT_TN_SNG_HZ_09916,
-		hdata[2], TLIMIT_LO_SNG_HZ_09916,
-		TLIMIT_HI_SNG_HZ_09916, &pf_total);
-	TEST_DATA(TLIMIT_NO_SNG_ST2_09916, TLIMIT_TN_SNG_ST2_09916,
-		(int)i2cData[8] & TLIMIT_ST2_MASK_09916,
-		TLIMIT_LO_SNG_ST2_09916, TLIMIT_HI_SNG_ST2_09916, &pf_total);
-
+	TEST_DATA(TLIMIT_NO_SNG_HX_09916, TLIMIT_TN_SNG_HX_09916, hdata[0], TLIMIT_LO_SNG_HX_09916,
+		  TLIMIT_HI_SNG_HX_09916, &pf_total);
+	TEST_DATA(TLIMIT_NO_SNG_HY_09916, TLIMIT_TN_SNG_HY_09916, hdata[1], TLIMIT_LO_SNG_HY_09916,
+		  TLIMIT_HI_SNG_HY_09916, &pf_total);
+	TEST_DATA(TLIMIT_NO_SNG_HZ_09916, TLIMIT_TN_SNG_HZ_09916, hdata[2], TLIMIT_LO_SNG_HZ_09916,
+		  TLIMIT_HI_SNG_HZ_09916, &pf_total);
+	TEST_DATA(TLIMIT_NO_SNG_ST2_09916, TLIMIT_TN_SNG_ST2_09916, 
+		  (int)i2cData[8] & TLIMIT_ST2_MASK_09916,
+		  TLIMIT_LO_SNG_ST2_09916, TLIMIT_HI_SNG_ST2_09916, &pf_total);
+		  
 	/* Set to Self-test mode (Set CNTL register) */
 	if (AKECS_SetMode(AKM_MODE_SELF_TEST) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
 
@@ -984,75 +941,72 @@ int FST_AK09916(void)
 	/* = 1 + (1 + 1) + (1 + 1) + (1 + 1) + 1 + 1 = 9byte */
 	/* if (AKD_GetMagneticData(i2cData) != AKD_SUCCESS) { */
 	if (AKECS_GetData(i2cData, SENSOR_DATA_SIZE) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
-
+	
 	/* TEST */
-	TEST_DATA(TLIMIT_NO_SLF_ST1_09916, TLIMIT_TN_SLF_ST1_09916,
-		(int)i2cData[0], TLIMIT_LO_SLF_ST1_09916,
-		TLIMIT_HI_SLF_ST1_09916, &pf_total);
+	TEST_DATA(TLIMIT_NO_SLF_ST1_09916, TLIMIT_TN_SLF_ST1_09916, (int)i2cData[0],
+		  TLIMIT_LO_SLF_ST1_09916, TLIMIT_HI_SLF_ST1_09916, &pf_total);
 
 	hdata[0] = (int16_t) (i2cData[1] | (i2cData[2] << 8));
 	hdata[1] = (int16_t) (i2cData[3] | (i2cData[4] << 8));
 	hdata[2] = (int16_t) (i2cData[5] | (i2cData[6] << 8));
 
 	/* TEST */
-	TEST_DATA(TLIMIT_NO_SLF_RVHX_09916, TLIMIT_TN_SLF_RVHX_09916,
-		hdata[0], TLIMIT_LO_SLF_RVHX_09916,
-		TLIMIT_HI_SLF_RVHX_09916, &pf_total);
+	TEST_DATA(TLIMIT_NO_SLF_RVHX_09916, TLIMIT_TN_SLF_RVHX_09916, hdata[0], TLIMIT_LO_SLF_RVHX_09916, 
+		  TLIMIT_HI_SLF_RVHX_09916, &pf_total);
 
-	TEST_DATA(TLIMIT_NO_SLF_RVHY_09916, TLIMIT_TN_SLF_RVHY_09916,
-		hdata[1], TLIMIT_LO_SLF_RVHY_09916,
-		TLIMIT_HI_SLF_RVHY_09916, &pf_total);
+	TEST_DATA(TLIMIT_NO_SLF_RVHY_09916, TLIMIT_TN_SLF_RVHY_09916, hdata[1], TLIMIT_LO_SLF_RVHY_09916, 
+		  TLIMIT_HI_SLF_RVHY_09916, &pf_total);
 
-	TEST_DATA(TLIMIT_NO_SLF_RVHZ_09916, TLIMIT_TN_SLF_RVHZ_09916,
-		hdata[2], TLIMIT_LO_SLF_RVHZ_09916,
-		TLIMIT_HI_SLF_RVHZ_09916, &pf_total);
+	TEST_DATA(TLIMIT_NO_SLF_RVHZ_09916, TLIMIT_TN_SLF_RVHZ_09916, hdata[2], TLIMIT_LO_SLF_RVHZ_09916,
+		  TLIMIT_HI_SLF_RVHZ_09916, &pf_total);
 
-	TEST_DATA(TLIMIT_NO_SLF_ST2_09916, TLIMIT_TN_SLF_ST2_09916,
-		(int)i2cData[8] & TLIMIT_ST2_MASK_09916,
-		TLIMIT_LO_SLF_ST2_09916, TLIMIT_HI_SLF_ST2_09916, &pf_total);
+	TEST_DATA(TLIMIT_NO_SLF_ST2_09916, TLIMIT_TN_SLF_ST2_09916, 
+		  (int)i2cData[8] & TLIMIT_ST2_MASK_09916, 
+		  TLIMIT_LO_SLF_ST2_09916, TLIMIT_HI_SLF_ST2_09916, &pf_total);
 
 	return pf_total;
+	
 }
 
-int FST_AK09918(void)
-{
+int FST_AK09918(void) {
 	int pf_total;  //p/f flag for this subtest
 	char i2cData[16];
 	int hdata[3];
-
-	//Reset Test Result
+	
+	//***********************************************
+	//  Reset Test Result
+	//***********************************************
 	pf_total = 1;
 
-	//Step1
+	//***********************************************
+	//  Step1
+	//***********************************************
+
 	// Reset device.
 	if (AKECS_Reset(0) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
 
 	// Read values from WIA.
 	i2cData[0] = AK0991X_REG_WIA1;
 	if (AKI2C_RxData(i2cData, 2) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
-
+	
 	/* TEST */
-	TEST_DATA(TLIMIT_NO_RST_WIA1_09918, TLIMIT_TN_RST_WIA1_09918,
-		(int)i2cData[0],
-		TLIMIT_LO_RST_WIA1_09918, TLIMIT_HI_RST_WIA1_09918,
-		&pf_total);
-	TEST_DATA(TLIMIT_NO_RST_WIA2_09918, TLIMIT_TN_RST_WIA2_09918,
-		(int)i2cData[1],
-		TLIMIT_LO_RST_WIA2_09918, TLIMIT_HI_RST_WIA2_09918,
-		&pf_total);
-
+	TEST_DATA(TLIMIT_NO_RST_WIA1_09918, TLIMIT_TN_RST_WIA1_09918, (int)i2cData[0],
+		  TLIMIT_LO_RST_WIA1_09918, TLIMIT_HI_RST_WIA1_09918, &pf_total);
+	TEST_DATA(TLIMIT_NO_RST_WIA2_09918, TLIMIT_TN_RST_WIA2_09918, (int)i2cData[1],
+		  TLIMIT_LO_RST_WIA2_09918, TLIMIT_HI_RST_WIA2_09918, &pf_total);
+		  
 	/* Set to PowerDown mode */
 	if (AKECS_SetMode(AKM_MODE_POWERDOWN) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
 
@@ -1062,10 +1016,10 @@ int FST_AK09918(void)
 
 	/* Set to SNG measurement pattern (Set CNTL register) */
 	if (AKECS_SetMode(AKM_MODE_SNG_MEASURE) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
-
+	
 	/* Wait for DRDY pin changes to HIGH. */
 	/* usleep(AKM_MEASURE_TIME_US); */
 	/* Get measurement data from AK09918 */
@@ -1073,7 +1027,7 @@ int FST_AK09918(void)
 	/* = 1 + (1 + 1) + (1 + 1) + (1 + 1) + 1 + 1 = 9yte */
 	/* if (AKD_GetMagneticData(i2cData) != AKD_SUCCESS) { */
 	if (AKECS_GetData(i2cData, SENSOR_DATA_SIZE) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
 
@@ -1082,27 +1036,23 @@ int FST_AK09918(void)
 	hdata[2] = (int16_t) (i2cData[5] | (i2cData[6] << 8));
 
 	/* TEST */
-	TEST_DATA(TLIMIT_NO_SNG_ST1_09918, TLIMIT_TN_SNG_ST1_09918,
-		(int)i2cData[0], TLIMIT_LO_SNG_ST1_09918,
-		TLIMIT_HI_SNG_ST1_09918, &pf_total);
+	TEST_DATA(TLIMIT_NO_SNG_ST1_09918, TLIMIT_TN_SNG_ST1_09918, (int)i2cData[0],
+		  TLIMIT_LO_SNG_ST1_09918, TLIMIT_HI_SNG_ST1_09918, &pf_total);
 
 	/* TEST */
-	TEST_DATA(TLIMIT_NO_SNG_HX_09918, TLIMIT_TN_SNG_HX_09918,
-		hdata[0], TLIMIT_LO_SNG_HX_09918,
-		TLIMIT_HI_SNG_HX_09918, &pf_total);
-	TEST_DATA(TLIMIT_NO_SNG_HY_09918, TLIMIT_TN_SNG_HY_09918,
-		hdata[1], TLIMIT_LO_SNG_HY_09918,
-		TLIMIT_HI_SNG_HY_09918, &pf_total);
-	TEST_DATA(TLIMIT_NO_SNG_HZ_09918, TLIMIT_TN_SNG_HZ_09918,
-		hdata[2], TLIMIT_LO_SNG_HZ_09918,
-		TLIMIT_HI_SNG_HZ_09918, &pf_total);
-	TEST_DATA(TLIMIT_NO_SNG_ST2_09918, TLIMIT_TN_SNG_ST2_09918,
-		(int)i2cData[8] & TLIMIT_ST2_MASK_09918,
-		TLIMIT_LO_SNG_ST2_09918, TLIMIT_HI_SNG_ST2_09918, &pf_total);
-
+	TEST_DATA(TLIMIT_NO_SNG_HX_09918, TLIMIT_TN_SNG_HX_09918, hdata[0], TLIMIT_LO_SNG_HX_09918,
+		  TLIMIT_HI_SNG_HX_09918, &pf_total);
+	TEST_DATA(TLIMIT_NO_SNG_HY_09918, TLIMIT_TN_SNG_HY_09918, hdata[1], TLIMIT_LO_SNG_HY_09918,
+		  TLIMIT_HI_SNG_HY_09918, &pf_total);
+	TEST_DATA(TLIMIT_NO_SNG_HZ_09918, TLIMIT_TN_SNG_HZ_09918, hdata[2], TLIMIT_LO_SNG_HZ_09918,
+		  TLIMIT_HI_SNG_HZ_09918, &pf_total);
+	TEST_DATA(TLIMIT_NO_SNG_ST2_09918, TLIMIT_TN_SNG_ST2_09918, 
+		  (int)i2cData[8] & TLIMIT_ST2_MASK_09918,
+		  TLIMIT_LO_SNG_ST2_09918, TLIMIT_HI_SNG_ST2_09918, &pf_total);
+		  
 	/* Set to Self-test mode (Set CNTL register) */
 	if (AKECS_SetMode(AKM_MODE_SELF_TEST) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
 
@@ -1113,38 +1063,34 @@ int FST_AK09918(void)
 	/* = 1 + (1 + 1) + (1 + 1) + (1 + 1) + 1 + 1 = 9byte */
 	/* if (AKD_GetMagneticData(i2cData) != AKD_SUCCESS) { */
 	if (AKECS_GetData(i2cData, SENSOR_DATA_SIZE) < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		return 0;
 	}
-
+	
 	/* TEST */
-	TEST_DATA(TLIMIT_NO_SLF_ST1_09918,
-		TLIMIT_TN_SLF_ST1_09918, (int)i2cData[0],
-		TLIMIT_LO_SLF_ST1_09918, TLIMIT_HI_SLF_ST1_09918, &pf_total);
+	TEST_DATA(TLIMIT_NO_SLF_ST1_09918, TLIMIT_TN_SLF_ST1_09918, (int)i2cData[0],
+		  TLIMIT_LO_SLF_ST1_09918, TLIMIT_HI_SLF_ST1_09918, &pf_total);
 
 	hdata[0] = (int16_t) (i2cData[1] | (i2cData[2] << 8));
 	hdata[1] = (int16_t) (i2cData[3] | (i2cData[4] << 8));
 	hdata[2] = (int16_t) (i2cData[5] | (i2cData[6] << 8));
 
 	/* TEST */
-	TEST_DATA(TLIMIT_NO_SLF_RVHX_09918,
-		TLIMIT_TN_SLF_RVHX_09918, hdata[0], TLIMIT_LO_SLF_RVHX_09918,
-		TLIMIT_HI_SLF_RVHX_09918, &pf_total);
+	TEST_DATA(TLIMIT_NO_SLF_RVHX_09918, TLIMIT_TN_SLF_RVHX_09918, hdata[0], TLIMIT_LO_SLF_RVHX_09918, 
+		  TLIMIT_HI_SLF_RVHX_09918, &pf_total);
 
-	TEST_DATA(TLIMIT_NO_SLF_RVHY_09918,
-		TLIMIT_TN_SLF_RVHY_09918, hdata[1], TLIMIT_LO_SLF_RVHY_09918,
-		TLIMIT_HI_SLF_RVHY_09918, &pf_total);
+	TEST_DATA(TLIMIT_NO_SLF_RVHY_09918, TLIMIT_TN_SLF_RVHY_09918, hdata[1], TLIMIT_LO_SLF_RVHY_09918, 
+		  TLIMIT_HI_SLF_RVHY_09918, &pf_total);
 
-	TEST_DATA(TLIMIT_NO_SLF_RVHZ_09918, TLIMIT_TN_SLF_RVHZ_09918,
-		hdata[2], TLIMIT_LO_SLF_RVHZ_09918,
-		TLIMIT_HI_SLF_RVHZ_09918, &pf_total);
+	TEST_DATA(TLIMIT_NO_SLF_RVHZ_09918, TLIMIT_TN_SLF_RVHZ_09918, hdata[2], TLIMIT_LO_SLF_RVHZ_09918,
+		  TLIMIT_HI_SLF_RVHZ_09918, &pf_total);
 
-	TEST_DATA(TLIMIT_NO_SLF_ST2_09918, TLIMIT_TN_SLF_ST2_09918,
-		(int)i2cData[8] & TLIMIT_ST2_MASK_09918,
-		TLIMIT_LO_SLF_ST2_09918, TLIMIT_HI_SLF_ST2_09918, &pf_total);
+	TEST_DATA(TLIMIT_NO_SLF_ST2_09918, TLIMIT_TN_SLF_ST2_09918, 
+		  (int)i2cData[8] & TLIMIT_ST2_MASK_09918, 
+		  TLIMIT_LO_SLF_ST2_09918, TLIMIT_HI_SLF_ST2_09918, &pf_total);
 
 	return pf_total;
-
+	
 }
 
 /*!
@@ -1181,8 +1127,7 @@ int FctShipmntTestProcess_Body(void)
 	return pf_total;
 }
 
-static ssize_t store_shipment_test(struct device_driver *ddri,
-					const char *buf, size_t count)
+static ssize_t store_shipment_test(struct device_driver *ddri, const char *buf, size_t count)
 {
 	/* struct i2c_client *client = this_client; */
 	/* struct akm09918_i2c_data *data = i2c_get_clientdata(client); */
@@ -1199,13 +1144,13 @@ static ssize_t show_shipment_test(struct device_driver *ddri, char *buf)
 
 	res = FctShipmntTestProcess_Body();
 	if (res == 1) {
-		pr_debug("shipment_test pass\n");
+		MAGN_LOG("shipment_test pass\n");
 		strlcpy(result, "y", sizeof(result));
 	} else if (res == -1) {
-		pr_debug("shipment_test fail\n");
+		MAGN_LOG("shipment_test fail\n");
 		strlcpy(result, "n", sizeof(result));
 	} else {
-		pr_debug("shipment_test NaN\n");
+		MAGN_LOG("shipment_test NaN\n");
 		strlcpy(result, "NaN", sizeof(result));
 	}
 
@@ -1236,16 +1181,15 @@ static ssize_t show_sensordata_value(struct device_driver *ddri, char *buf)
 	char strbuf[AKM09918_BUFSIZE];
 	char buffer[1];
 	int ret;
-
+	
 	buffer[0] = AK0991X_REG_CNTL2;
 	ret = AKI2C_RxData(buffer, 1);
-
-	/* Check if e-compass is measuring by checking the CNTL2 register.
-	 * If (buffer[0] & 0x0F) is 0, e-compass is not measuring.
-	 * Set it to single measurement mode
-	 */
+	
+	/* Check if e-compass is measuring by checking the CNTL2 register. 
+	   If (buffer[0] & 0x0F) is 0, e-compass is not measuring.
+	   Set it to single measurement mode                               */
 	if (ret < 0) {
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 	} else {
 		if (!(buffer[0] & 0x0F)) {
 			AKECS_SetMode_SngMeasure();
@@ -1255,10 +1199,9 @@ static ssize_t show_sensordata_value(struct device_driver *ddri, char *buf)
 
 	AKECS_GetData(sensordata, SENSOR_DATA_SIZE);
 
-	sprintf(strbuf, "%d %d %d %d %d %d %d %d %d\n",
-		sensordata[0], sensordata[1], sensordata[2],
-		sensordata[3], sensordata[4], sensordata[5],
-		sensordata[6], sensordata[7], sensordata[8]);
+	sprintf(strbuf, "%d %d %d %d %d %d %d %d %d\n", sensordata[0], sensordata[1], sensordata[2],
+		sensordata[3], sensordata[4], sensordata[5], sensordata[6], sensordata[7],
+		sensordata[8]);
 
 	return sprintf(buf, "%s\n", strbuf);
 }
@@ -1270,15 +1213,13 @@ static ssize_t show_layout_value(struct device_driver *ddri, char *buf)
 	struct akm09918_i2c_data *data = i2c_get_clientdata(client);
 
 	return sprintf(buf, "(%d, %d)\n[%+2d %+2d %+2d]\n[%+2d %+2d %+2d]\n",
-		       data->hw->direction, atomic_read(&data->layout),
-		       data->cvt.sign[0], data->cvt.sign[1],
-		       data->cvt.sign[2], data->cvt.map[0],
-		       data->cvt.map[1], data->cvt.map[2]);
+		       data->hw->direction, atomic_read(&data->layout), data->cvt.sign[0],
+		       data->cvt.sign[1], data->cvt.sign[2], data->cvt.map[0], data->cvt.map[1],
+		       data->cvt.map[2]);
 }
 
 /*----------------------------------------------------------------------------*/
-static ssize_t store_layout_value(struct device_driver *ddri,
-					const char *buf, size_t count)
+static ssize_t store_layout_value(struct device_driver *ddri, const char *buf, size_t count)
 {
 	struct i2c_client *client = this_client;
 	struct akm09918_i2c_data *data = i2c_get_clientdata(client);
@@ -1288,16 +1229,15 @@ static ssize_t store_layout_value(struct device_driver *ddri,
 	ret = kstrtoint(buf, 10, &layout);
 	if (ret == 0) {
 		atomic_set(&data->layout, layout);
-		if (AKECS_GetConvert(layout, &data->cvt))
+		if (!hwmsen_get_convert(layout, &data->cvt))
 			pr_err("HWMSEN_GET_CONVERT function error!\r\n");
-		else if (AKECS_GetConvert(data->hw->direction, &data->cvt))
+		else if (!hwmsen_get_convert(data->hw->direction, &data->cvt))
 			pr_err("invalid layout: %d, restore to %d\n", layout,
 				 data->hw->direction);
 		else {
-			pr_err("invalid layout: (%d, %d)\n",
-				layout, data->hw->direction);
-			ret = AKECS_GetConvert(1, &data->cvt);
-			if (ret)
+			pr_err("invalid layout: (%d, %d)\n", layout, data->hw->direction);
+			ret = hwmsen_get_convert(0, &data->cvt);
+			if (!ret)
 				pr_err("HWMSEN_GET_CONVERT function error!\r\n");
 		}
 	} else
@@ -1314,15 +1254,13 @@ static ssize_t show_status_value(struct device_driver *ddri, char *buf)
 	ssize_t len = 0;
 
 	if (data->hw)
-		len += snprintf(buf + len, PAGE_SIZE - len,
-				"CUST: %d %d (%d %d)\n",
-				data->hw->i2c_num, data->hw->direction,
-				data->hw->power_id, data->hw->power_vol);
+		len += snprintf(buf + len, PAGE_SIZE - len, "CUST: %d %d (%d %d)\n",
+				data->hw->i2c_num, data->hw->direction, data->hw->power_id,
+				data->hw->power_vol);
 	else
 		len += snprintf(buf + len, PAGE_SIZE - len, "CUST: NULL\n");
 
-	len += snprintf(buf + len,
-		PAGE_SIZE - len, "OPEN: %d\n", atomic_read(&dev_open_count));
+	len += snprintf(buf + len, PAGE_SIZE - len, "OPEN: %d\n", atomic_read(&dev_open_count));
 	return len;
 }
 
@@ -1342,8 +1280,7 @@ static ssize_t show_trace_value(struct device_driver *ddri, char *buf)
 }
 
 /*----------------------------------------------------------------------------*/
-static ssize_t store_trace_value(struct device_driver *ddri,
-					const char *buf, size_t count)
+static ssize_t store_trace_value(struct device_driver *ddri, const char *buf, size_t count)
 {
 	struct akm09918_i2c_data *obj = i2c_get_clientdata(this_client);
 	int trace;
@@ -1366,17 +1303,14 @@ static ssize_t show_chip_orientation(struct device_driver *ddri, char *buf)
 	ssize_t _tLength = 0;
 	struct mag_hw *_ptAccelHw = hw;
 
-	pr_debug("[%s] default direction: %d\n",
-		__func__, _ptAccelHw->direction);
+	MAGN_LOG("[%s] default direction: %d\n", __func__, _ptAccelHw->direction);
 
-	_tLength = snprintf(buf,
-		PAGE_SIZE, "default direction = %d\n", _ptAccelHw->direction);
+	_tLength = snprintf(buf, PAGE_SIZE, "default direction = %d\n", _ptAccelHw->direction);
 
 	return _tLength;
 }
 
-static ssize_t store_chip_orientation(struct device_driver *ddri,
-						const char *buf, size_t tCount)
+static ssize_t store_chip_orientation(struct device_driver *ddri, const char *buf, size_t tCount)
 {
 	int _nDirection = 0;
 	int ret = 0;
@@ -1387,11 +1321,11 @@ static ssize_t store_chip_orientation(struct device_driver *ddri,
 
 	ret = kstrtoint(buf, 10, &_nDirection);
 	if (ret == 0) {
-		if (AKECS_GetConvert(_nDirection, &_pt_i2c_obj->cvt))
+		if (hwmsen_get_convert(_nDirection, &_pt_i2c_obj->cvt))
 			pr_err("ERR: fail to set direction\n");
 	}
 
-	pr_debug("[%s] set direction: %d\n", __func__, _nDirection);
+	MAGN_LOG("[%s] set direction: %d\n", __func__, _nDirection);
 
 	return tCount;
 }
@@ -1409,7 +1343,7 @@ static ssize_t show_power_status(struct device_driver *ddri, char *buf)
 	}
 	ret = AKI2C_RxData(&uData, 1);
 	if (ret < 0)
-		pr_debug("%s:%d Error.\n", __func__, __LINE__);
+		MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 	res = snprintf(buf, PAGE_SIZE, "0x%04X\n", uData);
 	return res;
 }
@@ -1418,8 +1352,7 @@ static ssize_t show_regiter_map(struct device_driver *ddri, char *buf)
 {
 	u8 _bIndex = 0;
 	u8 _baRegMap[] = {
-		0x00, 0x01, 0x02, 0x03, 0x10, 0x11,
-		0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+	    0x00, 0x01, 0x02, 0x03, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
 		0x30, 0x31, 0x32, 0x33, 0x60, 0x61, 0x62
 	};
 	/* u8  _baRegValue[20]; */
@@ -1431,11 +1364,10 @@ static ssize_t show_regiter_map(struct device_driver *ddri, char *buf)
 		tmp[0] = _baRegMap[_bIndex];
 		ret = AKI2C_RxData(tmp, 1);
 		if (ret < 0)
-			pr_debug("%s:%d Error.\n", __func__, __LINE__);
+			MAGN_LOG("%s:%d Error.\n", __func__, __LINE__);
 		_tLength +=
-		    snprintf((buf + _tLength),
-			(PAGE_SIZE - _tLength), "Reg[0x%02X]: 0x%02X\n",
-			_baRegMap[_bIndex], tmp[0]);
+		    snprintf((buf + _tLength), (PAGE_SIZE - _tLength), "Reg[0x%02X]: 0x%02X\n",
+			     _baRegMap[_bIndex], tmp[0]);
 	}
 
 	return _tLength;
@@ -1443,18 +1375,16 @@ static ssize_t show_regiter_map(struct device_driver *ddri, char *buf)
 
 
 /*----------------------------------------------------------------------------*/
-static DRIVER_ATTR(daemon, 0444, show_daemon_name, NULL);
-static DRIVER_ATTR(shipmenttest, 0644,
-				show_shipment_test, store_shipment_test);
-static DRIVER_ATTR(chipinfo, 0444, show_chipinfo_value, NULL);
-static DRIVER_ATTR(sensordata, 0444, show_sensordata_value, NULL);
-static DRIVER_ATTR(layout, 0644, show_layout_value, store_layout_value);
-static DRIVER_ATTR(status, 0444, show_status_value, NULL);
-static DRIVER_ATTR(trace, 0644, show_trace_value, store_trace_value);
-static DRIVER_ATTR(orientation, 0644,
-				show_chip_orientation, store_chip_orientation);
-static DRIVER_ATTR(power, 0444, show_power_status, NULL);
-static DRIVER_ATTR(regmap, 0444, show_regiter_map, NULL);
+static DRIVER_ATTR(daemon, S_IRUGO, show_daemon_name, NULL);
+static DRIVER_ATTR(shipmenttest, S_IRUGO | S_IWUSR, show_shipment_test, store_shipment_test);
+static DRIVER_ATTR(chipinfo, S_IRUGO, show_chipinfo_value, NULL);
+static DRIVER_ATTR(sensordata, S_IRUGO, show_sensordata_value, NULL);
+static DRIVER_ATTR(layout, S_IRUGO | S_IWUSR, show_layout_value, store_layout_value);
+static DRIVER_ATTR(status, S_IRUGO, show_status_value, NULL);
+static DRIVER_ATTR(trace, S_IRUGO | S_IWUSR, show_trace_value, store_trace_value);
+static DRIVER_ATTR(orientation, S_IWUSR | S_IRUGO, show_chip_orientation, store_chip_orientation);
+static DRIVER_ATTR(power, S_IRUGO, show_power_status, NULL);
+static DRIVER_ATTR(regmap, S_IRUGO, show_regiter_map, NULL);
 
 /*----------------------------------------------------------------------------*/
 static struct driver_attribute *akm09918_attr_list[] = {
@@ -1527,8 +1457,7 @@ static int akm09918_resume(struct device *dev)
 }
 
 /*----------------------------------------------------------------------------*/
-static int akm09918_i2c_detect(struct i2c_client *client,
-					struct i2c_board_info *info)
+static int akm09918_i2c_detect(struct i2c_client *client, struct i2c_board_info *info)
 {
 	strlcpy(info->type, AKM09918_DEV_NAME, sizeof(info->type));
 	return 0;
@@ -1568,7 +1497,7 @@ static int akm09918_enable(int en)
 	}
 	if (f_obj->flush) {
 		if (value == 1) {
-			pr_debug("will call akm09918_flush in akm09918_enable\n");
+			MAGN_LOG("will call akm09918_flush in akm09918_enable\n");
 			akm09918_flush();
 		} else
 			f_obj->flush = false;
@@ -1606,10 +1535,12 @@ static int akm09918_coordinate_convert(int16_t *mag_data)
 	for (i = 0; i < 3; i++)
 		temp_data[i] = mag_data[i];
 	/* remap coordinate */
-	mag_data[0] = data->cvt.sign[0] * temp_data[data->cvt.map[0]];
-	mag_data[1] = data->cvt.sign[1] * temp_data[data->cvt.map[1]];
-	mag_data[2] = data->cvt.sign[2] * temp_data[data->cvt.map[2]];
-
+	mag_data[data->cvt.map[AKM099XX_AXIS_X]] =
+		data->cvt.sign[AKM099XX_AXIS_X] * temp_data[AKM099XX_AXIS_X];
+	mag_data[data->cvt.map[AKM099XX_AXIS_Y]] =
+		data->cvt.sign[AKM099XX_AXIS_Y] * temp_data[AKM099XX_AXIS_Y];
+	mag_data[data->cvt.map[AKM099XX_AXIS_Z]] =
+		data->cvt.sign[AKM099XX_AXIS_Z] * temp_data[AKM099XX_AXIS_Z];
 	return 0;
 }
 static int akm09918_get_data(int *x, int *y, int *z, int *status)
@@ -1632,19 +1563,13 @@ static int akm09918_get_data(int *x, int *y, int *z, int *status)
 	akm09918_coordinate_convert(data);
 
 	if (akm_device == 0x04) {/* ak09912 */
-		*x = data[0] * CONVERT_M_DIV *
-			AKECS_ASA_CACULATE_AK09912(akm_fuse[0]);
-		*y = data[1] * CONVERT_M_DIV *
-			AKECS_ASA_CACULATE_AK09912(akm_fuse[1]);
-		*z = data[2] * CONVERT_M_DIV *
-			AKECS_ASA_CACULATE_AK09912(akm_fuse[2]);
+		*x = data[0] * CONVERT_M_DIV * AKECS_ASA_CACULATE_AK09912(akm_fuse[0]);
+		*y = data[1] * CONVERT_M_DIV * AKECS_ASA_CACULATE_AK09912(akm_fuse[1]);
+		*z = data[2] * CONVERT_M_DIV * AKECS_ASA_CACULATE_AK09912(akm_fuse[2]);
 	} else if (akm_device == 0x05) {
-		*x = data[0] * CONVERT_M_DIV *
-			AKECS_ASA_CACULATE_AK09911(akm_fuse[0]);
-		*y = data[1] * CONVERT_M_DIV *
-			AKECS_ASA_CACULATE_AK09911(akm_fuse[1]);
-		*z = data[2] * CONVERT_M_DIV *
-			AKECS_ASA_CACULATE_AK09911(akm_fuse[2]);
+		*x = data[0] * CONVERT_M_DIV * AKECS_ASA_CACULATE_AK09911(akm_fuse[0]);
+		*y = data[1] * CONVERT_M_DIV * AKECS_ASA_CACULATE_AK09911(akm_fuse[1]);
+		*z = data[2] * CONVERT_M_DIV * AKECS_ASA_CACULATE_AK09911(akm_fuse[2]);
 	} else if ((akm_device == 0x10) || (akm_device == 0x09) ||
 		(akm_device == 0x0b) || (akm_device == 0x0c)) {
 		*x = data[0] * CONVERT_M_DIV;
@@ -1655,8 +1580,7 @@ static int akm09918_get_data(int *x, int *y, int *z, int *status)
 	return 0;
 }
 
-static int akm09918_batch(int flag, int64_t samplingPeriodNs,
-					int64_t maxBatchReportLatencyNs)
+static int akm09918_batch(int flag, int64_t samplingPeriodNs, int64_t maxBatchReportLatencyNs)
 {
 	int value = 0;
 
@@ -1667,7 +1591,7 @@ static int akm09918_batch(int flag, int64_t samplingPeriodNs,
 	else
 		akmd_delay = value;
 
-	pr_debug("akm09918 mag set delay = (%d) ok.\n", value);
+	MAGN_LOG("akm09918 mag set delay = (%d) ok.\n", value);
 	return 0;
 }
 
@@ -1690,8 +1614,7 @@ static int akm09918_flush(void)
 	return err;
 }
 
-static int akm09918_factory_enable_sensor(bool enabledisable,
-						int64_t sample_periods_ms)
+static int akm09918_factory_enable_sensor(bool enabledisable, int64_t sample_periods_ms)
 {
 	int err;
 
@@ -1722,7 +1645,7 @@ static int akm09918_factory_get_data(int32_t data[3], int *status)
 }
 static int akm09918_factory_get_raw_data(int32_t data[3])
 {
-	pr_debug("do not support akm09918_factory_get_raw_data!\n");
+	MAGN_LOG("do not support akm09918_factory_get_raw_data!\n");
 	return 0;
 }
 static int akm09918_factory_enable_calibration(void)
@@ -1764,18 +1687,15 @@ static struct mag_factory_public akm09918_factory_device = {
 };
 
 /*----------------------------------------------------------------------------*/
-static int akm09918_i2c_probe(struct i2c_client *client,
-					const struct i2c_device_id *id)
+static int akm09918_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int err = 0;
 	struct i2c_client *new_client;
 	struct akm09918_i2c_data *data;
 	struct mag_control_path ctl = { 0 };
 	struct mag_data_path mag_data = { 0 };
-	struct platform_driver *paddr =
-					akm09918_init_info.platform_diver_addr;
 
-	pr_debug("akm09918_i2c_probe\n");
+	MAGN_LOG("akm09918_i2c_probe\n");
 	err = get_mag_dts_func(client->dev.of_node, hw);
 	if (err) {
 		pr_err("get dts info fail\n");
@@ -1790,11 +1710,11 @@ static int akm09918_i2c_probe(struct i2c_client *client,
 	}
 
 	data->hw = hw;
-	/*akm_map is different from MTK, so do not use hwmsen_get_convert*/
-	//err = hwmsen_get_convert(data->hw->direction, &data->cvt);
-	err = AKECS_GetConvert(data->hw->direction, &data->cvt);
+	/*data->hw->direction from dts is for AKMD, rang is 1-8*/
+	/*now use akm09918_coordinate_convert api, so the rang is 0-7 */
+	data->hw->direction--;
+	err = hwmsen_get_convert(data->hw->direction, &data->cvt);
 	if (err) {
-		/*direction is 1 - 8*/
 		pr_err("invalid direction: %d\n", data->hw->direction);
 		goto exit_kfree;
 	}
@@ -1820,8 +1740,9 @@ static int akm09918_i2c_probe(struct i2c_client *client,
 		goto exit_misc_device_register_failed;
 	}
 
+
 	/* Register sysfs attribute */
-	err = akm09918_create_attr(&(paddr->driver));
+	err = akm09918_create_attr(&(akm09918_init_info.platform_diver_addr->driver));
 	if (err) {
 		pr_err("create attribute err = %d\n", err);
 		goto exit_sysfs_create_group_failed;
@@ -1838,7 +1759,7 @@ static int akm09918_i2c_probe(struct i2c_client *client,
 	strlcpy(ctl.libinfo.libname, "akl", sizeof(ctl.libinfo.libname));
 	ctl.libinfo.layout = AKECS_SetCert();
 	ctl.libinfo.deviceid = akm_device;
-
+	
 	err = mag_register_control_path(&ctl);
 	if (err) {
 		pr_err("register mag control path err\n");
@@ -1854,7 +1775,7 @@ static int akm09918_i2c_probe(struct i2c_client *client,
 		goto exit_kfree;
 	}
 
-	pr_debug("%s: OK\n", __func__);
+	MAGN_LOG("%s: OK\n", __func__);
 	akm09918_init_flag = 1;
 	return 0;
 
@@ -1874,10 +1795,8 @@ exit:
 static int akm09918_i2c_remove(struct i2c_client *client)
 {
 	int err;
-	struct platform_driver *paddr =
-					akm09918_init_info.platform_diver_addr;
 
-	err = akm09918_delete_attr(&(paddr->driver));
+	err = akm09918_delete_attr(&(akm09918_init_info.platform_diver_addr->driver));
 	if (err)
 		pr_err("akm09918_delete_attr fail: %d\n", err);
 

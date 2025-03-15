@@ -25,4 +25,3 @@ config MTK_CPU_CTRL_CFP
 	  MTK_CPU_CTRL_CFP is the kernel config of CPU controller
 	  Ceiling-Fool-Proof Mechanism designed by MTK. CPU controller
 	  will free CPU frequency ceiling during heavy CPU loading.
-

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 MediaTek Inc.
+ t* Copyright (c) 2015 MediaTek Inc.
  * Author: Mars.Cheng <mars.cheng@mediatek.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -39,14 +39,20 @@
 #include <linux/syscore_ops.h>
 #endif
 
-#define IOMEM(x)	((void __force __iomem *)(x))
+#define IOMEM(x)        ((void __force __iomem *)(x))
 /* for cirq use */
 void __iomem *GIC_DIST_BASE;
 void __iomem *INT_POL_CTL0;
 void __iomem *INT_POL_CTL1;
+void __iomem *MCUSYS_BASE_SWMODE;
 static void __iomem *GIC_REDIST_BASE;
-void __iomem *MCUSYS_BASE;
 static u32 reg_len_pol0;
+
+unsigned int __attribute__((weak)) irq_sw_mode_support(void)
+{
+	return 0;
+}
+
 
 #ifndef readq
 /* for some kernel config, readq might not be defined, ex aarch32 */
@@ -61,14 +67,12 @@ static inline u64 readq(const void __iomem *addr)
 }
 #endif
 
-
 #ifdef CONFIG_FAST_CIRQ_CLONE_FLUSH
 void __iomem *get_dist_base(void)
 {
 	return GIC_DIST_BASE;
 }
 #endif
-
 
 static int gic_populate_rdist(void __iomem **rdist_base)
 {
@@ -136,7 +140,7 @@ u32 mt_irq_get_pol_hw(u32 hwirq)
 	void __iomem *base = INT_POL_CTL0;
 
 	if (hwirq < 32) {
-		pr_notice("Fail to set polarity of interrupt %d\n", hwirq);
+		pr_err("Fail to set polarity of interrupt %d\n", hwirq);
 		return 0;
 	}
 
@@ -147,9 +151,9 @@ u32 mt_irq_get_pol_hw(u32 hwirq)
 	 */
 	if ((reg_len_pol0 != 0) && (reg >= reg_len_pol0)) {
 		if (!INT_POL_CTL1) {
-			pr_notice("MUST have 2nd INT_POL_CTRL\n");
+			pr_err("MUST have 2nd INT_POL_CTRL\n");
 			/* is a bug */
-			WARN_ON(1);
+			BUG_ON(1);
 		}
 		reg -= reg_len_pol0;
 		base = INT_POL_CTL1;
@@ -205,7 +209,6 @@ int mt_irq_mask_all(struct mtk_irq_mask *mask)
 		writel(0xFFFFFFFF, (dist_base + GIC_DIST_ENABLE_CLEAR + 0x28));
 		writel(0xFFFFFFFF, (dist_base + GIC_DIST_ENABLE_CLEAR + 0x2c));
 		writel(0xFFFFFFFF, (dist_base + GIC_DIST_ENABLE_CLEAR + 0x30));
-		/* make the writes prior to the writes behind */
 		mb();
 
 		mask->header = IRQ_MASK_HEADER;
@@ -248,7 +251,6 @@ int mt_irq_mask_restore(struct mtk_irq_mask *mask)
 	writel(mask->mask10, (dist_base + GIC_DIST_ENABLE_SET + 0x28));
 	writel(mask->mask11, (dist_base + GIC_DIST_ENABLE_SET + 0x2c));
 	writel(mask->mask12, (dist_base + GIC_DIST_ENABLE_SET + 0x30));
-	/* make the writes prior to the writes behind */
 	mb();
 
 	return 0;
@@ -302,12 +304,30 @@ u32 mt_irq_get_pending_vec(u32 start_irq)
 					<<LSB_num;
 		pending_vec = MSB_vec | LSB_vec;
 	} else {
-		pending_vec = readl_relaxed
-				(base + GIC_DIST_PENDING_SET + reg*4);
+		pending_vec = readl_relaxed(base + GIC_DIST_PENDING_SET + reg*4);
 	}
 
 	return pending_vec;
 }
+
+#ifdef CONFIG_FAST_CIRQ_CLONE_FLUSH
+u32 mt_irq_get_en_hw(unsigned int hwirq)
+{
+	void __iomem *base;
+	u32 bit = 1 << (hwirq % 32);
+
+	if (hwirq >= 32) {
+		base = GIC_DIST_BASE + GIC_DIST_ENABLE_SET;
+	} else {
+		gic_populate_rdist(&base);
+		base += SZ_64K;
+		base = base + GIC_DIST_ENABLE_SET;
+	}
+
+	return (readl_relaxed(base + (hwirq/32)*4) & bit) ?
+		1 : 0;
+}
+#endif
 
 void mt_irq_set_pending_hw(unsigned int hwirq)
 {
@@ -323,24 +343,6 @@ void mt_irq_set_pending_hw(unsigned int hwirq)
 
 	writel(bit, base + GIC_DIST_PENDING_SET + (hwirq/32)*4);
 }
-
-#ifdef CONFIG_FAST_CIRQ_CLONE_FLUSH
-u32 mt_irq_get_en_hw(unsigned int hwirq)
-{
-	void __iomem *base;
-	u32 bit = 1 << (hwirq % 32);
-
-	if (hwirq >= 32) {
-		base = GIC_DIST_BASE;
-	} else {
-		gic_populate_rdist(&base);
-		base += SZ_64K;
-	}
-
-	return (readl_relaxed(base + GIC_DIST_ENABLE_SET
-			+ (hwirq/32)*4) & bit) ? 1 : 0;
-}
-#endif
 
 void mt_irq_set_pending(unsigned int irq)
 {
@@ -360,12 +362,11 @@ void mt_irq_unmask_for_sleep_ex(unsigned int virq)
 	mask = 1 << (hwirq % 32);
 
 	if (hwirq < 16) {
-		pr_notice("Fail to enable interrupt %d\n", hwirq);
+		pr_err("Fail to enable interrupt %d\n", hwirq);
 		return;
 	}
 
 	writel(mask, dist_base + GIC_DIST_ENABLE_SET + hwirq / 32 * 4);
-	/* make the writes prior to the writes behind */
 	mb();
 }
 
@@ -383,12 +384,11 @@ void mt_irq_unmask_for_sleep(unsigned int hwirq)
 	dist_base = GIC_DIST_BASE;
 
 	if (hwirq < 16) {
-		pr_notice("Fail to enable interrupt %d\n", hwirq);
+		pr_err("Fail to enable interrupt %d\n", hwirq);
 		return;
 	}
 
 	writel(mask, dist_base + GIC_DIST_ENABLE_SET + hwirq / 32 * 4);
-	/* make the writes prior to the writes behind */
 	mb();
 }
 
@@ -407,18 +407,17 @@ void mt_irq_mask_for_sleep(unsigned int irq)
 	dist_base = GIC_DIST_BASE;
 
 	if (irq < 16) {
-		pr_notice("Fail to enable interrupt %d\n", irq);
+		pr_err("Fail to enable interrupt %d\n", irq);
 		return;
 	}
 
 	writel(mask, dist_base + GIC_DIST_ENABLE_CLEAR + irq / 32 * 4);
-	/* make the writes prior to the writes behind */
 	mb();
 }
 
 char *mt_irq_dump_status_buf(int irq, char *buf)
 {
-	unsigned long rc;
+	int rc;
 	unsigned int result;
 	char *ptr = buf;
 
@@ -428,8 +427,15 @@ char *mt_irq_dump_status_buf(int irq, char *buf)
 		return NULL;
 
 	ptr += sprintf(ptr, "[mt gic dump] irq = %d\n", irq);
-
-	rc = mt_secure_call(MTK_SIP_KERNEL_GIC_DUMP, irq, 0, 0, 0);
+#if defined(CONFIG_ARM_PSCI) || defined(CONFIG_MTK_PSCI)
+	rc = mt_secure_call(MTK_SIP_KERNEL_GIC_DUMP, irq, 0, 0);
+#else
+	rc = -1;
+#endif
+	if (rc < 0) {
+		ptr += sprintf(ptr, "[mt gic dump] not allowed to dump!\n");
+		return ptr;
+	}
 
 	/* get mask */
 	result = rc & 0x1;
@@ -472,12 +478,19 @@ char *mt_irq_dump_status_buf(int irq, char *buf)
 
 int mt_irq_dump_cpu(int irq)
 {
-	unsigned long rc;
+	int rc;
 	unsigned long result;
 
 	irq = virq_to_hwirq(irq);
 
-	rc = mt_secure_call(MTK_SIP_KERNEL_GIC_DUMP, irq, 0, 0, 0);
+#if defined(CONFIG_ARM_PSCI) || defined(CONFIG_MTK_PSCI)
+	rc = mt_secure_call(MTK_SIP_KERNEL_GIC_DUMP, irq, 0, 0);
+#else
+	rc = -1;
+#endif
+
+	if (rc < 0)
+		return rc;
 
 	/* get target cpu mask */
 	result = (rc >> 14) & 0xffff;
@@ -493,24 +506,24 @@ void mt_irq_dump_status(int irq)
 		return;
 
 	if (mt_irq_dump_status_buf(irq, buf))
-		pr_notice("%s", buf);
+		pr_warn("%s", buf);
 
 	kfree(buf);
 }
 EXPORT_SYMBOL(mt_irq_dump_status);
 
-#ifndef CONFIG_MTK_SYSIRQ
 static void _mt_set_pol_reg(void __iomem *add, u32 val)
 {
 	writel_relaxed(val, add);
 }
+
 void _mt_irq_set_polarity(unsigned int hwirq, unsigned int polarity)
 {
 	u32 offset, reg, value;
 	void __iomem *base = INT_POL_CTL0;
 
 	if (hwirq < 32) {
-		pr_notice("Fail to set polarity of interrupt %d\n", hwirq);
+		pr_err("Fail to set polarity of interrupt %d\n", hwirq);
 		return;
 	}
 
@@ -522,9 +535,9 @@ void _mt_irq_set_polarity(unsigned int hwirq, unsigned int polarity)
 	 */
 	if ((reg_len_pol0 != 0) && (reg >= reg_len_pol0)) {
 		if (!INT_POL_CTL1) {
-			pr_notice("MUST have 2nd INT_POL_CTRL\n");
+			pr_err("MUST have 2nd INT_POL_CTRL\n");
 			/* is a bug */
-			WARN_ON(1);
+			BUG_ON(1);
 		}
 		reg -= reg_len_pol0;
 		base = INT_POL_CTL1;
@@ -541,38 +554,42 @@ void _mt_irq_set_polarity(unsigned int hwirq, unsigned int polarity)
 	/* some platforms has to write POL register in secure world */
 	_mt_set_pol_reg(base + reg*4, value);
 }
-#endif
 
-#define GIC_INT_MASK (MCUSYS_BASE + 0x5e8)
+#define GIC_INT_MASK (MCUSYS_BASE_SWMODE + 0x5e8)
 #define GIC500_ACTIVE_SEL_SHIFT 3
 #define GIC500_ACTIVE_SEL_MASK (0x7 << GIC500_ACTIVE_SEL_SHIFT)
 #define GIC500_ACTIVE_CPU_SHIFT 16
 #define GIC500_ACTIVE_CPU_MASK (0xff << GIC500_ACTIVE_CPU_SHIFT)
 static spinlock_t domain_lock;
+int print_en;
 
 int add_cpu_to_prefer_schedule_domain(unsigned long cpu)
 {
 	unsigned long domain;
-	unsigned long flag;
 
-	spin_lock_irqsave(&domain_lock, flag);
+	if (irq_sw_mode_support() != 1)
+		return 0;
+
+	spin_lock(&domain_lock);
 	domain = ioread32(GIC_INT_MASK);
 	domain = domain | (1 << (cpu + GIC500_ACTIVE_CPU_SHIFT));
 	iowrite32(domain, GIC_INT_MASK);
-	spin_unlock_irqrestore(&domain_lock, flag);
+	spin_unlock(&domain_lock);
 	return 0;
 }
 
 int remove_cpu_from_prefer_schedule_domain(unsigned long cpu)
 {
 	unsigned long domain;
-	unsigned long flag;
 
-	spin_lock_irqsave(&domain_lock, flag);
+	if (irq_sw_mode_support() != 1)
+		return 0;
+
+	spin_lock(&domain_lock);
 	domain = ioread32(GIC_INT_MASK);
 	domain = domain & ~(1 << (cpu + GIC500_ACTIVE_CPU_SHIFT));
 	iowrite32(domain, GIC_INT_MASK);
-	spin_unlock_irqrestore(&domain_lock, flag);
+	spin_unlock(&domain_lock);
 	return 0;
 }
 
@@ -582,9 +599,9 @@ static int gic_sched_pm_notifier(struct notifier_block *self,
 {
 	unsigned int cur_cpu = smp_processor_id();
 
-	if (cmd == CPU_PM_EXIT)
+	if (cmd == CPU_PM_ENTER)
 		remove_cpu_from_prefer_schedule_domain(cur_cpu);
-	else if (cmd == CPU_PM_ENTER)
+	else if (cmd == CPU_PM_EXIT)
 		add_cpu_to_prefer_schedule_domain(cur_cpu);
 
 	return NOTIFY_OK;
@@ -604,14 +621,13 @@ static inline void gic_cpu_pm_init(void) { }
 #endif /* CONFIG_CPU_PM */
 
 #ifdef CONFIG_HOTPLUG_CPU
-static int gic_sched_hotplug_callback(struct notifier_block *nfb,
-				      unsigned long action, void *hcpu)
+static int gic_sched_hotplug_callback(struct notifier_block *nfb, unsigned long action, void *hcpu)
 {
 	switch (action) {
-	case CPU_ONLINE:
+	case CPU_STARTING:
 		add_cpu_to_prefer_schedule_domain((unsigned long)hcpu);
 		break;
-	case CPU_DOWN_PREPARE:
+	case CPU_DYING:
 		remove_cpu_from_prefer_schedule_domain((unsigned long)hcpu);
 		break;
 	default:
@@ -632,13 +648,28 @@ static void gic_sched_hoplug_init(void)
 static void gic_sched_hoplug_init(void){};
 #endif
 
+void irq_sw_mode_init(void)
+{
+	struct device_node *node;
+
+	if (irq_sw_mode_support() != 1) {
+		pr_notice("### IRQ SW mode not support ###\n");
+		return;
+	}
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mcucfg");
+	MCUSYS_BASE_SWMODE = of_iomap(node, 0);
+	spin_lock_init(&domain_lock);
+	gic_sched_pm_init();
+	gic_sched_hoplug_init();
+}
+
 int __init mt_gic_ext_init(void)
 {
 	struct device_node *node;
 
 	node = of_find_compatible_node(NULL, NULL, "arm,gic-v3");
 	if (!node) {
-		pr_notice("[gic_ext] find arm,gic-v3 node failed\n");
+		pr_err("[gic_ext] find arm,gic-v3 node failed\n");
 		return -EINVAL;
 	}
 
@@ -664,13 +695,9 @@ int __init mt_gic_ext_init(void)
 				&reg_len_pol0))
 		reg_len_pol0 = 0;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mcucfg");
-	MCUSYS_BASE = of_iomap(node, 0);
-	spin_lock_init(&domain_lock);
-	gic_sched_pm_init();
-	gic_sched_hoplug_init();
-
-	pr_notice("### gic-v3 init done. ###\n");
+	pr_warn("### gic-v3 init done. ###\n");
+	irq_sw_mode_init();
+	pr_notice("### gic-v3 scheduled pm init done ###\n");
 
 	return 0;
 }

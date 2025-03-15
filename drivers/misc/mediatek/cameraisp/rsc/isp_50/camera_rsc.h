@@ -44,9 +44,9 @@
 #define RSC_BASE_HW   0x15029000
 
 /*This macro is for setting irq status represnted
- * by a local variable,RSCInfo.IrqInfo.Status[RSC_IRQ_TYPE_INT_RSC_ST]
- */
-#define RSC_INT_ST                 (1<<0)
+* by a local variable,RSCInfo.IrqInfo.Status[RSC_IRQ_TYPE_INT_RSC_ST]
+*/
+#define RSC_INT_ST                 ((unsigned int)1<<0)
 
 
 struct RSC_REG_STRUCT {
@@ -66,8 +66,7 @@ struct RSC_REG_IO_STRUCT {
 enum RSC_IRQ_CLEAR_ENUM {
 	RSC_IRQ_CLEAR_NONE,	/* non-clear wait, clear after wait */
 	RSC_IRQ_CLEAR_WAIT,	/* clear wait, clear before and after wait */
-	RSC_IRQ_WAIT_CLEAR,
-	/* wait the signal and clear it, avoid hw executime is too s hort. */
+	RSC_IRQ_WAIT_CLEAR,	/* wait the signal and clear it, avoid the hw executime is too s hort. */
 	RSC_IRQ_CLEAR_STATUS,	/* clear specific status only */
 	RSC_IRQ_CLEAR_ALL	/* clear all status */
 };
@@ -78,7 +77,7 @@ enum RSC_IRQ_CLEAR_ENUM {
  *   note:
  *	mapping to isr table,ISR_TABLE when using no device tree
  */
-enum RSC_IRQ_TYPE_ENUM {
+enum  RSC_IRQ_TYPE_ENUM {
 	RSC_IRQ_TYPE_INT_RSC_ST,	/* RSC */
 	RSC_IRQ_TYPE_AMOUNT
 };
@@ -189,14 +188,10 @@ struct compat_RSC_Request {
 #define RSC_DUMP_ISR_LOG    _IO(RSC_MAGIC, RSC_CMD_DUMP_ISR_LOG)
 
 
-#define RSC_READ_REGISTER						\
-	_IOWR(RSC_MAGIC, RSC_CMD_READ_REG, struct RSC_REG_IO_STRUCT)
-#define RSC_WRITE_REGISTER						\
-	_IOWR(RSC_MAGIC, RSC_CMD_WRITE_REG, struct RSC_REG_IO_STRUCT)
-#define RSC_WAIT_IRQ							\
-	_IOW(RSC_MAGIC, RSC_CMD_WAIT_IRQ, struct RSC_WAIT_IRQ_STRUCT)
-#define RSC_CLEAR_IRQ							\
-	_IOW(RSC_MAGIC, RSC_CMD_CLEAR_IRQ, struct RSC_CLEAR_IRQ_STRUCT)
+#define RSC_READ_REGISTER   _IOWR(RSC_MAGIC, RSC_CMD_READ_REG,        struct RSC_REG_IO_STRUCT)
+#define RSC_WRITE_REGISTER  _IOWR(RSC_MAGIC, RSC_CMD_WRITE_REG,       struct RSC_REG_IO_STRUCT)
+#define RSC_WAIT_IRQ        _IOW(RSC_MAGIC, RSC_CMD_WAIT_IRQ,        struct RSC_WAIT_IRQ_STRUCT)
+#define RSC_CLEAR_IRQ       _IOW(RSC_MAGIC, RSC_CMD_CLEAR_IRQ,       struct RSC_CLEAR_IRQ_STRUCT)
 
 #define RSC_ENQNUE_NUM  _IOW(RSC_MAGIC, RSC_CMD_ENQUE_NUM,    int)
 #define RSC_ENQUE      _IOWR(RSC_MAGIC, RSC_CMD_ENQUE,      struct RSC_Config)
@@ -208,15 +203,12 @@ struct compat_RSC_Request {
 
 
 #ifdef CONFIG_COMPAT
-#define COMPAT_RSC_WRITE_REGISTER					\
-	_IOWR(RSC_MAGIC, RSC_CMD_WRITE_REG, struct compat_RSC_REG_IO_STRUCT)
-#define COMPAT_RSC_READ_REGISTER					\
-	_IOWR(RSC_MAGIC, RSC_CMD_READ_REG, struct compat_RSC_REG_IO_STRUCT)
+#define COMPAT_RSC_WRITE_REGISTER   _IOWR(RSC_MAGIC, RSC_CMD_WRITE_REG,     struct compat_RSC_REG_IO_STRUCT)
+#define COMPAT_RSC_READ_REGISTER    _IOWR(RSC_MAGIC, RSC_CMD_READ_REG,      struct compat_RSC_REG_IO_STRUCT)
 
-#define COMPAT_RSC_ENQUE_REQ						\
-	_IOWR(RSC_MAGIC, RSC_CMD_ENQUE_REQ, struct compat_RSC_Request)
-#define COMPAT_RSC_DEQUE_REQ						\
-	_IOWR(RSC_MAGIC, RSC_CMD_DEQUE_REQ, struct compat_RSC_Request)
+#define COMPAT_RSC_ENQUE_REQ   _IOWR(RSC_MAGIC, RSC_CMD_ENQUE_REQ,  struct compat_RSC_Request)
+#define COMPAT_RSC_DEQUE_REQ   _IOWR(RSC_MAGIC, RSC_CMD_DEQUE_REQ,  struct compat_RSC_Request)
+
 #endif
 
 /*  */

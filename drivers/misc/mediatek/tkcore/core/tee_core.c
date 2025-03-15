@@ -85,16 +85,16 @@ static struct class *misc_class;
 
 static int device_match(struct device *device, const void *devname)
 {
-	struct tee *tee = dev_get_drvdata(device);
 	int ret;
+	struct tee *tee = dev_get_drvdata(device);
 
 	WARN_ON(!tee);
 
 	/*
-	 * we shall always fail the check
-	 * if tee is a NULL pointer
+	 * It shall always return
+	 * 0 if tee is a null
+	 * ptr
 	 */
-
 	if (tee == NULL)
 		return 0;
 

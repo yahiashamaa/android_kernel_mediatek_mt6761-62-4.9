@@ -1,10 +1,10 @@
 /*
- * Copyright (C) 2018 MediaTek Inc.
- *
+ * Copyright (C) 2016 MediaTek Inc.
+
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
- *
+
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
@@ -18,13 +18,14 @@
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
-#include <linux/pm_wakeup.h>
+#include <linux/wakelock.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
+#include <linux/timer.h>
 #include <linux/workqueue.h>
 
 #include <mt-plat/upmu_common.h>
-#include "pmic_lbat_service.h"
+#include "include/pmic_lbat_service.h"
 
 #define VOLT_TO_RAW(volt)	(((volt) << 12) / 5400)
 #define RAW_TO_VOLT(thd)	(((thd) * 5400) >> 12)
@@ -35,13 +36,6 @@
 #define LBAT_PRD	15	/* 15ms */
 
 #define LBAT_SERVICE_DBG 0
-
-#if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
-#define PMIC_AUXADC_LBAT_EN_MAX		PMIC_AUXADC_LBAT_DET_MAX
-#define PMIC_AUXADC_LBAT_EN_MIN		PMIC_AUXADC_LBAT_DET_MIN
-#define PMIC_AUXADC_LBAT_DEBT_MAX	PMIC_AUXADC_LBAT_DEBT_MAX_SEL
-#define PMIC_AUXADC_LBAT_DEBT_MIN	PMIC_AUXADC_LBAT_DEBT_MIN_SEL
-#endif
 
 static DEFINE_MUTEX(lbat_mutex);
 static struct list_head lbat_hv_list = LIST_HEAD_INIT(lbat_hv_list);
@@ -151,11 +145,11 @@ static void lbat_set_next_thd(struct lbat_user *user, struct lbat_thd_t *thd)
 {
 	if (thd == user->hv_thd) {
 		modify_lbat_list(LBAT_LV, user->lv1_thd);
-		if (!list_empty(&user->lv2_thd->list))
+		if (user->lv2_thd && !list_empty(&user->lv2_thd->list))
 			list_del_init(&user->lv2_thd->list);
 	} else if (thd == user->lv1_thd) {
 		modify_lbat_list(LBAT_HV, user->hv_thd);
-		if (list_empty(&user->lv2_thd->list))
+		if (user->lv2_thd && list_empty(&user->lv2_thd->list))
 			modify_lbat_list(LBAT_LV, user->lv2_thd);
 	}
 }
@@ -286,7 +280,7 @@ static struct lbat_thd_t *lbat_thd_init(unsigned int thd_volt,
 int lbat_user_register(struct lbat_user *user, const char *name,
 	unsigned int hv_thd_volt,
 	unsigned int lv1_thd_volt, unsigned int lv2_thd_volt,
-	void (*callback)(unsigned int thd_volt))
+	void (*callback)(unsigned int))
 {
 	int ret = 0;
 
@@ -431,26 +425,16 @@ int lbat_service_init(void)
 	int ret = 0;
 
 	pr_info("[%s]", __func__);
-#if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
-	/* Selects debounce as 8 */
-	pmic_set_register_value(PMIC_AUXADC_LBAT_DEBT_MAX, 3);
-	/* Selects debounce as 1 */
-	pmic_set_register_value(PMIC_AUXADC_LBAT_DEBT_MIN, 0);
-	/* Set LBAT_PRD as 15ms */
-	pmic_set_register_value(PMIC_AUXADC_LBAT_DET_PRD_SEL, 0);
-#else
 	pmic_set_register_value(PMIC_AUXADC_LBAT_DEBT_MAX,
 		DEF_H_DEB / LBAT_PRD);
 	pmic_set_register_value(PMIC_AUXADC_LBAT_DEBT_MIN,
 		DEF_L_DEB / LBAT_PRD);
-
 	pmic_set_register_value(
 		PMIC_AUXADC_LBAT_DET_PRD_15_0,
 		LBAT_PRD);
 	pmic_set_register_value(
 		PMIC_AUXADC_LBAT_DET_PRD_19_16,
 		(LBAT_PRD & 0xF0000) >> 16);
-#endif
 
 	pmic_register_interrupt_callback(INT_BAT_L, bat_l_int_handler);
 	pmic_register_interrupt_callback(INT_BAT_H, bat_h_int_handler);
@@ -573,7 +557,8 @@ static void lbat_dump_user_table(struct seq_file *s)
 		seq_printf(s, "%2d:%20s, %d, %d, %d, (%d,%d,%d,%d), %pf\n",
 			i, user->name,
 			user->hv_thd->thd_volt,
-			user->lv1_thd->thd_volt, user->lv2_thd->thd_volt,
+			user->lv1_thd->thd_volt,
+			user->lv2_thd ? user->lv2_thd->thd_volt : 0,
 			user->hv_deb_prd, user->hv_deb_times,
 			user->lv_deb_prd, user->lv_deb_times,
 			user->callback);
@@ -672,3 +657,4 @@ int lbat_debug_init(struct dentry *debug_dir)
 
 	return 0;
 }
+

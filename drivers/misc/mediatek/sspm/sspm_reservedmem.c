@@ -1,14 +1,15 @@
 /*
  * Copyright (C) 2011-2015 MediaTek Inc.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License version 2 as published by the Free Software Foundation.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program.
+ * If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <linux/module.h>       /* needed by all modules */
@@ -44,6 +45,7 @@
 
 #ifdef CONFIG_OF_RESERVED_MEM
 #include <linux/of_reserved_mem.h>
+#include <mt-plat/mtk_memcfg.h>
 
 #define SSPM_MEM_RESERVED_KEY "mediatek,reserve-memory-sspm_share"
 #endif
@@ -61,28 +63,28 @@ static int __init sspm_reserve_mem_of_init(struct reserved_mem *rmem)
 	sspm_mem_base_phys = (phys_addr_t) rmem->base;
 	sspm_mem_size = (phys_addr_t) rmem->size;
 
-	pr_debug("[SSPM] phys:0x%llx - 0x%llx (0x%llx)\n",
-		(unsigned long long)rmem->base,
-		(unsigned long long)rmem->base + (unsigned long long)rmem->size,
-		(unsigned long long)rmem->size);
+	pr_debug("[SSPM] phys:0x%llx - 0x%llx (0x%llx)\n", (unsigned long long)rmem->base,
+			(unsigned long long)rmem->base + (unsigned long long)rmem->size,
+			(unsigned long long)rmem->size);
 	accumlate_memory_size = 0;
 	for (id = 0; id < NUMS_MEM_ID; id++) {
-		sspm_reserve_mblock[id].start_phys = sspm_mem_base_phys +
-							accumlate_memory_size;
+		sspm_reserve_mblock[id].start_phys = sspm_mem_base_phys + accumlate_memory_size;
 		accumlate_memory_size += sspm_reserve_mblock[id].size;
 
-		pr_debug("[SSPM][reserve_mem:%d]: ", id);
-		pr_debug("phys:0x%llx - 0x%llx (0x%llx)\n",
-			sspm_reserve_mblock[id].start_phys,
-			sspm_reserve_mblock[id].start_phys +
-				sspm_reserve_mblock[id].size,
-			sspm_reserve_mblock[id].size);
+		if (accumlate_memory_size > sspm_mem_size) {
+			sspm_reserve_mblock[id].start_phys = 0;
+			break;
+		}
+
+		pr_debug("[SSPM][reserve_mem:%d]: phys:0x%llx - 0x%llx (0x%llx)\n", id,
+				sspm_reserve_mblock[id].start_phys,
+				sspm_reserve_mblock[id].start_phys + sspm_reserve_mblock[id].size,
+				sspm_reserve_mblock[id].size);
 	}
 	return 0;
 }
 
-RESERVEDMEM_OF_DECLARE(sspm_reservedmem, SSPM_MEM_RESERVED_KEY,
-	sspm_reserve_mem_of_init);
+RESERVEDMEM_OF_DECLARE(sspm_reservedmem, SSPM_MEM_RESERVED_KEY, sspm_reserve_mem_of_init);
 #endif
 
 phys_addr_t sspm_reserve_mem_get_phys(unsigned int id)
@@ -128,18 +130,16 @@ int sspm_reserve_memory_init(void)
 		return -1;
 
 	accumlate_memory_size = 0;
-	sspm_mem_base_virt = (phys_addr_t)(uintptr_t)
-			ioremap_wc(sspm_mem_base_phys, sspm_mem_size);
-
+	sspm_mem_base_virt = (phys_addr_t)(uintptr_t)ioremap_wc(sspm_mem_base_phys, sspm_mem_size);
 	pr_debug("[SSPM]reserve mem: virt:0x%llx - 0x%llx (0x%llx)\n",
 			(unsigned long long)sspm_mem_base_virt,
-			(unsigned long long)sspm_mem_base_virt +
-				(unsigned long long)sspm_mem_size,
+			(unsigned long long)sspm_mem_base_virt + (unsigned long long)sspm_mem_size,
 			(unsigned long long)sspm_mem_size);
-
 	for (id = 0; id < NUMS_MEM_ID; id++) {
-		sspm_reserve_mblock[id].start_virt = sspm_mem_base_virt +
-							accumlate_memory_size;
+		if (sspm_reserve_mblock[id].start_phys == 0)
+			break;
+
+		sspm_reserve_mblock[id].start_virt = sspm_mem_base_virt + accumlate_memory_size;
 		accumlate_memory_size += sspm_reserve_mblock[id].size;
 	}
 	/* the reserved memory should be larger then expected memory
@@ -149,11 +149,10 @@ int sspm_reserve_memory_init(void)
 	BUG_ON(accumlate_memory_size > sspm_mem_size);
 #ifdef DEBUG
 	for (id = 0; id < NUMS_MEM_ID; id++) {
-		pr_debug("[SSPM][mem_reserve-%d] ", id);
-		pr_debug("phys:0x%llx,virt:0x%llx,size:0x%llx\n",
-			(unsigned long long)sspm_reserve_mem_get_phys(id),
-			(unsigned long long)sspm_reserve_mem_get_virt(id),
-			(unsigned long long)sspm_reserve_mem_get_size(id));
+		pr_debug("[SSPM][mem_reserve-%d] phys:0x%llx,virt:0x%llx,size:0x%llx\n",
+				id, (unsigned long long)sspm_reserve_mem_get_phys(id),
+				(unsigned long long)sspm_reserve_mem_get_virt(id),
+				(unsigned long long)sspm_reserve_mem_get_size(id));
 	}
 #endif
 

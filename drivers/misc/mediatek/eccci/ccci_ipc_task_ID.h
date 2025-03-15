@@ -13,7 +13,7 @@
 
 #ifndef __CCCI_IPC_TASK_ID_H__
 #define __CCCI_IPC_TASK_ID_H__
-/* Priority --> Local module ID --> External ID --> Max sent message */
+/* Priority   -->   Local module ID -->     External ID     --> Max sent message */
 /* X_IPC_MODULE_CONF(1,M_SSDBG1,0,1)     //TASK_ID_1 */
 /* X_IPC_MODULE_CONF(1,AP_SSDBG2,1,1)     //TASK_ID_2 */
 #ifdef __IPC_ID_TABLE

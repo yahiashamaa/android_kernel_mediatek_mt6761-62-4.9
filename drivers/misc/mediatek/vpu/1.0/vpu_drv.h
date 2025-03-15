@@ -36,12 +36,11 @@ typedef uint8_t vpu_id_t;
  * VPU driver is a transparent platform for data exchange with VPU firmware.
  * VPU firmware can dynamically load an algorithm and do image post-processing.
  *
- * VPU driver implements a model based on aspect of algorithm's requirements.
- * An algorithm needs the buffers of input and output, and execution arguments.
- * For all mentionedabove, VPU driver defines 'Port' to describe the buffers
- * of input and output, and 'Info' to describe the specification of algorithm.
- * According the 'Port' and 'Info', a user could enque requests for doing
- * image post-processing. The diagram is as follows:
+ * VPU driver implements a model based on aspect of algorithm's requirements. An algorithm needs
+ * the buffers of input and output, and execution arguments. For all mentioned above, VPU driver
+ * defines 'Port' to describe the buffers of input and output, and 'Info' to describe the
+ * specification of algorithm. According the 'Port' and 'Info', a user could enque requests for
+ * doing image post-processing. The diagram is as follows:
  *
  *                 +---------------+
  *                 |     algo      |
@@ -51,9 +50,8 @@ typedef uint8_t vpu_id_t;
  *   input port2-> | [info...]     |
  *                 +---------------+
  *
- * With Algo's properties, a user can get enough information to do processing,
- * and assign the buffers to the matching ports.
- * Moreover, a user algo can specify execution arguments to a request.
+ * With Algo's properties, a user can get enough information to do processing, and assign the buffers
+ * to the matching ports. Moreover, a user algo can specify execution arguments to a request.
  *
  *   +------------------------+
  *   |        request         |
@@ -71,8 +69,7 @@ typedef uint8_t vpu_id_t;
 /**
  * S2. Requirement
  * 1. The processing order is FIFO. User should deque the request in order.
- * 2. The buffer address must be accessible by VPU. Use iommu to remap address
- * to the specific region.
+ * 2. The buffer address must be accessible by VPU. Use iommu to remap address to the specific region.
  *
  */
 
@@ -103,8 +100,7 @@ typedef uint8_t vpu_id_t;
  *     struct vpu_request req;
  *     ioctl(fd, VPU_IOCTL_DEQUE_REQUEST, req);
  *
- * - VPU_IOCTL_FLUSH_REQUEST: flush all running request, and return failure if
- * not finished
+ * - VPU_IOCTL_FLUSH_REQUEST: flush all running request, and return failure if not finished
  *
  *     ioctl(fd, VPU_IOCTL_FLUSH_REQUEST, 0);
  *
@@ -136,8 +132,7 @@ enum vpu_prop_access {
 
 /*
  * The description of properties contains the information about property values,
- * which are stored as compact memory. With the offset, it can get the specific
- * value
+ * which are stored as compact memory. With the offset, it can get the specific value
  * from compact data.
  *
  * The example of struct vpu_prop_desc is as follows:
@@ -152,8 +147,7 @@ enum vpu_prop_access {
  *   +--------+---------------------+--------+--------+-------+--------+
  *
  * Use a buffer to store all property data, which is a compact-format data.
- * The buffer's layout is described by prop_desc, using the offset could get the
- * specific data.
+ * The buffer's layout is described by prop_desc, using the offset could get the specific data.
  *
  * The example of compact-format memory is as follows:
  *   +--------+--------+--------+--------+--------+
@@ -165,10 +159,10 @@ enum vpu_prop_access {
  */
 struct vpu_prop_desc {
 	vpu_id_t id;
-	uint8_t type;    /* the property's data type */
-	uint8_t access;  /* directional data exchange */
-	uint32_t offset; /* offset = previous offset + previous size */
-	uint32_t count;  /* size = sizeof(type) x count */
+	uint8_t type;      /* the property's data type */
+	uint8_t access;    /* directional data exchange */
+	uint32_t offset;   /* offset = previous offset + previous size */
+	uint32_t count;    /* size = sizeof(type) x count */
 	char name[VPU_NAME_SIZE];
 };
 
@@ -222,11 +216,11 @@ struct vpu_algo {
 	uint8_t port_count;
 	uint8_t info_desc_count;
 	uint8_t sett_desc_count;
-	uint32_t info_length; /* the size of info data buffer */
+	uint32_t info_length;    /* the size of info data buffer */
 	uint32_t sett_length;
 	uint32_t bin_length;
-	uint64_t info_ptr; /* the pointer to info data buffer */
-	uint64_t bin_ptr;  /* mva of algo bin, which is accessible by VPU */
+	uint64_t info_ptr;       /* the pointer to info data buffer */
+	uint64_t bin_ptr;        /* mva of algo bin, which is accessible by VPU */
 	char name[VPU_NAME_SIZE];
 	struct vpu_prop_desc info_descs[VPU_MAX_NUM_PROPS];
 	struct vpu_prop_desc sett_descs[VPU_MAX_NUM_PROPS];
@@ -246,6 +240,7 @@ struct vpu_reg_values {
 	struct vpu_reg_value *regs;
 };
 
+
 /*---------------------------------------------------------------------------*/
 /*  VPU Power                                                                */
 /*---------------------------------------------------------------------------*/
@@ -262,8 +257,7 @@ enum vpu_power_mode {
 
 /*
  * Provide a set of OPPs(operation performance point)
- * The default opp is at the minimun performance, and users could request the
- * performance.
+ * The default opp is at the minimun performance, and users could request the performance.
  */
 enum vpu_power_opp {
 	VPU_POWER_OPP_UNREQUEST = 0xFF,
@@ -274,13 +268,14 @@ struct vpu_power {
 	uint8_t opp;
 };
 
+
 /*---------------------------------------------------------------------------*/
 /*  VPU Plane                                                                */
 /*---------------------------------------------------------------------------*/
 struct vpu_plane {
-	uint32_t stride; /* if buffer type is image */
+	uint32_t stride;         /* if buffer type is image */
 	uint32_t length;
-	uint64_t ptr; /* mva which is accessible by VPU */
+	uint64_t ptr;            /* mva which is accessible by VPU */
 };
 
 enum vpu_buf_format {
@@ -301,6 +296,7 @@ struct vpu_buffer {
 	struct vpu_plane planes[3];
 };
 
+
 enum vpu_req_status {
 	VPU_REQ_STATUS_SUCCESS,
 	VPU_REQ_STATUS_BUSY,
@@ -315,8 +311,8 @@ struct vpu_request {
 	uint8_t status;
 	uint8_t buffer_count;
 	uint32_t sett_length;
-	uint64_t sett_ptr; /* pointer to the request setting */
-	uint64_t priv;     /* reserved for user */
+	uint64_t sett_ptr;       /* pointer to the request setting */
+	uint64_t priv;           /* reserved for user */
 	struct vpu_buffer buffers[VPU_MAX_NUM_PORTS];
 };
 

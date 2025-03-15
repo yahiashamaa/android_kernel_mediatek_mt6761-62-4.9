@@ -20,7 +20,7 @@
 
 #if defined(CONFIG_MACH_MT6799) || defined(CONFIG_MACH_MT6763) || \
 	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6775) || \
-	defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6761)
+	defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6757)
 #define AAL_SUPPORT_KERNEL_API            (1)
 #endif
 
@@ -32,8 +32,7 @@
 
 #define AAL_SERVICE_FORCE_UPDATE 0x1
 
-/* Custom "wide" pointer type for 64-bit compatibility. */
-/* Always cast from uint32_t*. */
+/* Custom "wide" pointer type for 64-bit compatibility. Always cast from uint32_t*. */
 /* typedef unsigned long long aal_u32_ptr_t; */
 #define aal_u32_handle_t unsigned long long
 

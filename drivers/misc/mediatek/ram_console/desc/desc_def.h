@@ -21,6 +21,8 @@
 	DF(exp_type, " exception type: %u\n"),
 	DF(kaslr_offset, "Kernel Offset: 0x%llx\n"),
 	DF(ram_console_buffer_addr, "&ram_console_buffer: 0x%llx\n"),
+	DF(reboot_mode, NULL/* unused */),
+	/* last_sched_comm (unused) */
 	/* ensure info related to HWT always be bottom and keep their order*/
 	DF(mcdi_wfi, "mcdi_wfi: 0x%x\n"),
 	DF(mcdi_r15, "mcdi_r15: 0x%x\n"),
@@ -59,7 +61,7 @@
 	DF(drcc_3, "drcc_3 = 0x%X\n"),
 	DF(drcc_dbg_ret, "DRCC dbg info result: 0x%x\n"),
 	DF(drcc_dbg_off, "DRCC dbg info offset: 0x%x\n"),
-	DF(drcc_dbg_ts, "DRCC dbg info timestamp: 0x%llx\n"),
+	DF(drcc_dbg_ts, "DRCC dbg info timestamp: 0x%x\n"),
 	DF(ptp_devinfo_0, "EEM devinfo0 = 0x%X\n"),
 	DF(ptp_devinfo_1, "EEM devinfo1 = 0x%X\n"),
 	DF(ptp_devinfo_2, "EEM devinfo2 = 0x%X\n"),
@@ -104,12 +106,11 @@
 	DF_S(ptp_temp, "ptp_temp[%d] = %llx\n"),
 	DF(ptp_status, "ptp_status: 0x%x\n"),
 	DF(eem_pi_offset, "eem_pi_offset : 0x%x\n"),
-	DF(etc_status, "etc_status : 0x%x\n"),
-	DF(etc_mode, "etc_mode : 0x%x\n"),
 	DF_A(thermal_temp, "thermal_temp = %d\n", THERMAL_RESERVED_TZS),
 	DF(thermal_status, "thermal_status: %d\n"),
 	DF(thermal_ATM_status, "thermal_ATM_status: %d\n"),
 	DF(thermal_ktime, "thermal_ktime: %lld\n"),
+	DF(isr_el1, "isr_el1: %d\n"),
 	DF(idvfs_ctrl_reg, "idvfs_ctrl_reg = 0x%x\n"),
 	DF(idvfs_enable_cnt, "idvfs_enable_cnt = %u\n"),
 	DF(idvfs_swreq_cnt, "idvfs_swreq_cnt = %u\n"),
@@ -124,8 +125,6 @@
 	DF(scp_pc, "scp_pc: 0x%x\n"),
 	DF(scp_lr, "scp_lr: 0x%x\n"),
 	DF(hang_detect_timeout_count, "hang detect time out: 0x%x\n"),
-	DF(last_sync_func, "last sync function: 0x%lx\n"),
-	DF(last_async_func, "last async function: 0x%lx\n"),
 	DF(gz_irq, "GZ IRQ: 0x%x\n"),
 	/* kparams (unused) */
 

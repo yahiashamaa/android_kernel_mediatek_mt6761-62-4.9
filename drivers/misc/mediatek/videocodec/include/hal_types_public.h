@@ -21,41 +21,29 @@
  *  HAL_POWER_T
  * @par Description
  *  This is a parameter for power related function
- *  pvHandle		[IN]     The video codec driver handle
- *  u4HandleSize	[IN]     The size of video codec driver handle
- *  eDriverType		[IN]     The driver type
- *  fgEnable		[IN]     Enable or not
- *  pvReserved		[IN/OUT] The reserved parameter
- *  u4ReservedSize	[IN]     The size of reserved parameter structure
  */
-struct _HAL_POWER_T {
-	void *pvHandle;
-	unsigned int u4HandleSize;
-	enum VAL_DRIVER_TYPE_T eDriverType;
-	char fgEnable;
-	void *pvReserved;
-	unsigned int u4ReservedSize;
-};
+typedef struct _HAL_POWER_T {
+	VAL_VOID_T          *pvHandle;              /* /< [IN]     The video codec driver handle */
+	VAL_UINT32_T        u4HandleSize;           /* /< [IN]     The size of video codec driver handle */
+	VAL_DRIVER_TYPE_T   eDriverType;            /* /< [IN]     The driver type */
+	VAL_BOOL_T          fgEnable;               /* /< [IN]     Enable or not */
+	VAL_VOID_T          *pvReserved;            /* /< [IN/OUT] The reserved parameter */
+	VAL_UINT32_T        u4ReservedSize;         /* /< [IN]     The size of reserved parameter structure */
+} HAL_POWER_T;
 
 /**
  * @par Structure
  *  HAL_ISR_T
  * @par Description
  *  This is a parameter for ISR related function
- *  pvHandle		[IN]     The video codec driver handle
- *  u4HandleSize	[IN]     The size of video codec driver handle
- *  eDriverType		[IN]     The driver type
- *  fgRegister		[IN]     Register or un-register
- *  pvReserved		[IN/OUT] The reserved parameter
- *  u4ReservedSize	[IN]     The size of reserved parameter structure
  */
-struct HAL_ISR_T {
-	void *pvHandle;
-	unsigned int u4HandleSize;
-	enum VAL_DRIVER_TYPE_T eDriverType;
-	char fgRegister;
-	void *pvReserved;
-	unsigned int u4ReservedSize;
-};
+typedef struct _HAL_ISR_T {
+	VAL_VOID_T *pvHandle;                /* /< [IN]     The video codec driver handle */
+	VAL_UINT32_T u4HandleSize;           /* /< [IN]     The size of video codec driver handle */
+	VAL_DRIVER_TYPE_T eDriverType;       /* /< [IN]     The driver type */
+	VAL_BOOL_T  fgRegister;              /* /< [IN]     Register or un-register */
+	VAL_VOID_T *pvReserved;              /* /< [IN/OUT] The reserved parameter */
+	VAL_UINT32_T u4ReservedSize;         /* /< [IN]     The size of reserved parameter structure */
+} HAL_ISR_T;
 
 #endif /* #ifndef _HAL_TYPES_PUBLIC_H_ */

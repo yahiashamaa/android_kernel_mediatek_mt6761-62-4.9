@@ -12,3 +12,4 @@
 #
 
 obj-$(CONFIG_MTK_SELINUX_AEE_WARNING) += mtk_selinux_warning.o
+obj-$(CONFIG_MTK_ROOT_TRACE) += mtk_root_trace.o

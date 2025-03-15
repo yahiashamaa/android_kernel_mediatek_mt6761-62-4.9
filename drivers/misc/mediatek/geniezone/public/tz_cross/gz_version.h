@@ -14,8 +14,9 @@
 /*
  * Header file for GenieZone API version control
  * version = Main.Sub
- */
+*/
 
 #define GZ_API_MAIN_VERSION 2
 #define GZ_API_SUB_VERSION 0
 #define GZ_API_DEV_VERSION 001
+

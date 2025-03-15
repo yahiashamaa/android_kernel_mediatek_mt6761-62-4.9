@@ -14,8 +14,6 @@
 #ifndef _KD_IMGSENSOR_H
 #define _KD_IMGSENSOR_H
 
-#include <linux/ioctl.h>
-
 #ifndef ASSERT
 #define ASSERT(expr)        WARN_ON(!(expr))
 #endif
@@ -29,103 +27,92 @@
 /* X means "switch G and S atomically" */
 /* H means "switch T and Q atomically" */
 
-/************************************************************************
- *
- ************************************************************************/
+/*******************************************************************************
+*
+********************************************************************************/
+#define YUV_INFO(_id, name, getCalData)\
+{ \
+	_id, name, \
+	NSFeature::YUVSensorInfo<_id>::createInstance(name, #name), \
+	(NSFeature::SensorInfoBase*(*)()) \
+	NSFeature::YUVSensorInfo<_id>::getInstance, \
+	NSFeature::YUVSensorInfo<_id>::getDefaultData, \
+	getCalData, \
+	NSFeature::YUVSensorInfo<_id>::getNullFlickerPara \
+}
+#define RAW_INFO(_id, name, getCalData)\
+{ \
+	_id, name, \
+	NSFeature::RAWSensorInfo<_id>::createInstance(name, #name), \
+	(NSFeature::SensorInfoBase*(*)()) \
+	NSFeature::RAWSensorInfo<_id>::getInstance, \
+	NSFeature::RAWSensorInfo<_id>::getDefaultData, \
+	getCalData, \
+	NSFeature::RAWSensorInfo<_id>::getFlickerPara \
+}
+
+/*******************************************************************************
+*
+********************************************************************************/
 
 /* sensorOpen */
-#define KDIMGSENSORIOC_T_OPEN \
-	_IO(IMGSENSORMAGIC, 0)
+#define KDIMGSENSORIOC_T_OPEN                       _IO(IMGSENSORMAGIC, 0)
 /* sensorGetInfo */
-#define KDIMGSENSORIOC_X_GET_CONFIG_INFO \
-	_IOWR(IMGSENSORMAGIC, 5, struct IMGSENSOR_GET_CONFIG_INFO_STRUCT)
+#define KDIMGSENSORIOC_X_GET_CONFIG_INFO            _IOWR(IMGSENSORMAGIC, 5, IMGSENSOR_GET_CONFIG_INFO_STRUCT)
 
-#define KDIMGSENSORIOC_X_GETINFO \
-	_IOWR(IMGSENSORMAGIC, 5, struct ACDK_SENSOR_GETINFO_STRUCT)
+#define KDIMGSENSORIOC_X_GETINFO                    _IOWR(IMGSENSORMAGIC, 5,  ACDK_SENSOR_GETINFO_STRUCT)
 /* sensorGetResolution */
-#define KDIMGSENSORIOC_X_GETRESOLUTION \
-	_IOWR(IMGSENSORMAGIC, 10, struct ACDK_SENSOR_RESOLUTION_INFO_STRUCT)
+#define KDIMGSENSORIOC_X_GETRESOLUTION              _IOWR(IMGSENSORMAGIC, 10, ACDK_SENSOR_RESOLUTION_INFO_STRUCT)
 /* For kernel 64-bit */
-#define KDIMGSENSORIOC_X_GETRESOLUTION2 \
-	_IOWR(IMGSENSORMAGIC, 10, struct ACDK_SENSOR_PRESOLUTION_STRUCT)
+#define KDIMGSENSORIOC_X_GETRESOLUTION2             _IOWR(IMGSENSORMAGIC, 10, ACDK_SENSOR_PRESOLUTION_STRUCT)
 /* sensorFeatureControl */
-#define KDIMGSENSORIOC_X_FEATURECONCTROL \
-	_IOWR(IMGSENSORMAGIC, 15, struct ACDK_SENSOR_FEATURECONTROL_STRUCT)
+#define KDIMGSENSORIOC_X_FEATURECONCTROL            _IOWR(IMGSENSORMAGIC, 15, ACDK_SENSOR_FEATURECONTROL_STRUCT)
 /* sensorControl */
-#define KDIMGSENSORIOC_X_CONTROL \
-	_IOWR(IMGSENSORMAGIC, 20, struct ACDK_SENSOR_CONTROL_STRUCT)
+#define KDIMGSENSORIOC_X_CONTROL                    _IOWR(IMGSENSORMAGIC, 20, ACDK_SENSOR_CONTROL_STRUCT)
 /* sensorClose */
-#define KDIMGSENSORIOC_T_CLOSE \
-	_IO(IMGSENSORMAGIC, 25)
+#define KDIMGSENSORIOC_T_CLOSE                      _IO(IMGSENSORMAGIC, 25)
 /* sensorSearch */
-#define KDIMGSENSORIOC_T_CHECK_IS_ALIVE \
-	_IO(IMGSENSORMAGIC, 30)
+#define KDIMGSENSORIOC_T_CHECK_IS_ALIVE             _IO(IMGSENSORMAGIC, 30)
 /* set sensor driver */
-#define KDIMGSENSORIOC_X_SET_DRIVER \
-	_IOWR(IMGSENSORMAGIC, 35, struct SENSOR_DRIVER_INDEX_STRUCT)
+#define KDIMGSENSORIOC_X_SET_DRIVER                 _IOWR(IMGSENSORMAGIC, 35, SENSOR_DRIVER_INDEX_STRUCT)
 /* get socket postion */
-#define KDIMGSENSORIOC_X_GET_SOCKET_POS \
-	_IOWR(IMGSENSORMAGIC, 40, u32)
+#define KDIMGSENSORIOC_X_GET_SOCKET_POS             _IOWR(IMGSENSORMAGIC, 40, u32)
 /* set I2C bus */
-#define KDIMGSENSORIOC_X_SET_I2CBUS \
-	_IOWR(IMGSENSORMAGIC, 45, u32)
+#define KDIMGSENSORIOC_X_SET_I2CBUS                 _IOWR(IMGSENSORMAGIC, 45, u32)
 /* set I2C bus */
-#define KDIMGSENSORIOC_X_RELEASE_I2C_TRIGGER_LOCK \
-	_IO(IMGSENSORMAGIC, 50)
+#define KDIMGSENSORIOC_X_RELEASE_I2C_TRIGGER_LOCK   _IO(IMGSENSORMAGIC, 50)
 /* Set Shutter Gain Wait Done */
-#define KDIMGSENSORIOC_X_SET_SHUTTER_GAIN_WAIT_DONE \
-	_IOWR(IMGSENSORMAGIC, 55, u32)
+#define KDIMGSENSORIOC_X_SET_SHUTTER_GAIN_WAIT_DONE _IOWR(IMGSENSORMAGIC, 55, u32)
 /* set mclk */
-#define KDIMGSENSORIOC_X_SET_MCLK_PLL \
-	_IOWR(IMGSENSORMAGIC, 60, struct ACDK_SENSOR_MCLK_STRUCT)
-#define KDIMGSENSORIOC_X_GETINFO2 \
-	_IOWR(IMGSENSORMAGIC, 65, struct IMAGESENSOR_GETINFO_STRUCT)
+#define KDIMGSENSORIOC_X_SET_MCLK_PLL               _IOWR(IMGSENSORMAGIC, 60, ACDK_SENSOR_MCLK_STRUCT)
+#define KDIMGSENSORIOC_X_GETINFO2                   _IOWR(IMGSENSORMAGIC, 65, IMAGESENSOR_GETINFO_STRUCT)
 /* set open/close sensor index */
-#define KDIMGSENSORIOC_X_SET_CURRENT_SENSOR \
-	_IOWR(IMGSENSORMAGIC, 70, u32)
+#define KDIMGSENSORIOC_X_SET_CURRENT_SENSOR         _IOWR(IMGSENSORMAGIC, 70, u32)
 /* set GPIO */
-#define KDIMGSENSORIOC_X_SET_GPIO \
-	_IOWR(IMGSENSORMAGIC, 75, struct IMGSENSOR_GPIO_STRUCT)
+#define KDIMGSENSORIOC_X_SET_GPIO                   _IOWR(IMGSENSORMAGIC, 75, IMGSENSOR_GPIO_STRUCT)
 /* Get ISP CLK */
-#define KDIMGSENSORIOC_X_GET_ISP_CLK \
-	_IOWR(IMGSENSORMAGIC, 80, u32)
+#define KDIMGSENSORIOC_X_GET_ISP_CLK                _IOWR(IMGSENSORMAGIC, 80, u32)
 /* Get CSI CLK */
-#define KDIMGSENSORIOC_X_GET_CSI_CLK \
-	_IOWR(IMGSENSORMAGIC, 85, u32)
-
-/* Get ISP CLK via MMDVFS*/
-#define KDIMGSENSORIOC_DFS_UPDATE \
-	_IOWR(IMGSENSORMAGIC, 90, unsigned int)
-#define KDIMGSENSORIOC_GET_SUPPORTED_ISP_CLOCKS \
-	_IOWR(IMGSENSORMAGIC, 95, struct IMAGESENSOR_GET_SUPPORTED_ISP_CLK)
-#define KDIMGSENSORIOC_GET_CUR_ISP_CLOCK \
-	_IOWR(IMGSENSORMAGIC, 100, unsigned int)
+#define KDIMGSENSORIOC_X_GET_CSI_CLK                _IOWR(IMGSENSORMAGIC, 85, u32)
 
 #ifdef CONFIG_COMPAT
-#define COMPAT_KDIMGSENSORIOC_X_GET_CONFIG_INFO \
-	_IOWR(IMGSENSORMAGIC, 5, struct COMPAT_IMGSENSOR_GET_CONFIG_INFO_STRUCT)
+#define COMPAT_KDIMGSENSORIOC_X_GET_CONFIG_INFO    _IOWR(IMGSENSORMAGIC, 5, COMPAT_IMGSENSOR_GET_CONFIG_INFO_STRUCT)
 
-#define COMPAT_KDIMGSENSORIOC_X_GETINFO \
-	_IOWR(IMGSENSORMAGIC, 5, struct COMPAT_ACDK_SENSOR_GETINFO_STRUCT)
-#define COMPAT_KDIMGSENSORIOC_X_FEATURECONCTROL \
-	_IOWR(IMGSENSORMAGIC, 15, \
-		struct COMPAT_ACDK_SENSOR_FEATURECONTROL_STRUCT)
-#define COMPAT_KDIMGSENSORIOC_X_CONTROL \
-	_IOWR(IMGSENSORMAGIC, 20, struct COMPAT_ACDK_SENSOR_CONTROL_STRUCT)
-#define COMPAT_KDIMGSENSORIOC_X_GETINFO2 \
-	_IOWR(IMGSENSORMAGIC, 65, struct COMPAT_IMAGESENSOR_GETINFO_STRUCT)
-#define COMPAT_KDIMGSENSORIOC_X_GETRESOLUTION2 \
-	_IOWR(IMGSENSORMAGIC, 10, struct COMPAT_ACDK_SENSOR_PRESOLUTION_STRUCT)
+#define COMPAT_KDIMGSENSORIOC_X_GETINFO            _IOWR(IMGSENSORMAGIC, 5,  COMPAT_ACDK_SENSOR_GETINFO_STRUCT)
+#define COMPAT_KDIMGSENSORIOC_X_FEATURECONCTROL    _IOWR(IMGSENSORMAGIC, 15, COMPAT_ACDK_SENSOR_FEATURECONTROL_STRUCT)
+#define COMPAT_KDIMGSENSORIOC_X_CONTROL            _IOWR(IMGSENSORMAGIC, 20, COMPAT_ACDK_SENSOR_CONTROL_STRUCT)
+#define COMPAT_KDIMGSENSORIOC_X_GETINFO2           _IOWR(IMGSENSORMAGIC, 65, COMPAT_IMAGESENSOR_GETINFO_STRUCT)
+#define COMPAT_KDIMGSENSORIOC_X_GETRESOLUTION2     _IOWR(IMGSENSORMAGIC, 10, COMPAT_ACDK_SENSOR_PRESOLUTION_STRUCT)
 #endif
 
-/************************************************************************
- *
- ************************************************************************/
+/*******************************************************************************
+*
+********************************************************************************/
 /* SENSOR CHIP VERSION */
+/*HM*/
+#define HM1062_MONO_SENSOR_ID                   0x1061
+#define HM1062_2_MONO_SENSOR_ID                 0x1062
 /*IMX*/
-#define IMX499_SENSOR_ID                        0x0499
-#define IMX486_SENSOR_ID                        0x0486
-#define IMX519_SENSOR_ID                        0x0519
 #define IMX576_SENSOR_ID                        0x0576
 #define IMX350_SENSOR_ID                        0x0350
 #define IMX398_SENSOR_ID                        0x0398
@@ -156,16 +143,14 @@
 #define IMX073_SENSOR_ID                        0x0046
 #define IMX058_SENSOR_ID                        0x0058
 /*OV*/
+#define OV9282_MONO_SENSOR_ID                   0x9281
+#define OV9282_2_MONO_SENSOR_ID                 0x9282
 #define OV23850_SENSOR_ID                       0x023850
 #define OV16880_SENSOR_ID                       0x016880
 #define OV16825MIPI_SENSOR_ID                   0x016820
-#define OV13855_SENSOR_ID                       0xD855
-#define OV13850_SENSOR_ID                       0xD850
-#define OV12A10_SENSOR_ID                       0x1241
 #define OV13870_SENSOR_ID                       0x013870
 #define OV13850_SENSOR_ID                       0xD850
 #define OV13855_SENSOR_ID                       0xD855
-#define OV16885_SENSOR_ID                       0x16885
 #define OV13855MAIN2_SENSOR_ID                  0xD856
 #define OV12830_SENSOR_ID                       0xC830
 #define OV9760MIPI_SENSOR_ID                    0x9760
@@ -206,9 +191,10 @@
 #define OV2650_SENSOR_ID_3                      0x2655
 #define OV20880MIPI_SENSOR_ID                   0x20880
 /*S5K*/
+#define S5K2XASP_SENSOR_ID                      0x218A
 #define S5K3P8SP_SENSOR_ID                      0x3108
-#define S5K2T7SP_SENSOR_ID                      0x2147
 #define S5K3P8SX_SENSOR_ID                      0x3108
+#define S5K2T7SP_SENSOR_ID                      0x2147
 #define S5K2L7_SENSOR_ID                        0x20C7
 #define S5K3L8_SENSOR_ID                        0x30C8
 #define S5K3M3_SENSOR_ID                        0x30D3
@@ -241,12 +227,10 @@
 #define S5K8AAYX_MIPI_SENSOR_ID                 0x08aa
 #define S5K8AAYX_SENSOR_ID                      0x08aa
 #define S5K5E8YX_SENSOR_ID                      0x5e80
-#define S5K5E8YXREAR2_SENSOR_ID                 0x5e81
 /*HI*/
 #define HI841_SENSOR_ID                         0x0841
 #define HI707_SENSOR_ID                         0x00b8
 #define HI704_SENSOR_ID                         0x0096
-#define HI556_SENSOR_ID                         0x0556
 #define HI551_SENSOR_ID                         0x0551
 #define HI553_SENSOR_ID                         0x0553
 #define HI545MIPI_SENSOR_ID                     0x0545
@@ -333,11 +317,10 @@
 /* CAMERA DRIVER NAME */
 #define CAMERA_HW_DEVNAME                       "kd_camera_hw"
 /* SENSOR DEVICE DRIVER NAME */
+/*HM*/
+#define SENSOR_DRVNAME_HM1062_MIPI_MONO         "hm1062_mipi_mono"
+#define SENSOR_DRVNAME_HM1062_2_MIPI_MONO       "hm1062_2_mipi_mono"
 /*IMX*/
-#define SENSOR_DRVNAME_IMX499_MIPI_RAW          "imx499_mipi_raw"
-#define SENSOR_DRVNAME_IMX499_MIPI_RAW_13M      "imx499_mipi_raw_13m"
-#define SENSOR_DRVNAME_IMX486_MIPI_RAW          "imx486_mipi_raw"
-#define SENSOR_DRVNAME_IMX519_MIPI_RAW          "imx519_mipi_raw"
 #define SENSOR_DRVNAME_IMX576_MIPI_RAW          "imx576_mipi_raw"
 #define SENSOR_DRVNAME_IMX350_MIPI_RAW          "imx350_mipi_raw"
 #define SENSOR_DRVNAME_IMX398_MIPI_RAW          "imx398_mipi_raw"
@@ -367,16 +350,15 @@
 #define SENSOR_DRVNAME_IMX091_MIPI_RAW          "imx091_mipi_raw"
 #define SENSOR_DRVNAME_IMX073_MIPI_RAW          "imx073_mipi_raw"
 /*OV*/
+#define SENSOR_DRVNAME_OV9282_MIPI_MONO         "ov9282_mipi_mono"
+#define SENSOR_DRVNAME_OV9282_2_MIPI_MONO       "ov9282_2_mipi_mono"
 #define SENSOR_DRVNAME_OV23850_MIPI_RAW         "ov23850_mipi_raw"
 #define SENSOR_DRVNAME_OV16880_MIPI_RAW         "ov16880_mipi_raw"
-#define SENSOR_DRVNAME_OV16885_MIPI_RAW         "ov16885_mipi_raw"
 #define SENSOR_DRVNAME_OV16825_MIPI_RAW         "ov16825_mipi_raw"
-#define SENSOR_DRVNAME_OV13855_MIPI_RAW         "ov13855_mipi_raw"
 #define SENSOR_DRVNAME_OV13870_MIPI_RAW         "ov13870_mipi_raw"
 #define SENSOR_DRVNAME_OV13855_MIPI_RAW         "ov13855_mipi_raw"
 #define SENSOR_DRVNAME_OV13855MAIN2_MIPI_RAW    "ov13855main2_mipi_raw"
 #define SENSOR_DRVNAME_OV13850_MIPI_RAW         "ov13850_mipi_raw"
-#define SENSOR_DRVNAME_OV12A10_MIPI_RAW         "ov12a10_mipi_raw"
 #define SENSOR_DRVNAME_OV12830_MIPI_RAW         "ov12830_mipi_raw"
 #define SENSOR_DRVNAME_OV9760_MIPI_RAW          "ov9760_mipi_raw"
 #define SENSOR_DRVNAME_OV9740_MIPI_YUV          "ov9740_mipi_yuv"
@@ -396,6 +378,7 @@
 #define SENSOR_DRVNAME_OV5675_MIPI_RAW          "ov5675mipiraw"
 #define SENSOR_DRVNAME_OV5671_MIPI_RAW          "ov5671_mipi_raw"
 #define SENSOR_DRVNAME_OV5647MIPI_RAW           "ov5647_mipi_raw"
+#define SENSOR_DRVNAME_OV5645_MIPI_RAW          "ov5645_mipi_raw"
 #define SENSOR_DRVNAME_OV5645_MIPI_YUV          "ov5645_mipi_yuv"
 #define SENSOR_DRVNAME_OV5650MIPI_RAW           "ov5650_mipi_raw"
 #define SENSOR_DRVNAME_OV5650_RAW               "ov5650_raw"
@@ -418,10 +401,10 @@
 #define SENSOR_DRVNAME_OV2650_RAW               "ov265x_raw"
 #define SENSOR_DRVNAME_OV20880_MIPI_RAW         "ov20880_mipi_raw"
 /*S5K*/
+#define SENSOR_DRVNAME_S5K2XASP_MIPI_RAW        "s5k2xasp_mipi_raw"
 #define SENSOR_DRVNAME_S5K3P8SP_MIPI_RAW        "s5k3p8sp_mipi_raw"
-#define SENSOR_DRVNAME_S5K2T7SP_MIPI_RAW        "s5k2t7sp_mipi_raw"
-#define SENSOR_DRVNAME_S5K2T7SP_MIPI_RAW_5M     "s5k2t7sp_mipi_raw_5m"
 #define SENSOR_DRVNAME_S5K3P8SX_MIPI_RAW        "s5k3p8sx_mipi_raw"
+#define SENSOR_DRVNAME_S5K2T7SP_MIPI_RAW        "s5k2t7sp_mipi_raw"
 #define SENSOR_DRVNAME_S5K2L7_MIPI_RAW          "s5k2l7_mipi_raw"
 #define SENSOR_DRVNAME_S5K3L8_MIPI_RAW          "s5k3l8_mipi_raw"
 #define SENSOR_DRVNAME_S5K3M3_MIPI_RAW          "s5k3m3_mipi_raw"
@@ -444,12 +427,10 @@
 #define SENSOR_DRVNAME_S5K8AAYX_MIPI_YUV        "s5k8aayx_mipi_yuv"
 #define SENSOR_DRVNAME_S5K8AAYX_YUV             "s5k8aayx_yuv"
 #define SENSOR_DRVNAME_S5K5E8YX_MIPI_RAW        "s5k5e8yx_mipi_raw"
-#define SENSOR_DRVNAME_S5K5E8YXREAR2_MIPI_RAW   "s5k5e8yxrear2_mipi_raw"
 /*HI*/
 #define SENSOR_DRVNAME_HI841_MIPI_RAW           "hi841_mipi_raw"
 #define SENSOR_DRVNAME_HI707_YUV                "hi707_yuv"
 #define SENSOR_DRVNAME_HI704_YUV                "hi704_yuv"
-#define SENSOR_DRVNAME_HI556_MIPI_RAW           "hi556_mipi_raw"
 #define SENSOR_DRVNAME_HI551_MIPI_RAW           "hi551_mipi_raw"
 #define SENSOR_DRVNAME_HI553_MIPI_RAW           "hi553_mipi_raw"
 #define SENSOR_DRVNAME_HI545_MIPI_RAW           "hi545_mipi_raw"
@@ -511,6 +492,14 @@
 #define SENSOR_DRVNAME_IMX135_MIPI_RAW_8MP      "imx135_mipi_raw_8mp"
 #define SENSOR_DRVNAME_OV13870_MIPI_RAW_5MP     "ov13870_mipi_raw_5mp"
 #define SENSOR_DRVNAME_OV8856_MIPI_RAW_5MP      "ov8856_mipi_raw_5mp"
+
+/*******************************************************************************
+*
+********************************************************************************/
+void KD_IMGSENSOR_PROFILE_INIT(void);
+void KD_IMGSENSOR_PROFILE(char *tag);
+void KD_IMGSENSOR_PROFILE_INIT_I2C(void);
+void KD_IMGSENSOR_PROFILE_I2C(char *tag, int trans_num);
 
 #define mDELAY(ms)     mdelay(ms)
 #define uDELAY(us)       udelay(us)

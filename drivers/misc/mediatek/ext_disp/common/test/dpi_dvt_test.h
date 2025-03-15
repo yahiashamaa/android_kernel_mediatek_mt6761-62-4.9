@@ -14,11 +14,8 @@
 #ifndef _DPI_DVT_TEST_H_
 #define _DPI_DVT_TEST_H_
 
-/* when open this option, RDMA-DPI Path can be used*/
-/*#define RDMA_DPI_PATH_SUPPORT*/
-
-/* when open this option, DPI DVT test case can be used*/
-/*#define DPI_DVT_TEST_SUPPORT*/
+/*#define RDMA_DPI_PATH_SUPPORT*/ /* when open this option, RDMA-DPI Path can be used*/
+/*#define DPI_DVT_TEST_SUPPORT*/	/* when open this option, DPI DVT test case can be used*/
 
 #if defined(RDMA_DPI_PATH_SUPPORT) || defined(DPI_DVT_TEST_SUPPORT)
 #include "ddp_dpi.h"

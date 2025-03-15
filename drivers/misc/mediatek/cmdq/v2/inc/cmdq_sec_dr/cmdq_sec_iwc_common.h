@@ -15,8 +15,7 @@
 #define __CMDQ_SEC_IWC_COMMON_H__
 
 /* shared DRAM */
-/* bit x = 1 means thread x raise IRQ */
-#define CMDQ_SEC_SHARED_IRQ_RAISED_OFFSET    (0x0)
+#define CMDQ_SEC_SHARED_IRQ_RAISED_OFFSET    (0x0) /* bit x = 1 means thread x raise IRQ */
 #define CMDQ_SEC_SHARED_THR_CNT_OFFSET (0x100)
 #define CMDQ_SEC_SHARED_TASK_VA_OFFSET (0x200)
 #define CMDQ_SEC_SHARED_OP_OFFSET (0x300)
@@ -34,25 +33,17 @@
 #define CMDQ_SEC_DISPATCH_LEN (8)
 
 enum CMDQ_IWC_ADDR_METADATA_TYPE {
-	/* sec handle to sec PA */
-	CMDQ_IWC_H_2_PA = 0,
-	/* sec handle to sec MVA */
-	CMDQ_IWC_H_2_MVA = 1,
-	/* map normal MVA to secure world */
-	CMDQ_IWC_NMVA_2_MVA = 2,
-	/* DDP register needs to set opposite value when HDCP fail */
-	CMDQ_IWC_DDP_REG_HDCP = 3,
-	/* map normal MVA to secure world */
-	CMDQ_IWC_NMVA_2_MVA_REVERSE = 4,
+	CMDQ_IWC_H_2_PA = 0, /* sec handle to sec PA */
+	CMDQ_IWC_H_2_MVA = 1, /* sec handle to sec MVA */
+	CMDQ_IWC_NMVA_2_MVA = 2, /* map normal MVA to secure world */
+	CMDQ_IWC_DDP_REG_HDCP = 3, /* DDP register needs to set opposite value when HDCP fail */
 };
 
 /*  */
 /* IWC message */
 /*  */
 struct iwcCmdqAddrMetadata_t {
-	/* [IN]_d, index of instruction.
-	 * Update its argB value to real PA/MVA in secure world
-	 */
+	/* [IN]_d, index of instruction. Update its arg_b value to real PA/MVA in secure world */
 	uint32_t instrIndex;
 
 	/*
@@ -66,22 +57,16 @@ struct iwcCmdqAddrMetadata_t {
 	 *
 	 *	A: baseHandle
 	 *	B: baseHandle + blockOffset
-	 *  C: baseHandle + blockOffset + offset
+	 *	C: baseHandle + blockOffset + offset
 	 *	A~B or B~D: size
 	 */
 
-	/* [IN] addr handle type*/
-	uint32_t type;
-	/* [IN]_h, secure address handle */
-	uint32_t baseHandle;
-	/* [IN]_b, block offset from handle(PA) to current block(plane) */
-	uint32_t blockOffset;
-	/* [IN]_b, buffser offset to secure handle */
-	uint32_t offset;
-	/* buffer size */
-	uint32_t size;
-	/* hw port id (i.e. M4U port id)*/
-	uint32_t port;
+	uint32_t type;		/* [IN] addr handle type*/
+	uint64_t baseHandle;	/* [IN]_h, secure address handle */
+	uint32_t blockOffset;	/* [IN]_b, block offset from handle(PA) to current block(plane) */
+	uint32_t offset;	/* [IN]_b, buffser offset to secure handle */
+	uint32_t size;		/* buffer size */
+	uint32_t port;		/* hw port id (i.e. M4U port id)*/
 };
 
 struct iwcCmdqDebugConfig_t {
@@ -132,11 +117,9 @@ struct iwcCmdqSectraceBuffer_t {
 };
 
 struct iwcCmdqPathResource_t {
-	/* use long long for 64 bit compatible support */
-	long long shareMemoyPA;
+	long long shareMemoyPA; /* use long long for 64 bit compatible support */
 	uint32_t size;
-	/* use normal IRQ in SWd */
-	bool useNormalIRQ;
+	bool useNormalIRQ;		/* use normal IRQ in SWd */
 };
 
 struct iwcCmdqCancelTask_t {
@@ -147,12 +130,9 @@ struct iwcCmdqCancelTask_t {
 	/* [OUT] */
 	bool throwAEE;
 	bool hasReset;
-	/* global secure IRQ flag */
-	int32_t irqStatus;
-	/* thread IRQ flag */
-	int32_t irqFlag;
-	/* errInstr[0] = instB, errInstr[1] = instA */
-	uint32_t errInstr[2];
+	int32_t irqStatus; /* global secure IRQ flag */
+	int32_t irqFlag; /* thread IRQ flag */
+	uint32_t errInstr[2]; /* errInstr[0] = instB, errInstr[1] = instA */
 	uint32_t regValue;
 	uint32_t pc;
 };
@@ -167,10 +147,8 @@ struct iwcCmdqCommand_t {
 	uint32_t pVABase[CMDQ_IWC_MAX_CMD_LENGTH];
 
 	/* exec order data */
-	/* [IN] index in thread's task list, it should be (nextCookie - 1) */
-	uint32_t waitCookie;
-	/* [IN] reset HW thread */
-	bool resetExecCnt;
+	uint32_t waitCookie; /* [IN] index in thread's task list, it should be (nextCookie - 1) */
+	bool resetExecCnt;   /* [IN] reset HW thread */
 
 	/* client info */
 	int32_t callerPid;
@@ -187,16 +165,11 @@ struct iwcCmdqCommand_t {
 /* linex kernel and mobicore has their own MMU tables, */
 /* the latter's is used to map world shared memory and physical address */
 /* so mobicore dose not understand linux virtual address mapping. */
-/* if we want to transact a large buffer in TCI/DCI,
- * there are 2 method (both need 1 copy):
- */
-/* 1. use mc_map, to map normal world buffer to WSM,
- * and pass secure_virt_addr in TCI/DCI buffer
- */
+/*  */
+/* if we want to transact a large buffer in TCI/DCI, there are 2 method (both need 1 copy): */
+/* 1. use mc_map, to map normal world buffer to WSM, and pass secure_virt_addr in TCI/DCI buffer */
 /* note mc_map implies a memcopy to copy content from normal world to WSM */
-/* 2. declare a fixed length array in TCI/DCI struct,
- * and its size must be < 1M
- */
+/* 2. declare a fixed length array in TCI/DCI struct, and its size must be < 1M */
 /*  */
 struct iwcCmdqMessage_t {
 	union {
@@ -214,7 +187,6 @@ struct iwcCmdqMessage_t {
 	struct iwcCmdqDebugConfig_t debug;
 	struct iwcCmdqSecStatus_t secStatus;
 };
-#define iwcCmdqMessage_ptr struct iwcCmdqMessage_t *
 
 /*  */
 /* ERROR code number (ERRNO) */

@@ -13,12 +13,14 @@
 
 #include <linux/io.h>
 #include <linux/string.h>
-#include <mt-plat/mtk_smi.h>
 #include "smi_reg.h"
+#include "mtk_smi.h"
 #include "smi_common.h"
+#include "smi_configuration.h"
+#include "smi_config_util.h"
 
-int smi_bus_regs_setting(int larb_id, int profile,
-	struct SMI_SETTING *settings)
+
+int smi_bus_regs_setting(int larb_id, int profile, struct SMI_SETTING *settings)
 {
 	int i = 0;
 	int j = 0;
@@ -50,10 +52,8 @@ int smi_bus_regs_setting(int larb_id, int profile,
 			}
 		}
 	}
-
 	return 0;
 }
-EXPORT_SYMBOL_GPL(smi_bus_regs_setting);
 
 int smi_common_setting(struct SMI_SETTING *settings)
 {
@@ -75,7 +75,6 @@ int smi_common_setting(struct SMI_SETTING *settings)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(smi_common_setting);
 
 int smi_larb_setting(int larb_id, struct SMI_SETTING *settings)
 {
@@ -100,4 +99,3 @@ int smi_larb_setting(int larb_id, struct SMI_SETTING *settings)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(smi_larb_setting);

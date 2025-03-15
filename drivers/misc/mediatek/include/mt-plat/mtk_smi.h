@@ -21,26 +21,27 @@
 #define MTK_IOWR(num, dtype)    _IOWR('O', num, dtype)
 #define MTK_IO(num)             _IO('O', num)
 
+/* -------------------------------------------------------------------------- */
 #define MTK_CONFIG_MM_MAU       MTK_IOW(10, unsigned long)
+
 
 struct MTK_MAU_CONFIG {
 	int larb;		/* 0~4: the larb you want to monitor */
 	int entry;		/* 0~2: the mau entry to use */
 	unsigned int port_msk;	/* port mask to be monitored */
-	/* 1: monitor va (this port is using m4u);  */
-	/* 0: monitor pa (this port is not using m4u) */
-	int virt;
-	/* monitor read transaction 1-enable, 0-disable */
-	int monitor_read;
-	/* monitor write transaction 1-enable, 0-disable */
-	int monitor_write;
+	int virt;		/* 1: monitor va (this port is using m4u);  */
+					/* 0: monitor pa (this port is not using m4u) */
+	int monitor_read;	/* monitor read transaction 1-enable, 0-disable */
+	int monitor_write;	/* monitor write transaction 1-enable, 0-disable */
 	unsigned int start;	/* start address to monitor */
 	unsigned int end;	/* end address to monitor */
 };
 
+
 int mau_config(struct MTK_MAU_CONFIG *pMauConf);
 
 
+/* --------------------------------------------------------------------------- */
 enum MTK_SMI_BWC_SCEN {
 	SMI_BWC_SCEN_NORMAL,
 	SMI_BWC_SCEN_UI_IDLE,
@@ -61,6 +62,7 @@ enum MTK_SMI_BWC_SCEN {
 	SMI_BWC_SCEN_CAM_CP,
 	SMI_BWC_SCEN_ICFP,
 	SMI_BWC_SCEN_MM_GPU,
+	SMI_BWC_SCEN_N3D,
 	SMI_BWC_SCEN_CNT
 };
 
@@ -78,13 +80,11 @@ enum mmdvfs_voltage_enum {
 
 struct MTK_SMI_BWC_CONFIG {
 	int scenario;
-	/* 0 : exit this scenario , 1 : enter this scenario */
-	int b_on_off;
+	int b_on_off;		/* 0 : exit this scenario , 1 : enter this scenario */
 };
 
 struct MTK_SMI_BWC_STATE {
-	/* : exit this scenario , 1 : enter this scenario */
-	unsigned int *hwc_max_pixel;
+	unsigned int *hwc_max_pixel; /* : exit this scenario , 1 : enter this scenario */
 };
 
 struct MTK_SMI_BWC_REGISTER_SET {
@@ -173,10 +173,8 @@ struct MTK_SMI_BWC_MM_INFO {
 #define MTK_IOC_SPC_CMD             MTK_IOW(23, unsigned long)
 #define MTK_IOC_SMI_BWC_CONFIG      MTK_IOW(24, struct MTK_SMI_BWC_CONFIG)
 #define MTK_IOC_SMI_BWC_STATE       MTK_IOWR(25, struct MTK_SMI_BWC_STATE)
-#define MTK_IOC_SMI_BWC_REGISTER_SET \
-	MTK_IOWR(26, struct MTK_SMI_BWC_REGISTER_SET)
-#define MTK_IOC_SMI_BWC_REGISTER_GET \
-	MTK_IOWR(27, struct MTK_SMI_BWC_REGISTER_GET)
+#define MTK_IOC_SMI_BWC_REGISTER_SET    MTK_IOWR(26, struct MTK_SMI_BWC_REGISTER_SET)
+#define MTK_IOC_SMI_BWC_REGISTER_GET    MTK_IOWR(27, struct MTK_SMI_BWC_REGISTER_GET)
 
 /* For BWC.MM property setting */
 #define MTK_IOC_SMI_BWC_INFO_SET    MTK_IOWR(28, struct MTK_SMI_BWC_INFO_SET)
@@ -187,8 +185,7 @@ struct MTK_SMI_BWC_MM_INFO {
 
 #define MTK_IOC_SMI_DUMP_LARB       MTK_IOWR(66, unsigned int)
 #define MTK_IOC_SMI_DUMP_COMMON     MTK_IOWR(67, unsigned int)
-#define MTK_IOC_MMDVFS_CMD \
-	MTK_IOW(88, struct MTK_MMDVFS_CMD)
+#define MTK_IOC_MMDVFS_CMD			MTK_IOW(88, struct MTK_MMDVFS_CMD)
 
 
 enum SPC_PROT_T {
@@ -220,12 +217,9 @@ int MTK_SPC_Init(void *dev);
 #define MMDVFS_ENABLE_DEFAULT_STEP_QUERY
 #define MMDVFS_MMCLOCK_NOTIFICATION
 /* MMDVFS kernel API */
-extern int mmdvfs_set_step(
-	enum MTK_SMI_BWC_SCEN scenario, enum mmdvfs_voltage_enum step);
-extern int
-	mmdvfs_is_default_step_need_perf(void);
-extern void mmdvfs_mm_clock_switch_notify(
-	int is_before, int is_to_high);
+extern int mmdvfs_set_step(enum MTK_SMI_BWC_SCEN scenario, enum mmdvfs_voltage_enum step);
+extern int mmdvfs_is_default_step_need_perf(void);
+extern void mmdvfs_mm_clock_switch_notify(int is_before, int is_to_high);
 
 #if defined(CONFIG_MTK_SMI_VARIANT) || defined(CONFIG_MTK_PSEUDO_M4U)
 /* Enable the power-domain and the clocks of the larb.

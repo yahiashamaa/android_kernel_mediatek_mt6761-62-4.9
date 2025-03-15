@@ -36,7 +36,7 @@ extern phys_addr_t zmc_max_zone_dma_phys;
 
 /* Priority of ZONE_MOVABLE_CMA users */
 enum zmc_prio {
-	ZMC_SSMR,
+	ZMC_SSVP,
 	ZMC_CHECK_MEM_STAT,
 	ZMC_MLP = ZMC_CHECK_MEM_STAT,
 	NR_ZMC_OWNER,
@@ -55,8 +55,7 @@ struct single_cma_registration {
 extern bool is_zmc_inited(void);
 extern void zmc_get_range(phys_addr_t *base, phys_addr_t *size);
 extern phys_addr_t zmc_base(void);
-extern struct page *zmc_cma_alloc(struct cma *cma, int count,
-		unsigned int align, struct single_cma_registration *p);
+extern struct page *zmc_cma_alloc(struct cma *cma, int count, unsigned int align, struct single_cma_registration *p);
 extern bool zmc_cma_release(struct cma *cma, struct page *pages, int count);
 
 extern int zmc_register_client(struct notifier_block *nb);
@@ -67,10 +66,10 @@ extern int zmc_notifier_call_chain(unsigned long val, void *v);
 #define ZMC_EVENT_ALLOC_MOVABLE 0x01
 #endif
 
-#ifdef CONFIG_MTK_SSMR
-extern bool memory_ssmr_inited(void);
-extern struct single_cma_registration memory_ssmr_registration;
-#endif /* end CONFIG_MTK_SSMR */
+#ifdef CONFIG_MTK_SVP
+extern bool memory_ssvp_inited(void);
+extern struct single_cma_registration memory_ssvp_registration;
+#endif /* end CONFIG_MTK_SVP */
 
 #ifdef CONFIG_MTK_DCS
 #define DCS_SCREENOFF_ONLY_MODE
@@ -102,7 +101,6 @@ extern int dcs_mpu_protection(int enable);
 /* DO _NOT_ USE APIS below UNLESS YOU KNOW HOW TO USE THEM */
 extern int __dcs_get_dcs_status(int *ch, enum dcs_status *dcs_status);
 extern int dcs_switch_to_lowpower(void);
-extern int memory_lowpower_fb_event(struct notifier_block *notifier,
-		unsigned long event, void *data);
+extern int memory_lowpower_fb_event(struct notifier_block *notifier, unsigned long event, void *data);
 #endif /* end CONFIG_MTK_DCS */
 #endif /* end __MTK_MEMINFO_H__ */

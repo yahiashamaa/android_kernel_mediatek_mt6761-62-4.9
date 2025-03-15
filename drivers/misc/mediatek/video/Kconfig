@@ -5,7 +5,7 @@ menuconfig MTK_FB
 	select FB_CFB_COPYAREA
 	select FB_CFB_IMAGEBLIT
 	select FB_SOFT_CURSOR
-	help
+	---help---
 	  This selects the MediaTek(R) frame buffer driver.
 	  Meditek Framebuffer Driver is driver display.
 	  If you want to use MediaTek(R) frame buffer diver, please make sure it is Y in xxx_defconfig.mk.
@@ -73,13 +73,22 @@ config CUSTOM_LCM_Y
 	  If you want to change LCM resolution, please set it.
 	  defaule value is "0".
 
+config MTK_ROUND_CORNER_SUPPORT
+        bool "enable medietak display round corner"
+        default n
+        help
+          define CONFIG_MTK_ROUND_CORNER_SUPPORT to enable Mediatek Round Corner on display.
+          If you want to use Meditek Round Corner on display, please make sure it is Y in xxx_defconfig.mk.
+	  This feature require round corner pattern provided in lcm driver folder.
+          If unsure, set N.
+
 config MTK_FB_SUPPORT_ASSERTION_LAYER
 	bool "AEE Assertion Layer Support"
 	depends on MTK_FB
 	select FONT_SUPPORT
 	select FONT_8x16
 	default y
-	help
+	---help---
 	  This enable support for AEE assertion layer.
 	  It define in xxx_defconfig.mk.
 	  If you want to enable AEE assertion layer support, say Y here.
@@ -149,13 +158,3 @@ config MTK_DRE30_SUPPORT
 	  display visual enhancement ver.3.
 	  This feature requires the cowork of AAL user-space algorithm process.
 	  Please also turn on MTK_AAL_SUPPORT amd MTK_DRE30_SUPPORT in ProjectConfig.mk.
-
-config MTK_DISPLAY_LOW_MEMORY_DEBUG_SUPPORT
-	bool "enable medietak display low memory debug"
-	default n
-	help
-	  define CONFIG_MTK_DISPLAY_LOW_MEMORY_DEBUG_SUPPORT
-	  to enable Mediatek display low memory debug on display for low memory project.
-	  If enable this option, display some debug buffer will be reduced or closed.
-	  If you want to use Meditek display low memory debug, please make sure it is Y in xxx_defconfig.mk.
-	  If unsure, set N.

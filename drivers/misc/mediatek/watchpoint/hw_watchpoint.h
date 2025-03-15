@@ -94,13 +94,11 @@ struct dbgreg_set {
 #define dbg_mem_read_64(addr)		readq(IOMEM(addr))
 #define dbg_mem_write(addr, val)    mt_reg_sync_writel(val, addr)
 #define dbg_reg_copy(offset, base_to, base_from)   \
-	dbg_mem_write((base_to) + (offset), \
-	dbg_mem_read((base_from) + (offset)))
+	dbg_mem_write((base_to) + (offset), dbg_mem_read((base_from) + (offset)))
 #ifdef CONFIG_ARM64	/* For AARCH64 */
 #define dbg_mem_write_64(addr, val)    mt_reg_sync_writeq(val, addr)
 #define dbg_reg_copy_64(offset, base_to, base_from)   \
-	dbg_mem_write_64((base_to) + (offset), \
-	dbg_mem_read_64((base_from) + (offset)))
+	dbg_mem_write_64((base_to) + (offset), dbg_mem_read_64((base_from) + (offset)))
 #define ARM_DBG_READ(N, M, OP2, VAL) {\
 	asm volatile("mrc p14, 0, %0, " #N "," #M ", " #OP2 : "=r" (VAL));\
 }
@@ -116,8 +114,7 @@ static inline void cs_cpu_write(void __iomem *addr_base, u32 offset, u32 wdata)
 	mt_reg_sync_writel(wdata, addr_base + offset);
 }
 
-static inline unsigned int cs_cpu_read(const void __iomem *addr_base,
-	u32 offset)
+static inline unsigned int cs_cpu_read(const void __iomem *addr_base, u32 offset)
 {
 	u32 actual;
 
@@ -128,15 +125,13 @@ static inline unsigned int cs_cpu_read(const void __iomem *addr_base,
 }
 
 #ifdef CONFIG_ARM64
-static inline void cs_cpu_write_64(void __iomem *addr_base, u64 offset,
-	u64 wdata)
+static inline void cs_cpu_write_64(void __iomem *addr_base, u64 offset, u64 wdata)
 {
 	/* TINFO="Write addr %h, with data %h", addr_base+offset, wdata */
 	mt_reg_sync_writeq(wdata, addr_base + offset);
 }
 
-static inline unsigned long cs_cpu_read_64(const void __iomem *addr_base,
-	u64 offset)
+static inline unsigned long cs_cpu_read_64(const void __iomem *addr_base, u64 offset)
 {
 	u64 actual;
 
@@ -157,6 +152,6 @@ void smp_read_OSLSR_EL1_callback(void *info);
 int register_wp_context(struct wp_trace_context_t **wp_tracer_context);
 void __iomem *get_wp_base(void);
 
-extern unsigned int read_clusterid(void);
+extern unsigned read_clusterid(void);
 extern struct notifier_block cpu_nfb;
 #endif				/* !__HW_BREAKPOINT_64_H */

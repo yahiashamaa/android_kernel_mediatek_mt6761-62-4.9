@@ -16,21 +16,18 @@
 
 #define MAX_FREQ_STEP 6
 
-/* #ifdef MMDVFS_QOS_SUPPORT */
-#ifdef CONFIG_MTK_SMI_EXT
+#ifdef CONFIG_MTK_QOS_SUPPORT
 /**
  * mmdvfs_qos_get_freq_steps - get available freq steps of each pmqos class
  * @pm_qos_class: pm_qos_class of each mm freq domain
  * @freq_steps: output available freq_step settings, size is MAX_FREQ_STEP.
- *    If the entry is 0, it means step not available, size of available items
- *    is in step_size.
+ *    If the entry is 0, it means step not available, size of available items is in step_size.
  *    The order of freq steps is from high to low.
  * @step_size: size of available items in freq_steps
  *
  * Returns 0, or -errno
  */
-int mmdvfs_qos_get_freq_steps(
-	u32 pm_qos_class, u64 *freq_steps, u32 *step_size);
+int mmdvfs_qos_get_freq_steps(u32 pm_qos_class, u64 *freq_steps, u32 *step_size);
 
 /**
  * mmdvfs_qos_force_step - function to force mmdvfs setting ignore PMQoS update

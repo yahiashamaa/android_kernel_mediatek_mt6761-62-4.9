@@ -23,9 +23,11 @@
 #include <linux/power_supply.h>
 #include <linux/kthread.h>
 #include <linux/workqueue.h>
+#include <linux/switch.h>
 #include <linux/math64.h>
 
 #include <mt-plat/upmu_common.h>
+#include <mt-plat/charger_class.h>
 #include <mt-plat/charger_type.h>
 #include <mt-plat/aee.h>
 #include <mt-plat/mtk_boot.h>
@@ -115,6 +117,7 @@ struct mt6370_pmu_charger_data {
 	int aicr_limit;
 	u32 zcv;
 	bool adc_hang;
+	struct switch_dev *usb_switch;
 	bool bc12_en;
 	u32 hidden_mode_cnt;
 	u32 ieoc;
@@ -452,10 +455,14 @@ static int mt6370_set_usbsw_state(struct mt6370_pmu_charger_data *chg_data,
 #ifdef CONFIG_MT6370_PMU_CHARGER_TYPE_DETECT
 	dev_info(chg_data->dev, "%s: state = %d\n", __func__, state);
 
-	if (state == MT6370_USBSW_CHG)
-		Charger_Detect_Init();
-	else
-		Charger_Detect_Release();
+	if (chg_data->usb_switch)
+		switch_set_state(chg_data->usb_switch, state);
+	else {
+		if (state == MT6370_USBSW_CHG)
+			Charger_Detect_Init();
+		else
+			Charger_Detect_Release();
+	}
 #endif /* CONFIG_MT6370_PMU_CHARGER_TYPE_DETECT */
 
 	return 0;
@@ -496,18 +503,6 @@ out:
 	return ret;
 }
 
-static void diff(struct mt6370_pmu_charger_data *chg_data, int index,
-	struct timespec start, struct timespec end) {
-	struct timespec temp;
-
-	temp = timespec_sub(end, start);
-	if (temp.tv_sec > 0) {
-		//BUG_ON(1);
-		dev_info(chg_data->dev, "%s: duration[%d] %d %ld\n", __func__,
-			index, (int)temp.tv_sec, temp.tv_nsec);
-	}
-}
-
 static int mt6370_get_adc(struct mt6370_pmu_charger_data *chg_data,
 	enum mt6370_adc_sel adc_sel, int *adc_val)
 {
@@ -517,17 +512,11 @@ static int mt6370_get_adc(struct mt6370_pmu_charger_data *chg_data,
 	u32 aicr = 0, ichg = 0;
 	s64 adc_result = 0;
 	const int max_wait_times = 6;
-	struct timespec time0, time1, time2;
 
-	time0.tv_sec = 0; time0.tv_nsec = 0;
-	time1.tv_sec = 0; time1.tv_nsec = 0;
-	time2.tv_sec = 0; time2.tv_nsec = 0;
+	if (adc_sel == MT6370_ADC_TEMP_JC)
+		dev_info(chg_data->dev, "%s: Select ADC channel to TEMP_JC\n", __func__);
 
-	get_monotonic_boottime(&time0);
 	mutex_lock(&chg_data->adc_access_lock);
-	get_monotonic_boottime(&time1);
-	diff(chg_data, 1, time0, time1);
-
 	mt6370_enable_hidden_mode(chg_data, true);
 
 	/* Select ADC to desired channel */
@@ -537,9 +526,6 @@ static int mt6370_get_adc(struct mt6370_pmu_charger_data *chg_data,
 		MT6370_MASK_ADC_IN_SEL,
 		adc_sel << MT6370_SHIFT_ADC_IN_SEL
 	);
-
-	get_monotonic_boottime(&time2);
-	diff(chg_data, 2, time1, time2);
 
 	if (ret < 0) {
 		dev_err(chg_data->dev, "%s: select ch to %d failed, ret = %d\n",
@@ -566,8 +552,8 @@ static int mt6370_get_adc(struct mt6370_pmu_charger_data *chg_data,
 		}
 	}
 
-	get_monotonic_boottime(&time1);
-	diff(chg_data, 3, time2, time1);
+	if (adc_sel == MT6370_ADC_TEMP_JC)
+		dev_info(chg_data->dev, "%s: Start ADC conversion\n", __func__);
 
 	/* Start ADC conversation */
 	ret = mt6370_pmu_reg_set_bit(chg_data->chip, MT6370_PMU_REG_CHGADC,
@@ -579,9 +565,6 @@ static int mt6370_get_adc(struct mt6370_pmu_charger_data *chg_data,
 		goto out_unlock_all;
 	}
 
-	get_monotonic_boottime(&time2);
-	diff(chg_data, 4, time1, time2);
-
 	for (i = 0; i < max_wait_times; i++) {
 		msleep(35);
 		ret = mt6370_pmu_reg_test_bit(chg_data->chip,
@@ -590,10 +573,6 @@ static int mt6370_get_adc(struct mt6370_pmu_charger_data *chg_data,
 		if (!adc_start && ret >= 0)
 			break;
 	}
-
-	get_monotonic_boottime(&time1);
-	diff(chg_data, 5, time2, time1);
-
 	if (i == max_wait_times) {
 		dev_err(chg_data->dev,
 			"%s: wait conversation failed, sel = %d, ret = %d\n",
@@ -608,6 +587,7 @@ static int mt6370_get_adc(struct mt6370_pmu_charger_data *chg_data,
 					"%s: reg[0x%02X] = 0x%02X\n",
 					__func__, mt6370_chg_reg_addr[i], ret);
 			}
+
 
 			chg_data->adc_hang = true;
 		}
@@ -635,10 +615,10 @@ static int mt6370_get_adc(struct mt6370_pmu_charger_data *chg_data,
 
 	}
 
-	mdelay(1);
+	if (adc_sel == MT6370_ADC_TEMP_JC)
+		dev_info(chg_data->dev, "%s: wait_times = %d\n", __func__, i);
 
-	get_monotonic_boottime(&time2);
-	diff(chg_data, 6, time1, time2);
+	mdelay(1);
 
 	/* Read ADC data */
 	ret = mt6370_pmu_reg_block_read(chg_data->chip, MT6370_PMU_REG_ADCDATAH,
@@ -648,9 +628,6 @@ static int mt6370_get_adc(struct mt6370_pmu_charger_data *chg_data,
 			"%s: read ADC data failed, ret = %d\n", __func__, ret);
 		goto out_unlock_all;
 	}
-
-	get_monotonic_boottime(&time1);
-	diff(chg_data, 7, time2, time1);
 
 	mt_dbg(chg_data->dev,
 		"%s: adc_sel = %d, adc_h = 0x%02X, adc_l = 0x%02X\n",
@@ -696,10 +673,6 @@ out:
 	*adc_val = adc_result;
 	mt6370_enable_hidden_mode(chg_data, false);
 	mutex_unlock(&chg_data->adc_access_lock);
-
-	get_monotonic_boottime(&time2);
-	diff(chg_data, 8, time0, time2);
-
 	return ret;
 }
 
@@ -848,7 +821,7 @@ static int mt6370_bc12_workaround(struct mt6370_pmu_charger_data *chg_data)
 
 	dev_info(chg_data->dev, "%s\n", __func__);
 
-	mutex_lock(&chg_data->chip->io_lock);
+	rt_mutex_lock(&chg_data->chip->io_lock);
 
 	ret = mt6370_toggle_chgdet_flow(chg_data);
 	if (ret < 0)
@@ -864,7 +837,7 @@ static int mt6370_bc12_workaround(struct mt6370_pmu_charger_data *chg_data)
 err:
 	dev_err(chg_data->dev, "%s: fail\n", __func__);
 out:
-	mutex_unlock(&chg_data->chip->io_lock);
+	rt_mutex_unlock(&chg_data->chip->io_lock);
 	return ret;
 }
 
@@ -1513,7 +1486,7 @@ static int __mt6370_set_ichg(struct mt6370_pmu_charger_data *chg_data, u32 uA)
 
 	uA = (uA < 500000) ? 500000 : uA;
 
-	if (chg_data->chip->chip_vid == 0xe0) {
+	if (chg_data->chip->chip_vid != 0xf0) {
 		ret = mt6370_ichg_workaround(chg_data, uA);
 		if (ret < 0)
 			dev_info(chg_data->dev, "%s: workaround fail\n",
@@ -2822,7 +2795,7 @@ static int mt6370_toggle_cfo(struct mt6370_pmu_charger_data *chg_data)
 	int ret = 0;
 	u8 data = 0;
 
-	mutex_lock(&chg_data->chip->io_lock);
+	rt_mutex_lock(&chg_data->chip->io_lock);
 
 	/* check if strobe mode */
 	ret = i2c_smbus_read_i2c_block_data(chg_data->chip->i2c,
@@ -2861,7 +2834,7 @@ static int mt6370_toggle_cfo(struct mt6370_pmu_charger_data *chg_data)
 		dev_err(chg_data->dev, "%s: cfo on fail\n", __func__);
 
 out:
-	mutex_unlock(&chg_data->chip->io_lock);
+	rt_mutex_unlock(&chg_data->chip->io_lock);
 	return ret;
 }
 
@@ -3748,7 +3721,7 @@ static struct charger_ops mt6370_chg_ops = {
 	.send_ta_current_pattern = mt6370_set_pep_current_pattern,
 	.set_pe20_efficiency_table = mt6370_set_pep20_efficiency_table,
 	.send_ta20_current_pattern = mt6370_set_pep20_current_pattern,
-	.reset_ta = mt6370_set_pep20_reset,
+	.set_ta20_reset = mt6370_set_pep20_reset,
 	.enable_cable_drop_comp = mt6370_enable_cable_drop_comp,
 
 	/* ADC */
@@ -3878,6 +3851,10 @@ static int mt6370_pmu_charger_probe(struct platform_device *pdev)
 && !defined(CONFIG_TCPC_CLASS)
 	INIT_WORK(&chg_data->chgdet_work, mt6370_chgdet_work_handler);
 #endif /* CONFIG_MT6370_PMU_CHARGER_TYPE_DETECT && !CONFIG_TCPC_CLASS */
+
+	chg_data->usb_switch = switch_dev_get_by_name("usb_switch");
+	if (!chg_data->usb_switch)
+		dev_err(chg_data->dev, "%s: get usb switch failed\n", __func__);
 
 	/* Get chg type det power supply */
 	chg_data->psy = power_supply_get_by_name("charger");
@@ -4013,7 +3990,7 @@ MODULE_VERSION(MT6370_PMU_CHARGER_DRV_VERSION);
 /*
  * Version Note
  * 1.1.24_MTK
- * (1) Add debug information for ADC
+ * (1) Add debug information for TEMP_JC
  *
  * 1.1.23_MTK
  * (1) Use bc12_access_lock instead of chgdet_lock

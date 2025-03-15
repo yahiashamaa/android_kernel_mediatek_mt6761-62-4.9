@@ -15,6 +15,7 @@
 #undef DFT_TAG
 #endif
 #define DFT_TAG "[CONNADP]"
+
 #include "connectivity_build_in_adapter.h"
 
 #include <kernel/sched/sched.h>
@@ -34,7 +35,7 @@
 #include <linux/interrupt.h>
 
 #ifdef CONFIG_MTK_MT6306_GPIO_SUPPORT
-#include <mtk_6306_gpio.h>
+#include <mach/mtk_6306_gpio.h>
 #endif
 
 #ifdef CONNADP_HAS_CLOCK_BUF_CTRL
@@ -42,7 +43,9 @@
 #endif
 
 /* PMIC */
+#if defined(CONNADP_HAS_PMIC_API) || defined(CONNADP_HAS_UPMU_VCN_CTRL)
 #include <upmu_common.h>
+#endif
 
 /* MMC */
 #include <linux/mmc/card.h>
@@ -50,6 +53,7 @@
 #include <sdio_ops.h>
 
 #include "mtk_spm_resource_req.h"
+#include <mtk_sleep.h>
 
 #ifdef CONFIG_ARCH_MT6570
 #define CPU_BOOST y
@@ -65,24 +69,20 @@
 #endif
 
 #ifdef CPU_BOOST
-#include "mtk_ppm_api.h"
+#include "mach/mtk_ppm_api.h"
 #endif
+
 
 phys_addr_t gConEmiPhyBase;
 EXPORT_SYMBOL(gConEmiPhyBase);
+
 unsigned long long gConEmiSize;
 EXPORT_SYMBOL(gConEmiSize);
 
-phys_addr_t gWifiRsvMemPhyBase;
-EXPORT_SYMBOL(gWifiRsvMemPhyBase);
-unsigned long long gWifiRsvMemSize;
-EXPORT_SYMBOL(gWifiRsvMemSize);
-
 /*Reserved memory by device tree!*/
-
 int reserve_memory_consys_fn(struct reserved_mem *rmem)
 {
-	pr_info(DFT_TAG "[W]%s: name: %s,base: 0x%llx,size: 0x%llx\n",
+	pr_info(DFT_TAG "%s: name: %s, base: 0x%llx, size: 0x%llx\n",
 		__func__, rmem->name, (unsigned long long)rmem->base,
 		(unsigned long long)rmem->size);
 	gConEmiPhyBase = rmem->base;
@@ -90,20 +90,8 @@ int reserve_memory_consys_fn(struct reserved_mem *rmem)
 	return 0;
 }
 
-RESERVEDMEM_OF_DECLARE(reserve_memory_test, "mediatek,consys-reserve-memory",
-			reserve_memory_consys_fn);
+RESERVEDMEM_OF_DECLARE(reserve_memory_test, "mediatek,consys-reserve-memory", reserve_memory_consys_fn);
 
-int reserve_memory_wifi_fn(struct reserved_mem *rmem)
-{
-	pr_info(DFT_TAG "[W]%s: name: %s,base: 0x%llx,size: 0x%llx\n",
-		__func__, rmem->name, (unsigned long long)rmem->base,
-		(unsigned long long)rmem->size);
-	gWifiRsvMemPhyBase = rmem->base;
-	gWifiRsvMemSize = rmem->size;
-	return 0;
-}
-RESERVEDMEM_OF_DECLARE(reserve_memory_wifi, "mediatek,wifi-reserve-memory",
-		       reserve_memory_wifi_fn);
 
 void connectivity_export_show_stack(struct task_struct *tsk, unsigned long *sp)
 {
@@ -117,41 +105,46 @@ void connectivity_export_tracing_record_cmdline(struct task_struct *tsk)
 }
 EXPORT_SYMBOL(connectivity_export_tracing_record_cmdline);
 
+unsigned int connectivity_export_slp_get_wake_reason(void)
+{
+	return slp_get_wake_reason();
+}
+EXPORT_SYMBOL(connectivity_export_slp_get_wake_reason);
+
+unsigned int connectivity_export_spm_get_last_wakeup_src(void)
+{
+	return spm_get_last_wakeup_src();
+}
+EXPORT_SYMBOL(connectivity_export_spm_get_last_wakeup_src);
+
 #ifdef CPU_BOOST
-bool connectivity_export_spm_resource_req(unsigned int user,
-					  unsigned int req_mask)
+bool connectivity_export_spm_resource_req(unsigned int user, unsigned int req_mask)
 {
 	return spm_resource_req(user, req_mask);
 }
 EXPORT_SYMBOL(connectivity_export_spm_resource_req);
 
-void connectivity_export_mt_ppm_sysboost_freq(enum ppm_sysboost_user user,
-					      unsigned int freq)
+void connectivity_export_mt_ppm_sysboost_freq(enum ppm_sysboost_user user, unsigned int freq)
 {
 	mt_ppm_sysboost_freq(user, freq);
 }
 EXPORT_SYMBOL(connectivity_export_mt_ppm_sysboost_freq);
 
-void connectivity_export_mt_ppm_sysboost_core(enum ppm_sysboost_user user,
-					      unsigned int core_num)
+void connectivity_export_mt_ppm_sysboost_core(enum ppm_sysboost_user user, unsigned int core_num)
 {
 	mt_ppm_sysboost_core(user, core_num);
 }
 EXPORT_SYMBOL(connectivity_export_mt_ppm_sysboost_core);
 
-void connectivity_export_mt_ppm_sysboost_set_core_limit(
-				enum ppm_sysboost_user user,
-				unsigned int cluster,
-				int min_core, int max_core)
+void connectivity_export_mt_ppm_sysboost_set_core_limit(enum ppm_sysboost_user user, unsigned int cluster,
+							int min_core, int max_core)
 {
 	mt_ppm_sysboost_set_core_limit(user, cluster, min_core, max_core);
 }
 EXPORT_SYMBOL(connectivity_export_mt_ppm_sysboost_set_core_limit);
 
-void connectivity_export_mt_ppm_sysboost_set_freq_limit(
-				enum ppm_sysboost_user user,
-				unsigned int cluster,
-				int min_freq, int max_freq)
+void connectivity_export_mt_ppm_sysboost_set_freq_limit(enum ppm_sysboost_user user, unsigned int cluster,
+							int min_freq, int max_freq)
 {
 	mt_ppm_sysboost_set_freq_limit(user, cluster, min_freq, max_freq);
 }
@@ -162,26 +155,30 @@ EXPORT_SYMBOL(connectivity_export_mt_ppm_sysboost_set_freq_limit);
  * Clock Buffer Control
  ******************************************************************************/
 #ifdef CONNADP_HAS_CLOCK_BUF_CTRL
-void connectivity_export_clk_buf_ctrl(enum clk_buf_id id, bool onoff)
+void connectivity_export_clk_buf_ctrl(/*enum clk_buf_id*/ int id, bool onoff)
 {
 	clk_buf_ctrl(id, onoff);
 }
 EXPORT_SYMBOL(connectivity_export_clk_buf_ctrl);
+
+bool connectivity_export_is_clk_buf_from_pmic(void)
+{
+	return is_clk_buf_from_pmic();
+}
+EXPORT_SYMBOL(connectivity_export_is_clk_buf_from_pmic);
 #endif
 
 /*******************************************************************************
  * MT6306 I2C-based GPIO Expander
  ******************************************************************************/
 #ifdef CONFIG_MTK_MT6306_GPIO_SUPPORT
-void connectivity_export_mt6306_set_gpio_out(unsigned long pin,
-					unsigned long output)
+void connectivity_export_mt6306_set_gpio_out(unsigned long pin, unsigned long output)
 {
 	mt6306_set_gpio_out(MT6306_GPIO_01, MT6306_GPIO_OUT_LOW);
 }
 EXPORT_SYMBOL(connectivity_export_mt6306_set_gpio_out);
 
-void connectivity_export_mt6306_set_gpio_dir(unsigned long pin,
-					unsigned long dir)
+void connectivity_export_mt6306_set_gpio_dir(unsigned long pin, unsigned long dir)
 {
 	mt6306_set_gpio_dir(MT6306_GPIO_01, MT6306_GPIO_DIR_OUT);
 }
@@ -192,108 +189,61 @@ EXPORT_SYMBOL(connectivity_export_mt6306_set_gpio_dir);
  * PMIC
  ******************************************************************************/
 #ifdef CONNADP_HAS_PMIC_API
-void connectivity_export_pmic_config_interface(unsigned int RegNum,
-		unsigned int val, unsigned int MASK, unsigned int SHIFT)
+void connectivity_export_pmic_config_interface(unsigned int RegNum, unsigned int val,
+					unsigned int MASK, unsigned int SHIFT)
 {
 	pmic_config_interface(RegNum, val, MASK, SHIFT);
 }
 EXPORT_SYMBOL(connectivity_export_pmic_config_interface);
 
-void connectivity_export_pmic_read_interface(unsigned int RegNum,
-		unsigned int *val, unsigned int MASK, unsigned int SHIFT)
+void connectivity_export_pmic_read_interface(unsigned int RegNum, unsigned int *val,
+					unsigned int MASK, unsigned int SHIFT)
 {
 	pmic_read_interface(RegNum, val, MASK, SHIFT);
 }
 EXPORT_SYMBOL(connectivity_export_pmic_read_interface);
 
-void connectivity_export_pmic_set_register_value(int flagname, unsigned int val)
+void connectivity_export_pmic_set_register_value(/*PMU_FLAGS_LIST_ENUM*/ int flagname, unsigned int val)
 {
 	pmic_set_register_value(flagname, val);
 }
 EXPORT_SYMBOL(connectivity_export_pmic_set_register_value);
 
-unsigned short connectivity_export_pmic_get_register_value(int flagname)
+unsigned short connectivity_export_pmic_get_register_value(/*PMU_FLAGS_LIST_ENUM*/ int flagname)
 {
 	return pmic_get_register_value(flagname);
 }
 EXPORT_SYMBOL(connectivity_export_pmic_get_register_value);
 
-void connectivity_export_upmu_set_reg_value(unsigned int reg,
-		unsigned int reg_val)
+void connectivity_export_upmu_set_reg_value(unsigned int reg, unsigned int reg_val)
 {
 	upmu_set_reg_value(reg, reg_val);
 }
 EXPORT_SYMBOL(connectivity_export_upmu_set_reg_value);
 #endif
 #ifdef CONNADP_HAS_UPMU_VCN_CTRL
-void connectivity_export_upmu_set_vcn_1v8_lp_mode_set(unsigned int val)
+void connectivity_export_upmu_set_vcn35_on_ctrl_bt(unsigned int val)
 {
-	upmu_set_vcn_1v8_lp_mode_set(val);
+	upmu_set_vcn35_on_ctrl_bt(val);
 }
-EXPORT_SYMBOL(connectivity_export_upmu_set_vcn_1v8_lp_mode_set);
+EXPORT_SYMBOL(connectivity_export_upmu_set_vcn35_on_ctrl_bt);
 
-void connectivity_export_upmu_set_vcn28_on_ctrl(unsigned int val)
+void connectivity_export_upmu_set_vcn35_on_ctrl_wifi(unsigned int val)
 {
-	upmu_set_vcn28_on_ctrl(val);
+	upmu_set_vcn35_on_ctrl_wifi(val);
 }
-EXPORT_SYMBOL(connectivity_export_upmu_set_vcn28_on_ctrl);
-
-void connectivity_export_upmu_set_vcn33_on_ctrl_bt(unsigned int val)
-{
-	upmu_set_vcn33_on_ctrl_bt(val);
-}
-EXPORT_SYMBOL(connectivity_export_upmu_set_vcn33_on_ctrl_bt);
-
-void connectivity_export_upmu_set_vcn33_on_ctrl_wifi(unsigned int val)
-{
-	upmu_set_vcn33_on_ctrl_wifi(val);
-}
-EXPORT_SYMBOL(connectivity_export_upmu_set_vcn33_on_ctrl_wifi);
+EXPORT_SYMBOL(connectivity_export_upmu_set_vcn35_on_ctrl_wifi);
 #endif
+
 /*******************************************************************************
  * MMC
  ******************************************************************************/
-int connectivity_export_mmc_io_rw_direct(struct mmc_card *card,
-				int write, unsigned int fn,
-				unsigned int addr, u8 in, u8 *out)
+int connectivity_export_mmc_io_rw_direct(struct mmc_card *card, int write, unsigned fn,
+				unsigned addr, u8 in, u8 *out)
 {
 	return mmc_io_rw_direct(card, write, fn, addr, in, out);
 }
 EXPORT_SYMBOL(connectivity_export_mmc_io_rw_direct);
-
-void connectivity_flush_dcache_area(void *addr, size_t len)
-{
-#ifdef CONFIG_ARM64
-	__flush_dcache_area(addr, len);
-#else
-	v7_flush_kern_dcache_area(addr, len);
-#endif
-}
-EXPORT_SYMBOL(connectivity_flush_dcache_area);
-
-void connectivity_arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
-				     struct iommu_ops *iommu, bool coherent)
-{
-	arch_setup_dma_ops(dev, dma_base, size, iommu, coherent);
-}
-EXPORT_SYMBOL(connectivity_arch_setup_dma_ops);
-
-/******************************************************************************
- * GPIO dump information
- ******************************************************************************/
-#ifndef CONFIG_MTK_GPIO
-void __weak gpio_dump_regs_range(int start, int end)
-{
-	pr_info(DFT_TAG "[W]%s: is not define!\n", __func__);
-}
-#endif
-#ifndef CONFIG_MTK_GPIO
-void connectivity_export_dump_gpio_info(int start, int end)
-{
-	gpio_dump_regs_range(start, end);
-}
-EXPORT_SYMBOL(connectivity_export_dump_gpio_info);
-#endif
 
 void connectivity_export_dump_thread_state(const char *name)
 {
@@ -305,7 +255,7 @@ void connectivity_export_dump_thread_state(const char *name)
 	struct thread_info *ti;
 
 	if (name == NULL || strlen(name) > 255) {
-		pr_info("invalid name:%p or thread name too long\n", name);
+		pr_info("invalid pointer:%p or thread name length too long\n", name);
 		return;
 	}
 
@@ -339,3 +289,14 @@ void connectivity_export_dump_thread_state(const char *name)
 	rcu_read_unlock();
 }
 EXPORT_SYMBOL(connectivity_export_dump_thread_state);
+
+/******************************************************************************
+ * GPIO dump information
+ ******************************************************************************/
+#ifndef CONFIG_MTK_GPIO
+void connectivity_export_dump_gpio_info(int start, int end)
+{
+	gpio_dump_regs_range(start, end);
+}
+EXPORT_SYMBOL(connectivity_export_dump_gpio_info);
+#endif

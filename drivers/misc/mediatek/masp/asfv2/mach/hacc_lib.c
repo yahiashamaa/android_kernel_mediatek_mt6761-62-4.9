@@ -33,7 +33,7 @@
 /* return the result of hwEnableClock ( )
  * - TRUE  (1) means crypto engine init success
  * - false (0) means crypto engine init fail
- */
+*/
 unsigned char masp_hal_secure_algo_init(void)
 {
 	bool ret = true;
@@ -44,7 +44,7 @@ unsigned char masp_hal_secure_algo_init(void)
 /* return the result of hwDisableClock ( )
  * - true  (1) means crypto engine de-init success
  * - false (0) means crypto engine de-init fail
- */
+*/
 unsigned char masp_hal_secure_algo_deinit(void)
 {
 	bool ret = true;
@@ -62,7 +62,7 @@ unsigned char masp_hal_secure_algo_deinit(void)
  *  @ ContentLen  : input source length
  *  @ CustomSeed  : customization seed for crypto engine
  *  @ ResText     : output destination address
- */
+*/
 void masp_hal_secure_algo(unsigned char Direction, unsigned char *ContentAddr,
 			  unsigned int ContentLen, unsigned char *CustomSeed,
 			  unsigned char *ResText)
@@ -73,9 +73,7 @@ void masp_hal_secure_algo(unsigned char Direction, unsigned char *ContentAddr,
 
 	/* try to get hacc lock */
 	do {
-		/* If the semaphore is successfully acquired, this function
-		 * returns 0.
-		 */
+		/* If the semaphore is successfully acquired, this function returns 0. */
 		err = osal_hacc_lock();
 	} while (err != 0);
 
@@ -84,7 +82,7 @@ void masp_hal_secure_algo(unsigned char Direction, unsigned char *ContentAddr,
 	err = masp_hal_sp_hacc_init(seed, _CRYPTO_SEED_LEN);
 
 	if (err != SEC_OK)
-		goto error;
+		goto _error;
 
 	/* initialize source and destination address */
 	src = (unsigned char *)ContentAddr;
@@ -96,23 +94,21 @@ void masp_hal_secure_algo(unsigned char Direction, unsigned char *ContentAddr,
 		/* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
 		/* ! CCCI driver already got HACC lock ! */
 		/* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
-		dst = masp_hal_sp_hacc_enc((unsigned char *)src,
-					   ContentLen,
-					   true, HACC_USER3, false);
+		dst =
+		    masp_hal_sp_hacc_enc((unsigned char *)src, ContentLen, true, HACC_USER3, false);
 		break;
 
 	case false:
 		/* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
 		/* ! CCCI driver already got HACC lock ! */
 		/* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
-		dst = masp_hal_sp_hacc_dec((unsigned char *)src,
-					   ContentLen,
-					   true, HACC_USER3, false);
+		dst =
+		    masp_hal_sp_hacc_dec((unsigned char *)src, ContentLen, true, HACC_USER3, false);
 		break;
 
 	default:
 		err = ERR_KER_CRYPTO_INVALID_MODE;
-		goto error;
+		goto _error;
 	}
 
 
@@ -125,10 +121,10 @@ void masp_hal_secure_algo(unsigned char Direction, unsigned char *ContentAddr,
 
 	return;
 
-error:
+_error:
 	/* try to release hacc lock */
 	osal_hacc_unlock();
 
-	pr_notice("[%s] masp_hal_secure_algo error (0x%x)\n", MOD, err);
-	WARN_ON(!(0));
+	pr_err("[%s] masp_hal_secure_algo error (0x%x)\n", MOD, err);
+	BUG_ON(!(0));
 }

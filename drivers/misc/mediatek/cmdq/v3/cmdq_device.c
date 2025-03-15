@@ -12,12 +12,10 @@
  */
 
 #include "cmdq_device.h"
+#include "cmdq_core.h"
 #include "cmdq_virtual.h"
-#include "cmdq_helper_ext.h"
-
-#ifdef CMDQ_CONFIG_SMI
 #include "smi_public.h"
-#endif
+#include "cmdq_event_common.h"
 
 /* device tree */
 #include <linux/of.h>
@@ -36,25 +34,25 @@ struct CmdqDeviceStruct {
 	struct clk *clk_gce_timer;
 	long regBaseVA;		/* considering 64 bit kernel, use long */
 	phys_addr_t regBasePA;
-	u32 irqId;
-	u32 irqSecId;
-	s32 dma_mask_result;
+	uint32_t irqId;
+	uint32_t irqSecId;
+	int32_t dma_mask_result;
 };
 static struct CmdqDeviceStruct gCmdqDev;
 static u32 gThreadCount;
-static u32 gMMSYSDummyRegOffset;
+static uint32_t gMMSYSDummyRegOffset;
 
 struct device *cmdq_dev_get(void)
 {
 	return gCmdqDev.pDev;
 }
 
-u32 cmdq_dev_get_irq_id(void)
+uint32_t cmdq_dev_get_irq_id(void)
 {
 	return gCmdqDev.irqId;
 }
 
-u32 cmdq_dev_get_irq_secure_id(void)
+uint32_t cmdq_dev_get_irq_secure_id(void)
 {
 	return gCmdqDev.irqSecId;
 }
@@ -69,7 +67,7 @@ phys_addr_t cmdq_dev_get_module_base_PA_GCE(void)
 	return gCmdqDev.regBasePA;
 }
 
-s32 cmdq_dev_get_dma_mask_result(void)
+int32_t cmdq_dev_get_dma_mask_result(void)
 {
 	return gCmdqDev.dma_mask_result;
 }
@@ -79,7 +77,7 @@ u32 cmdq_dev_get_thread_count(void)
 	return gThreadCount;
 }
 
-u32 cmdq_dev_get_mmsys_dummy_reg_offset(void)
+uint32_t cmdq_dev_get_mmsys_dummy_reg_offset(void)
 {
 	return gMMSYSDummyRegOffset;
 }
@@ -103,8 +101,10 @@ unsigned long cmdq_dev_alloc_reference_VA_by_name(const char *ref_name)
 	if (node) {
 		VA = (unsigned long)of_iomap(node, 0);
 		of_node_put(node);
+		CMDQ_LOG("DEV: VA ref(%s): 0x%lx\n", ref_name, VA);
+	} else {
+		CMDQ_ERR("DEV: cannot parse node name:%s\n", ref_name);
 	}
-	CMDQ_LOG("DEV: VA ref(%s):0x%lx\n", ref_name, VA);
 	return VA;
 }
 
@@ -117,10 +117,12 @@ void cmdq_dev_free_module_base_VA(const long VA)
 phys_addr_t cmdq_dev_get_gce_node_PA(struct device_node *node, int index)
 {
 	struct resource res;
+	int status;
 	phys_addr_t regBasePA = 0L;
 
 	do {
-		if (of_address_to_resource(node, index, &res) < 0)
+		status = of_address_to_resource(node, index, &res);
+		if (status < 0)
 			break;
 
 		regBasePA = (0L | res.start);
@@ -130,27 +132,26 @@ phys_addr_t cmdq_dev_get_gce_node_PA(struct device_node *node, int index)
 }
 
 #define IMP_ENABLE_HW_CLOCK(FN_NAME, HW_NAME)	\
-u32 cmdq_dev_enable_clock_##FN_NAME(bool enable)	\
-{	\
-	return cmdq_dev_enable_device_clock(enable,	\
-		gCmdqModuleClock.clk_##HW_NAME, #HW_NAME "-clk");	\
+uint32_t cmdq_dev_enable_clock_##FN_NAME(bool enable)	\
+{		\
+	return cmdq_dev_enable_device_clock(enable, gCmdqModuleClock.clk_##HW_NAME, #HW_NAME "-clk");	\
 }
 
-void cmdq_dev_get_module_clock_by_dev(struct device *dev,
-	const char *clkName, struct clk **clk_module)
+void cmdq_dev_get_module_clock_by_dev(struct device *dev, const char *clkName,
+				      struct clk **clk_module)
 {
 	*clk_module = devm_clk_get(dev, clkName);
 	if (IS_ERR(*clk_module)) {
 		/* error status print */
-		CMDQ_ERR("DEV: cannot get module clock:%s\n", clkName);
+		CMDQ_ERR("DEV: cannot get module clock: %s\n", clkName);
 	} else {
 		/* message print */
-		CMDQ_MSG("DEV: get module clock:%s\n", clkName);
+		CMDQ_MSG("DEV: get module clock: %s\n", clkName);
 	}
 }
 
-void cmdq_dev_get_module_clock_by_name(const char *ref_name,
-	const char *clkName, struct clk **clk_module)
+void cmdq_dev_get_module_clock_by_name(const char *ref_name, const char *clkName,
+				       struct clk **clk_module)
 {
 	struct device_node *node = NULL;
 
@@ -159,30 +160,28 @@ void cmdq_dev_get_module_clock_by_name(const char *ref_name,
 	*clk_module = of_clk_get_by_name(node, clkName);
 	if (IS_ERR(*clk_module)) {
 		/* error status print */
-		CMDQ_ERR("DEV: byName: cannot get module clock:%s\n", clkName);
+		CMDQ_ERR("DEV: byName: cannot get module clock: %s\n", clkName);
 	} else {
 		/* message print */
-		CMDQ_MSG("DEV: byName: get module clock:%s\n", clkName);
+		CMDQ_MSG("DEV: byName: get module clock: %s\n", clkName);
 	}
 }
 
-u32 cmdq_dev_enable_device_clock(bool enable,
-	struct clk *clk_module, const char *clkName)
+uint32_t cmdq_dev_enable_device_clock(bool enable, struct clk *clk_module, const char *clkName)
 {
 	int result = 0;
 
 	if (IS_ERR(clk_module)) {
-		CMDQ_LOG("[WARN]clock module does not support:%s\n", clkName);
+		CMDQ_ERR("clock module does not support: %s\n", clkName);
 		return PTR_ERR(clk_module);
 	}
 
 	if (enable) {
 		result = clk_prepare_enable(clk_module);
-		CMDQ_MSG("enable clock with module: %s, result:%d\n",
-			clkName, result);
+		CMDQ_MSG("enable clock with module: %s, result: %d\n", clkName, result);
 	} else {
 		clk_disable_unprepare(clk_module);
-		CMDQ_MSG("disable clock with module:%s\n", clkName);
+		CMDQ_MSG("disable clock with module: %s\n", clkName);
 	}
 
 	return result;
@@ -203,8 +202,7 @@ void cmdq_dev_enable_gce_clock(bool enable)
 {
 	cmdq_dev_enable_device_clock(enable, gCmdqDev.clk_gce, "gce-clk");
 	if (!IS_ERR(gCmdqDev.clk_gce_timer))
-		cmdq_dev_enable_device_clock(enable, gCmdqDev.clk_gce_timer,
-			"gce-clk-timer");
+		cmdq_dev_enable_device_clock(enable, gCmdqDev.clk_gce_timer, "gce-clk-timer");
 }
 
 bool cmdq_dev_gce_clock_is_enable(void)
@@ -221,7 +219,7 @@ phys_addr_t cmdq_dev_get_reference_PA(const char *ref_name, int index)
 
 	do {
 		node = of_parse_phandle(gCmdqDev.pDev->of_node, ref_name, 0);
-		if (!node)
+		if (node == NULL)
 			break;
 
 		status = of_address_to_resource(node, index, &res);
@@ -229,8 +227,7 @@ phys_addr_t cmdq_dev_get_reference_PA(const char *ref_name, int index)
 			break;
 
 		start_pa = res.start;
-		CMDQ_LOG("DEV: PA ref(%s): start:%pa\n",
-			ref_name, &start_pa);
+		CMDQ_LOG("DEV: PA ref(%s): start = %pa\n", ref_name, &start_pa);
 	} while (0);
 
 	if (node)
@@ -241,7 +238,7 @@ phys_addr_t cmdq_dev_get_reference_PA(const char *ref_name, int index)
 /* Get MDP base address to user space */
 void cmdq_dev_init_MDP_PA(struct device_node *node)
 {
-	u32 *pMDPBaseAddress = cmdq_core_get_dts_data()->MDPBaseAddress;
+	uint32_t *pMDPBaseAddress = cmdq_core_get_whole_DTS_Data()->MDPBaseAddress;
 	phys_addr_t module_pa_start = 0;
 
 	module_pa_start = cmdq_dev_get_reference_PA("mm_mutex", 0);
@@ -250,26 +247,23 @@ void cmdq_dev_init_MDP_PA(struct device_node *node)
 		CMDQ_ERR("DEV: init mm_mutex PA fail!!\n");
 	else
 		pMDPBaseAddress[CMDQ_MDP_PA_BASE_MM_MUTEX] = module_pa_start;
-	CMDQ_MSG("MM_MUTEX PA: start:0x%x\n",
-		pMDPBaseAddress[CMDQ_MDP_PA_BASE_MM_MUTEX]);
+	CMDQ_MSG("MM_MUTEX PA: start = 0x%x\n", pMDPBaseAddress[CMDQ_MDP_PA_BASE_MM_MUTEX]);
 }
 
-void cmdq_dev_get_subsys_by_name(struct device_node *node,
-	enum CMDQ_SUBSYS_ENUM subsys,
-	const char *grp_name, const char *dts_name)
+void cmdq_dev_get_subsys_by_name(struct device_node *node, enum CMDQ_SUBSYS_ENUM subsys,
+				  const char *grp_name, const char *dts_name)
 {
 	int status;
-	u32 gceSubsys[3] = { 0, 0, 0 };
+	uint32_t gceSubsys[3] = { 0, 0, 0 };
 	struct SubsysStruct *gceSubsysStruct = NULL;
 
 	do {
-		if (subsys < 0 || subsys >= (u32)CMDQ_SUBSYS_MAX_COUNT)
+		if (subsys < 0 || subsys >= CMDQ_SUBSYS_MAX_COUNT)
 			break;
 
-		gceSubsysStruct = cmdq_core_get_dts_data()->subsys;
+		gceSubsysStruct = cmdq_core_get_whole_DTS_Data()->subsys;
 
-		status = of_property_read_u32_array(node, dts_name,
-			gceSubsys, ARRAY_SIZE(gceSubsys));
+		status = of_property_read_u32_array(node, dts_name, gceSubsys, ARRAY_SIZE(gceSubsys));
 		if (status < 0) {
 			gceSubsysStruct[subsys].subsysID = -1;
 			break;
@@ -278,8 +272,7 @@ void cmdq_dev_get_subsys_by_name(struct device_node *node,
 		gceSubsysStruct[subsys].msb = gceSubsys[0] & gceSubsys[2];
 		gceSubsysStruct[subsys].subsysID = gceSubsys[1];
 		gceSubsysStruct[subsys].mask = gceSubsys[2];
-		strncpy(gceSubsysStruct[subsys].grpName, grp_name,
-			CMDQ_SUBSYS_GRPNAME_MAX-1);
+		strncpy(gceSubsysStruct[subsys].grpName, grp_name, CMDQ_SUBSYS_GRPNAME_MAX-1);
 	} while (0);
 }
 
@@ -288,15 +281,13 @@ void cmdq_dev_test_subsys_correctness_impl(enum CMDQ_SUBSYS_ENUM subsys)
 	struct SubsysStruct *gceSubsysStruct = NULL;
 
 	if (subsys >= 0 && subsys < CMDQ_SUBSYS_MAX_COUNT) {
-		gceSubsysStruct = cmdq_core_get_dts_data()->subsys;
+		gceSubsysStruct = cmdq_core_get_whole_DTS_Data()->subsys;
 
 		if (gceSubsysStruct[subsys].subsysID != -1) {
 			/* print subsys information from device tree */
-			CMDQ_LOG("(%s) msb:0x%08x, %d, 0x%08x\n",
-				gceSubsysStruct[subsys].grpName,
-				gceSubsysStruct[subsys].msb,
-				gceSubsysStruct[subsys].subsysID,
-				gceSubsysStruct[subsys].mask);
+			CMDQ_LOG("(%s), msb: 0x%08x, %d, 0x%08x\n",
+				gceSubsysStruct[subsys].grpName, gceSubsysStruct[subsys].msb,
+				gceSubsysStruct[subsys].subsysID, gceSubsysStruct[subsys].mask);
 		}
 	}
 }
@@ -312,14 +303,13 @@ void cmdq_dev_init_subsys(struct device_node *node)
 				subsys[i].name);
 }
 
-void cmdq_dev_get_event_value_by_name(struct device_node *node,
-	enum cmdq_event event, const char *dts_name)
+void cmdq_dev_get_event_value_by_name(struct device_node *node, enum CMDQ_EVENT_ENUM event, const char *dts_name)
 {
 	s32 status;
 	s32 event_value = -1;
 
 	do {
-		if (event < 0 || event >= (u32)CMDQ_MAX_HW_EVENT_COUNT)
+		if (event < 0 || event >= CMDQ_MAX_HW_EVENT_COUNT)
 			break;
 
 		status = of_property_read_u32(node, dts_name, &event_value);
@@ -330,14 +320,14 @@ void cmdq_dev_get_event_value_by_name(struct device_node *node,
 	} while (0);
 }
 
-void cmdq_dev_test_event_correctness_impl(enum cmdq_event event,
+void cmdq_dev_test_event_correctness_impl(enum CMDQ_EVENT_ENUM event,
 	const char *dts_name, const char *event_name)
 {
-	s32 eventValue = cmdq_core_get_event_value(event);
+	int32_t eventValue = cmdq_core_get_event_value(event);
 
-	if (eventValue >= 0 && eventValue < (u32)CMDQ_SYNC_TOKEN_MAX) {
+	if (eventValue >= 0 && eventValue < CMDQ_SYNC_TOKEN_MAX) {
 		/* print event name from device tree */
-		if (event < (u32)CMDQ_MAX_HW_EVENT_COUNT)
+		if (event < CMDQ_MAX_HW_EVENT_COUNT)
 			CMDQ_LOG("%s = %d\n", dts_name, eventValue);
 		else
 			CMDQ_LOG("%s = %d\n", event_name, eventValue);
@@ -351,10 +341,9 @@ void cmdq_dev_init_event_table(struct device_node *node)
 	u32 i = 0;
 
 	for (i = 0; i < table_size; i++) {
-		if (events[i].event == (u32)CMDQ_MAX_HW_EVENT_COUNT)
+		if (events[i].event == CMDQ_MAX_HW_EVENT_COUNT)
 			break;
-		cmdq_dev_get_event_value_by_name(node, events[i].event,
-			events[i].dts_name);
+		cmdq_dev_get_event_value_by_name(node, events[i].event, events[i].dts_name);
 	}
 }
 
@@ -381,22 +370,19 @@ void cmdq_dev_get_dts_setting(struct cmdq_dts_setting *dts_setting)
 		&sram_size_cpr_64);
 	if (ret != 0 || !sram_size_cpr_64) {
 		dts_setting->cpr_size = gThreadCount * CMDQ_THR_FREE_CPR_MAX;
-		CMDQ_ERR("sram_size_cpr_64 not support, default:%u\n",
-			dts_setting->cpr_size);
+		CMDQ_ERR("sram_size_cpr_64 not support, default:%u\n", dts_setting->cpr_size);
 	} else {
 		/* CPRs are 32bit register, device tree count in 64bit */
 		dts_setting->cpr_size = sram_size_cpr_64 * 2;
-		CMDQ_LOG("free CPR size:%u thread:%u\n",
-			dts_setting->cpr_size, gThreadCount);
+		CMDQ_LOG("free CPR size:%u thread:%u\n", dts_setting->cpr_size, gThreadCount);
 	}
 
 	ret = of_property_read_u32(gCmdqDev.pDev->of_node,
 		"max_prefetch_cnt", &dts_setting->prefetch_thread_count);
 	if (ret == 0) {
 		/* read prefetch array base on count */
-		ret = of_property_read_u32_array(gCmdqDev.pDev->of_node,
-			"prefetch_size", dts_setting->prefetch_size,
-			dts_setting->prefetch_thread_count);
+		ret = of_property_read_u32_array(gCmdqDev.pDev->of_node, "prefetch_size",
+			dts_setting->prefetch_size, dts_setting->prefetch_thread_count);
 		if (ret != 0) {
 			/* print log but do notify error hw setting */
 			CMDQ_ERR("read prefetch size fail\n");
@@ -414,29 +400,29 @@ void cmdq_dev_get_dts_setting(struct cmdq_dts_setting *dts_setting)
 void cmdq_dev_init_resource(CMDQ_DEV_INIT_RESOURCE_CB init_cb)
 {
 	int status, index;
-	u32 count;
+	uint32_t count;
 
-	status = of_property_read_u32(gCmdqDev.pDev->of_node,
-		"sram_share_cnt", &count);
-	if (status < 0)
-		return;
-
-	for (index = 0; index < count; index++) {
-		u32 engine, event;
-
-		status = of_property_read_u32_index(
-			gCmdqDev.pDev->of_node, "sram_share_engine",
-			index, &engine);
+	do {
+		status = of_property_read_u32(gCmdqDev.pDev->of_node,
+			"sram_share_cnt", &count);
 		if (status < 0)
-			return;
-		status = of_property_read_u32_index(
-			gCmdqDev.pDev->of_node, "sram_share_event",
-			index, &event);
-		if (status < 0)
-			return;
-		if (init_cb != NULL)
-			init_cb(engine, event);
-	}
+			break;
+
+		for (index = 0; index < count; index++) {
+			uint32_t engine, event;
+
+			status = of_property_read_u32_index(gCmdqDev.pDev->of_node, "sram_share_engine",
+				index, &engine);
+			if (status < 0)
+				break;
+			status = of_property_read_u32_index(gCmdqDev.pDev->of_node, "sram_share_event",
+				index, &event);
+			if (status < 0)
+				break;
+			if (init_cb != NULL)
+				init_cb(engine, event);
+		}
+	} while (0);
 }
 
 void cmdq_dev_init_device_tree(struct device_node *node)
@@ -448,7 +434,7 @@ void cmdq_dev_init_device_tree(struct device_node *node)
 
 	gThreadCount = 16;
 	gMMSYSDummyRegOffset = 0;
-	cmdq_core_init_dts_data();
+	cmdq_core_init_DTS_data();
 	status = of_property_read_u32(node, "thread_count", &thread_count);
 	if (status >= 0)
 		gThreadCount = thread_count;
@@ -462,10 +448,15 @@ void cmdq_dev_init_device_tree(struct device_node *node)
 	/* read dummy register offset from device tree,
 	 * usually DUMMY_3 because DUMMY_0/1 is CLKMGR SW.
 	 */
-	status = of_property_read_u32(node, "mmsys_dummy_reg_offset",
-		&mmsys_dummy_reg_offset_value);
-	if (status < 0)
+	status = of_property_read_u32(node, "mmsys_dummy_reg_offset", &mmsys_dummy_reg_offset_value);
+	if (status < 0)	{
+		/* in legency chip (before mt6757) dummy register offset fixed */
+#ifdef CMDQ_USE_LEGACY
+		mmsys_dummy_reg_offset_value = 0x890;
+#else
 		mmsys_dummy_reg_offset_value = 0x89C;
+#endif
+	}
 
 	gMMSYSDummyRegOffset = mmsys_dummy_reg_offset_value;
 
@@ -493,24 +484,18 @@ void cmdq_dev_init(struct platform_device *pDevice)
 		gCmdqDev.irqId = irq_of_parse_and_map(node, 0);
 		gCmdqDev.irqSecId = irq_of_parse_and_map(node, 1);
 		gCmdqDev.clk_gce = devm_clk_get(&pDevice->dev, "GCE");
-		gCmdqDev.clk_gce_timer = devm_clk_get(&pDevice->dev,
-			"GCE_TIMER");
+		gCmdqDev.clk_gce_timer = devm_clk_get(&pDevice->dev, "GCE_TIMER");
 
-		CMDQ_LOG(
-			"[CMDQ] platform_dev: dev:%p PA:%pa VA:%lx irqId:%d irqSecId:%d\n",
-			gCmdqDev.pDev, &gCmdqDev.regBasePA,
-			gCmdqDev.regBaseVA, gCmdqDev.irqId,
-			gCmdqDev.irqSecId);
+		CMDQ_LOG
+		    ("[CMDQ] platform_dev dev:%p PA:%pa VA:%lx irqId:%d irqSecId:%d clk gce:0x%p timer:0x%p\n",
+		     gCmdqDev.pDev, &gCmdqDev.regBasePA, gCmdqDev.regBaseVA, gCmdqDev.irqId,
+		     gCmdqDev.irqSecId, gCmdqDev.clk_gce, gCmdqDev.clk_gce_timer);
 	} while (0);
 
 	if (!enable_4G()) {
-		/* Not special 4GB case, use dma_mask to restrict dma memory
-		 * to low 4GB address
-		 */
-		gCmdqDev.dma_mask_result = dma_set_coherent_mask(
-			&pDevice->dev, DMA_BIT_MASK(32));
-		CMDQ_LOG("set dma mask result: %d\n",
-			gCmdqDev.dma_mask_result);
+		/* Not special 4GB case, use dma_mask to restrict dma memory to low 4GB address */
+		gCmdqDev.dma_mask_result = dma_set_coherent_mask(&pDevice->dev, DMA_BIT_MASK(32));
+		CMDQ_LOG("set dma mask result: %d\n", gCmdqDev.dma_mask_result);
 	}
 
 	/* map MMSYS VA */
@@ -533,8 +518,7 @@ void cmdq_dev_deinit(void)
 
 	/* deinit cmdq device dependent data */
 	do {
-		cmdq_dev_free_module_base_VA(
-			cmdq_dev_get_module_base_VA_GCE());
+		cmdq_dev_free_module_base_VA(cmdq_dev_get_module_base_VA_GCE());
 		gCmdqDev.regBaseVA = 0;
 	} while (0);
 }

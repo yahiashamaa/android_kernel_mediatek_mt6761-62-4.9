@@ -14,42 +14,33 @@
 #ifndef __SMI_PUBLIC_H__
 #define __SMI_PUBLIC_H__
 
-#define SMI_LARB0_REG_INDX 0
-#define SMI_LARB1_REG_INDX 1
-#define SMI_LARB2_REG_INDX 2
-#define SMI_LARB3_REG_INDX 3
-#define SMI_LARB4_REG_INDX 4
-#define SMI_LARB5_REG_INDX 5
-#define SMI_LARB6_REG_INDX 6
-#define SMI_LARB7_REG_INDX 7
-#define SMI_LARB8_REG_INDX 8
-#define SMI_PARAM_BUS_OPTIMIZATION	(0x1FF)
+#include "mtk_smi.h"
+#include "smi_clk.h"
 
-struct smi_bwc_scen_cb {
-	struct list_head list;
-	char *name;
-	void (*smi_bwc_scen_cb_handle)(const unsigned int scen);
-};
 
-#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
-bool smi_mm_clk_first_get(void);
-void __iomem *smi_base_addr_get(const unsigned int reg_indx);
-int smi_bus_prepare_enable(const unsigned int reg_indx,
-	const char *user_name, const bool mtcmos);
-int smi_bus_disable_unprepare(const unsigned int reg_indx,
-	const char *user_name, const bool mtcmos);
-void smi_debug_dump_status(const unsigned int reg_indx);
-int smi_debug_bus_hang_detect(unsigned int reg_indx, const bool dump,
-	const bool gce, const bool m4u);
-struct smi_bwc_scen_cb *smi_bwc_scen_cb_register(struct smi_bwc_scen_cb *cb);
+#if !defined(CONFIG_MTK_SMI_EXT)
+#define smi_get_current_profile() ((void)0)
+#define smi_bus_enable(master_id, user_name) ((void)0)
+#define smi_bus_disable(master_id, user_name) ((void)0)
+#define smi_clk_prepare(master_id, user_name, enable_mtcmos) ((void)0)
+#define smi_clk_enable(master_id, user_name, enable_mtcmos) ((void)0)
+#define smi_clk_unprepare(master_id, user_name, enable_mtcmos) ((void)0)
+#define smi_clk_disable(master_id, user_name, enable_mtcmos) ((void)0)
 #else
-#define smi_mm_clk_first_get(void) ((void)0)
-#define smi_base_addr_get(reg_indx) ((void)0)
-#define smi_bus_prepare_enable(reg_indx, user_name, mtcmos) ((void)0)
-#define smi_bus_disable_unprepare(reg_indx, user_name, mtcmos) ((void)0)
-#define smi_debug_dump_status(reg_indx) ((void)0)
-#define smi_debug_bus_hang_detect(larb_indx, dump, gce, m4u) ((void)0)
-#define smi_bwc_scen_cb_register(cb) ((void)0)
+/* SMI extern API */
+extern enum MTK_SMI_BWC_SCEN smi_get_current_profile(void);
+extern int smi_bus_enable(enum SMI_MASTER_ID master_id, char *user_name);
+extern int smi_bus_disable(enum SMI_MASTER_ID master_id, char *user_name);
+extern int smi_clk_prepare(enum SMI_MASTER_ID master_id, char *user_name, int enable_mtcmos);
+extern int smi_clk_enable(enum SMI_MASTER_ID master_id, char *user_name, int enable_mtcmos);
+extern int smi_clk_unprepare(enum SMI_MASTER_ID master_id, char *user_name, int enable_mtcmos);
+extern int smi_clk_disable(enum SMI_MASTER_ID master_id, char *user_name, int enable_mtcmos);
+extern void smi_common_ostd_setting(int enable);
+extern unsigned long get_larb_base_addr(int larb_id);
+extern unsigned long get_common_base_addr(void);
+extern unsigned int smi_clk_get_ref_count(const unsigned int reg_indx);
+#if IS_ENABLED(CONFIG_MACH_MT6771)
+void smi_larb_mon_act_cnt(void);
 #endif
-
+#endif
 #endif

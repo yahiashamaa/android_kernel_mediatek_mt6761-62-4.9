@@ -46,8 +46,8 @@ extern unsigned int gPMICDbgLvl;
 
 
 /* MT6355 Export API */
-extern unsigned int pmic_scp_set_vcore(unsigned int voltage);
-extern unsigned int pmic_scp_set_vsram_vcore(unsigned int voltage);
+extern unsigned int pmic_scp_set_vcore(unsigned int);
+extern unsigned int pmic_scp_set_vsram_vcore(unsigned int);
 extern unsigned int enable_vsram_vcore_hw_tracking(unsigned int en);
 
 #endif				/* _MT_PMIC_INFO_H_ */

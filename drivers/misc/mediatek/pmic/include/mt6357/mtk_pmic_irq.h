@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2016 MediaTek Inc.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -54,5 +54,11 @@ struct pmic_sp_interrupt {
 	struct pmic_sp_irq (*sp_irqs)[PMIC_INT_WIDTH];
 	unsigned int top_int_bit;
 };
+
+#if defined(MTK_EVB_PLATFORM) || defined(CONFIG_FPGA_EARLY_PORTING)
+#define ENABLE_ALL_OC_IRQ 0
+#else
+#define ENABLE_ALL_OC_IRQ 1
+#endif
 
 #endif /*--PMIC_IRQ_H--*/

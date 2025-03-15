@@ -91,12 +91,9 @@ static void print_systimer_rtc_time(void)
 	sys_counter_raw_ns = cyc_to_ns(sys_counter_raw);
 	delta = rtc_time_ns - sys_counter_vct_ns;
 	pr_debug("[systimer] rtc_time_ns=%lld\n", rtc_time_ns);
-	pr_debug("[systimer] sys_counter_vct=%lld, sys_counter_vct_ns=%lld\n",
-		sys_counter_vct, sys_counter_vct_ns);
-	pr_debug("[systimer] sys_counter_raw=%lld, sys_counter_raw_ns=%lld\n",
-		sys_counter_raw, sys_counter_raw_ns);
-	pr_debug("[systimer] delta=%lld, delta_delta=%lld\n",
-		delta, delta - last_delta);
+	pr_debug("[systimer] sys_counter_vct=%lld, sys_counter_vct_ns=%lld\n", sys_counter_vct, sys_counter_vct_ns);
+	pr_debug("[systimer] sys_counter_raw=%lld, sys_counter_raw_ns=%lld\n", sys_counter_raw, sys_counter_raw_ns);
+	pr_debug("[systimer] delta=%lld, delta_delta=%lld\n", delta, delta - last_delta);
 	last_delta = delta;
 }
 
@@ -150,9 +147,10 @@ static int __init systimer_compensation_init(void)
 	INIT_WORK(&work_poll, minute_timer_work_func);
 	init_timer(&minute_timer);
 	minute_timer.function = minute_timer_timeout;
+	minute_timer.data = (unsigned long)0;
 	rtc_dev = rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
 	if (rtc_dev == NULL) {
-		pr_info("[systimer] rtc_class_open rtc_dev fail\n");
+		pr_info("[systimer] rtc_class_open CONFIG_RTC_HCTOSYS_DEVICE fail\n");
 		return -1;
 	}
 	mod_timer(&minute_timer, jiffies + TIME_CHANGE_32K_FROM_13M * HZ);

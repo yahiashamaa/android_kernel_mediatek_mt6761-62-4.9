@@ -29,5 +29,11 @@
 #define RT4505_DTNAME     "mediatek,flashlights_rt4505"
 #define RT4505_DTNAME_I2C "mediatek,strobe_main"
 #define RT5081_DTNAME     "mediatek,flashlights_rt5081"
+#define HA7109_DTNAME     "mediatek,flashlights_ha7109"
+#define HA7109_DTNAME_I2C "mediatek,strobe_projector"
+#define RT4509_DTNAME     "mediatek,flashlights_rt4509"
+#define RT4509_DTNAME_I2C "mediatek,strobe_rt4509"
+#define RT4509_2_DTNAME     "mediatek,flashlights_rt4509_2"
+#define RT4509_2_DTNAME_I2C "mediatek,strobe_rt4509_2"
 
 #endif /* _FLASHLIGHT_DT_H */

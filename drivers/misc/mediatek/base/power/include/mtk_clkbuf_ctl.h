@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2016 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -14,8 +14,7 @@
 #ifndef _MTK_CLK_BUF_CTL_H_
 #define _MTK_CLK_BUF_CTL_H_
 
-#if defined(CONFIG_MACH_MT6735) || defined(CONFIG_MACH_MT6735M) ||\
-	defined(CONFIG_MACH_MT6753)
+#if defined(CONFIG_MACH_MT6735) || defined(CONFIG_MACH_MT6735M) || defined(CONFIG_MACH_MT6753)
 
 #include "../mt6735/mtk_clkbuf_ctl.h"
 
@@ -42,9 +41,7 @@
 #elif defined(CONFIG_MACH_ELBRUS) || defined(CONFIG_MACH_MT6799) || \
 	defined(CONFIG_MACH_MT6758) || defined(CONFIG_MACH_MT6759) || \
 	defined(CONFIG_MACH_MT6763) || defined(CONFIG_MACH_MT6739) || \
-	defined(CONFIG_MACH_MT6775) || defined(CONFIG_MACH_MT6765) || \
-	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT3967) || \
-	defined(CONFIG_MACH_MT6779)
+	defined(CONFIG_MACH_MT6775) || defined(CONFIG_MACH_MT6771)
 
 #include "clkbuf_v1/mtk_clkbuf_ctl.h"
 

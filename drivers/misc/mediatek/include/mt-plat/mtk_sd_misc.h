@@ -108,7 +108,6 @@ enum SD3_DRIVE {
 
 enum SD3_MAX_CURRENT {
 	MAX_CURRENT_200 = 0,/* 0 Host max current limit is 200mA */
-	MAX_CURRENT_400,    /* 1 Host max current limit is 400mA */
 	MAX_CURRENT_600,    /* 2 Host max current limit is 600mA */
 	MAX_CURRENT_800,    /* 3 Host max current limit is 800mA */
 };
@@ -182,7 +181,7 @@ struct storage_info {
 };
 
 /* used by dumchar */
-int msdc_get_info(enum STORAGE_TPYE storage_type,
-	enum GET_STORAGE_INFO info_type, struct storage_info *info);
+int msdc_get_info(enum STORAGE_TPYE storage_type, enum GET_STORAGE_INFO info_type,
+	struct storage_info *info);
 
 #endif              /* end of SD_MISC_H */

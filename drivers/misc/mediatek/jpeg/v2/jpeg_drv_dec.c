@@ -674,8 +674,8 @@ int jpeg_drv_dec_wait_one_row(JPEG_DEC_DRV_IN *config)
 
 		IMG_REG_WRITE((irq_status), REG_ADDR_JPGDEC_INTERRUPT_STATUS);
 
-		/* Debug: jpeg_drv_dec_dump_reg(); */
-		if (timeout == 0) {
+		    /* Debug: jpeg_drv_dec_dump_reg(); */
+		    if (timeout == 0) {
 			JPEG_ERR("Error! Decode Timeout.\n");
 			jpeg_drv_dec_dump_reg();
 			return 0;
@@ -710,8 +710,8 @@ int jpeg_drv_dec_wait(JPEG_DEC_DRV_IN *config)
 
 	IMG_REG_WRITE((irq_status), REG_ADDR_JPGDEC_INTERRUPT_STATUS);
 
-	/* Debug: jpeg_drv_dec_dump_reg(); */
-	if (timeout == 0) {
+	    /* Debug: jpeg_drv_dec_dump_reg(); */
+	    if (timeout == 0) {
 		JPEG_ERR("Error! Decode Timeout.\n");
 		jpeg_drv_dec_dump_reg();
 		return 0;

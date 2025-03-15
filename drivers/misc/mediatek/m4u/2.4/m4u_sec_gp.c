@@ -25,8 +25,7 @@
 unsigned int M4U_SEC_SESSION;
 
 static struct m4u_sec_gp_context m4u_gp_ta_ctx = {
-#if (defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
-		defined(CONFIG_MICROTRUST_TEE_SUPPORT))
+#if (defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || defined(CONFIG_MICROTRUST_TEE_SUPPORT))
 		.uuid = (struct TEEC_UUID)M4U_TA_UUID,
 #else
 		.uuid = (TEEC_UUID)M4U_TA_UUID,
@@ -58,21 +57,18 @@ static int m4u_exec_session(struct m4u_sec_context *ctx)
 	memset(&m4u_operation, 0, sizeof(struct TEEC_Operation));
 
 #if defined(CONFIG_TRUSTONIC_TEE_SUPPORT)
-	m4u_operation.param_types =
-		TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INPUT,
-			TEEC_NONE, TEEC_NONE, TEEC_NONE);
+	m4u_operation.param_types = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INPUT,
+						     TEEC_NONE, TEEC_NONE, TEEC_NONE);
 #else
-	m4u_operation.paramTypes =
-		TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INPUT,
-			TEEC_NONE, TEEC_NONE, TEEC_NONE);
+	m4u_operation.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INPUT,
+						     TEEC_NONE, TEEC_NONE, TEEC_NONE);
 #endif
 
 	m4u_operation.params[0].memref.parent = &gp_ctx->shared_mem;
 	m4u_operation.params[0].memref.offset = 0;
 	m4u_operation.params[0].memref.size = gp_ctx->shared_mem.size;
 
-	ret = TEEC_InvokeCommand(&gp_ctx->session,
-		ctx->m4u_msg->cmd, &m4u_operation, NULL);
+	ret = TEEC_InvokeCommand(&gp_ctx->session, ctx->m4u_msg->cmd, &m4u_operation, NULL);
 
 	if (ret != TEEC_SUCCESS) {
 		m4u_aee_print("tz_m4u Notify failed: %d\n", ret);
@@ -106,9 +102,7 @@ static int m4u_sec_gp_init(struct m4u_sec_context *ctx)
 	ret = TEEC_AllocateSharedMemory(&gp_ctx->ctx, &gp_ctx->shared_mem);
 	if (ret == TEEC_SUCCESS) {
 		ctx->m4u_msg = (struct m4u_msg *)gp_ctx->shared_mem.buffer;
-		M4ULOG_HIGH(
-			"teec_allocate_shared_memory buf: 0x%p\n",
-			gp_ctx->shared_mem.buffer);
+		M4ULOG_HIGH("teec_allocate_shared_memory buf: 0x%p\n", gp_ctx->shared_mem.buffer);
 	} else {
 		M4UMSG("teec_allocate_shared_memory failed: %d\n", ret);
 		goto exit_finalize;
@@ -119,8 +113,7 @@ static int m4u_sec_gp_init(struct m4u_sec_context *ctx)
 		return -1;
 	}
 	if (!M4U_SEC_SESSION) {
-		ret = TEEC_OpenSession(&gp_ctx->ctx,
-			&gp_ctx->session, &gp_ctx->uuid,
+		ret = TEEC_OpenSession(&gp_ctx->ctx, &gp_ctx->session, &gp_ctx->uuid,
 				       TEEC_LOGIN_PUBLIC, NULL, NULL, NULL);
 		if (ret != TEEC_SUCCESS) {
 			M4UMSG("teec_open_session failed: %x\n", ret);
@@ -200,7 +193,7 @@ struct m4u_sec_context *m4u_sec_ctx_get(unsigned int cmd)
 	ctx = &m4u_ta_ctx;
 	gp_ctx = ctx->imp;
 	if (!gp_ctx->init) {
-		M4UERR("%s before init\n", __func__);
+		M4UERR("m4u_sec_ctx_get before init\n");
 		return NULL;
 	}
 	mutex_lock(&gp_ctx->ctx_lock);

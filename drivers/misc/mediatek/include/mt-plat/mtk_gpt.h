@@ -57,22 +57,22 @@
 #define GPT_NOIRQEN     0x0002
 
 
-int request_gpt(unsigned int id, unsigned int mode, unsigned int clksrc,
+extern int request_gpt(unsigned int id, unsigned int mode, unsigned int clksrc,
 		unsigned int clkdiv, unsigned int cmp,
 		void (*func)(unsigned long), unsigned int flags);
-int free_gpt(unsigned int id);
-int start_gpt(unsigned int id);
-int stop_gpt(unsigned int id);
-int restart_gpt(unsigned int id);
-int gpt_is_counting(unsigned int id);
-int gpt_set_cmp(unsigned int id, unsigned int val);
-int gpt_get_cmp(unsigned int id, unsigned int *ptr);
-int gpt_get_cnt(unsigned int id, unsigned int *ptr);
-int gpt_check_irq(unsigned int id);
-int gpt_check_and_ack_irq(unsigned int id);
-int gpt_set_clk(unsigned int id, unsigned int clksrc, unsigned int clkdiv);
+extern int free_gpt(unsigned int id);
+extern int start_gpt(unsigned int id);
+extern int stop_gpt(unsigned int id);
+extern int restart_gpt(unsigned int id);
+extern int gpt_is_counting(unsigned int id);
+extern int gpt_set_cmp(unsigned int id, unsigned int val);
+extern int gpt_get_cmp(unsigned int id, unsigned int *ptr);
+extern int gpt_get_cnt(unsigned int id, unsigned int *ptr);
+extern int gpt_check_irq(unsigned int id);
+extern int gpt_check_and_ack_irq(unsigned int id);
+extern int gpt_set_clk(unsigned int id, unsigned int clksrc, unsigned int clkdiv);
 
-void mt_gpt_clkevt_aee_dump(void);
-u64 mtk_timer_get_cnt(u8 timer);
+extern void mt_gpt_clkevt_aee_dump(void);
+extern u64 mtk_timer_get_cnt(u8 timer);
 
 #endif /* _MTK_GPT_H_ */
